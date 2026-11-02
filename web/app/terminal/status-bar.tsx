@@ -27,7 +27,7 @@ export default function StatusBar({ status, coveragePct, picker }: { status?: St
       <span>LIVE {clock ?? '--:--:--'} PARIS</span>
       {picker}
       {status && COLLECT[status.status](status.ageMin)}
-      {coveragePct !== undefined && <span title="Part des trains prévus observés dans le flux temps réel, jours terminés depuis le 20 octobre 2026">OBS. DEPUIS 20/10 {coveragePct === null ? '—' : `${coveragePct.toLocaleString('fr-FR', { minimumFractionDigits: 1 })} %`}</span>}
+      {coveragePct !== undefined && <span title="Part des trains prévus observés dans le flux temps réel, trains terminés depuis le 20 octobre 2026">OBS. DEPUIS 20/10 {coveragePct === null ? '—' : `${coveragePct.toLocaleString('fr-FR', { minimumFractionDigits: 1 })} %`}</span>}
     </header>
   );
 }

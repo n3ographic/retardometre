@@ -4,7 +4,7 @@ export type StatsParams = { ok: true; from: string; to: string } | { ok: false; 
 const DAY_MS = 86_400_000;
 const FIRST_MONTH = '2026-10'; // premier mois avec des données
 const PERIODS: Record<string, number> = { '7d': 7, '14d': 14, '31d': 31 };
-const parisDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' });
+export const parisDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' });
 
 const dayMs = (s: string) => Date.parse(`${s}T00:00:00Z`);
 const fmt = (ms: number) => new Date(ms).toISOString().slice(0, 10);

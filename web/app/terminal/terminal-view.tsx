@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import CarteView, { type Focus, type Highlight } from '../carte-view';
-import type { Cumul } from '../../lib/cumul';
+import type { CumulPayload } from '../../lib/cumul';
 import { latest } from '../../lib/latest';
 import type { LiveItem } from '../../lib/map-model';
 import type { StatsPayload } from '../../lib/stats';
@@ -22,6 +22,7 @@ import TrainPanel from './train-panel';
 import Ticker from './ticker';
 
 const REFRESH_MS = 60_000;
+const AGG_REFRESH_MS = 300_000; // agrégats : cache serveur de 5 min (cumul) à 15 min (périodes)
 
 // Charge les trois sources une fois pour tout l'écran ; chaque panneau gère l'échec de la sienne.
 export default function TerminalView() {
@@ -29,7 +30,7 @@ export default function TerminalView() {
   const [liveFailed, setLiveFailed] = useState(false);
   const [lastOk, setLastOk] = useState<number | null>(null);
   const [generatedAt, setGeneratedAt] = useState<string | null>(null);
-  const [cumul, setCumul] = useState<Cumul | null>(null);
+  const [cumul, setCumul] = useState<CumulPayload | null>(null);
   const [cumulFailed, setCumulFailed] = useState(false);
   const [stats, setStats] = useState<StatsPayload | null>(null);
   const [statsFailed, setStatsFailed] = useState(false);
@@ -85,17 +86,22 @@ export default function TerminalView() {
 
   useEffect(() => {
     let alive = true;
-    (async () => {
+    let got = false;
+    const load = async () => {
       try {
         const r = await fetch('/api/cumul');
-        const d = (await r.json()) as Cumul;
+        const d = (await r.json()) as CumulPayload;
         if (!r.ok || !Array.isArray(d.by_brand)) throw new Error(String(r.status));
-        if (alive) setCumul(d);
+        got = true;
+        if (alive) { setCumul(d); setCumulFailed(false); }
       } catch {
-        if (alive) setCumulFailed(true);
+        // Un échec après un premier succès garde le dernier chiffre affiché.
+        if (alive && !got) setCumulFailed(true);
       }
-    })();
-    return () => { alive = false; };
+    };
+    load();
+    const t = setInterval(load, AGG_REFRESH_MS);
+    return () => { alive = false; clearInterval(t); };
   }, []);
 
   // Seule la dernière période demandée écrit l'état : une réponse arrivée trop tard est ignorée.
@@ -114,7 +120,11 @@ export default function TerminalView() {
       if (isLatest()) setStatsLoading(false);
     }
   }, []);
-  useEffect(() => { loadStats(period); }, [period, loadStats]);
+  useEffect(() => {
+    loadStats(period);
+    const t = setInterval(() => loadStats(period), AGG_REFRESH_MS);
+    return () => clearInterval(t);
+  }, [period, loadStats]);
   const reloadStats = useCallback(() => loadStats(period), [period, loadStats]);
 
   const select = useCallback((id: string | null) => { setSelected(id); setMissing(null); setSpeed(null); setGare(null); }, []);

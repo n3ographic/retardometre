@@ -1,7 +1,7 @@
 import { isSmallSample, suppressionPct } from '../../lib/dashboard-model';
-import type { Cumul } from '../../lib/cumul';
+import type { CumulPayload } from '../../lib/cumul';
 import type { StatsPayload } from '../../lib/stats';
-import { RANGE_HINT, axisRegularity, brandSplit, charBar, eurRange, periodLabel, type Period } from '../../lib/terminal-model';
+import { RANGE_HINT, axisRegularity, brandSplit, calcLabel, charBar, eurRange, periodLabel, windowLabel, type Period } from '../../lib/terminal-model';
 
 const nf = (n: number) => n.toLocaleString('fr-FR');
 const AXIS_SHORT: Record<string, string> = { ATLANTIQUE: 'ATL', EST: 'EST', INTERSECTEURS: 'INTER', NORD: 'NORD', SUD_EST: 'S-EST' };
@@ -12,9 +12,11 @@ const stackLens = (shares: number[]) => (shares.length < 2 ? [BAR_W] : [Math.rou
 const tone = (p: number | null) => (p === null ? 'term-dim' : p >= 80 ? 'tone-ontime' : p >= 60 ? 'tone-late' : p >= 40 ? 'tone-strong' : 'tone-severe');
 
 export default function RightPanel({ cumul, cumulFailed, stats, statsFailed, statsLoading, period }: {
-  cumul: Cumul | null; cumulFailed: boolean; stats: StatsPayload | null; statsFailed: boolean; statsLoading: boolean; period: Period;
+  cumul: CumulPayload | null; cumulFailed: boolean; stats: StatsPayload | null; statsFailed: boolean; statsLoading: boolean; period: Period;
 }) {
   const t = stats?.totals;
+  const day = cumul?.today;
+  const statsCalc = stats && !statsFailed ? calcLabel(stats.computed_at) : null;
   const periodRange = t ? eurRange(t.estimated_cost_eur_ht_low, t.estimated_cost_eur_ht_high) : null;
   const cumulRange = cumul ? eurRange(cumul.cost_eur_ht_low, cumul.cost_eur_ht_high) : null;
   const split = stats ? brandSplit(stats.groups) : [];
@@ -32,8 +34,15 @@ export default function RightPanel({ cumul, cumulFailed, stats, statsFailed, sta
             <dt>INDEMN.</dt><dd>{nf(Math.round(t.estimated_cost_eur_ht))} € HT</dd>
           </dl>
           {periodRange && <p className="term-dim" title={RANGE_HINT}>FOURCHETTE {periodRange} HT</p>}
+          {windowLabel(period) && <p className="term-dim">{windowLabel(period)}</p>}
           </>
         )}
+        {day && (
+          <p className="today-line" title="Trains terminés depuis minuit (heure de Paris), recalculé toutes les 5 minutes">
+            AUJOURD&apos;HUI · {nf(day.circulated)} TR. TERMINÉS · RÉGUL. {pct(day.official_regularity_pct)} · {nf(Math.round(day.estimated_cost_eur_ht))} € HT
+          </p>
+        )}
+        {statsCalc && <p className="term-dim">{statsCalc}</p>}
       </section>
       <section className={cumul && isSmallSample(cumul) ? 'term-panel term-small' : 'term-panel'}>
         <h2 className="term-panel-title">Indemn. cumul</h2>
@@ -41,9 +50,10 @@ export default function RightPanel({ cumul, cumulFailed, stats, statsFailed, sta
           <>
             <p className="big">{nf(Math.round(cumul.cost_eur_ht))} €</p>
             {cumulRange && <p className="term-dim" title={RANGE_HINT}>FOURCHETTE {cumulRange} HT</p>}
-            <p className="term-dim">HT · {nf(cumul.observed)} TRAINS OBS. · <span title="Part des trains prévus observés dans le flux temps réel, jours terminés depuis le 20 octobre 2026">{cumul.coverage_pct === null ? '—' : `${cumul.coverage_pct.toLocaleString('fr-FR')} %`} DU PRÉVU</span></p>
+            <p className="term-dim">HT · {nf(cumul.observed)} TRAINS OBS. · <span title="Part des trains prévus observés dans le flux temps réel, trains terminés depuis le 20 octobre 2026">{cumul.coverage_pct === null ? '—' : `${cumul.coverage_pct.toLocaleString('fr-FR')} %`} DU PRÉVU</span></p>
             {cumul.by_brand.map((b) => <p key={b.brand}>{b.brand} {nf(Math.round(b.cost_eur_ht))} €</p>)}
-            <p className="term-dim">OBSERVÉ SEULEMENT, SANS EXTRAPOLATION · DEPUIS LE 20/10</p>
+            <p className="term-dim">OBSERVÉ SEULEMENT, SANS EXTRAPOLATION · DEPUIS LE 20/10, AUJOURD&apos;HUI INCLUS</p>
+            {calcLabel(cumul.computed_at) && <p className="term-dim">{calcLabel(cumul.computed_at)}</p>}
           </>
         )}
       </section>
@@ -62,6 +72,7 @@ export default function RightPanel({ cumul, cumulFailed, stats, statsFailed, sta
           </ul>
         )}
         {stats && !statsFailed && <p className="term-dim">APPROCHÉE · RETARDS PAR PAS DE 5′</p>}
+        {statsCalc && <p className="term-dim">{statsCalc}</p>}
       </section>
       <section className={`term-panel${stale}`}>
         <h2 className="term-panel-title">INOUI / OUIGO {periodLabel(period)}</h2>
@@ -87,6 +98,7 @@ export default function RightPanel({ cumul, cumulFailed, stats, statsFailed, sta
             })}
           </>
         )}
+        {statsCalc && <p className="term-dim">{statsCalc}</p>}
       </section>
     </aside>
   );

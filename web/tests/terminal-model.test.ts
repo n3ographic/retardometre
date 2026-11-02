@@ -1,5 +1,12 @@
 import { expect, test } from 'vitest';
-import { axisRegularity, bucketBar, bucketIndex, brandSplit, charBar, delayTone, eurRange, liveBuckets, nextArrivals, periodLabel, periodQuery, tickerItems, topDelays } from '../lib/terminal-model';
+import { axisRegularity, bucketBar, bucketIndex, brandSplit, calcLabel, charBar, delayTone, eurRange, liveBuckets, nextArrivals, periodLabel, periodQuery, tickerItems, topDelays, windowLabel } from '../lib/terminal-model';
+
+test('heure du calcul à Paris ; fenêtre glissante seulement pour les périodes en jours', () => {
+  expect(calcLabel('2026-11-02T19:08:00Z')).toBe('CALCULÉ À 20:08');
+  expect(calcLabel(undefined)).toBeNull();
+  expect(windowLabel('7d')).toBe('JOURS COMPLETS · J-7 À J-1 · FENÊTRE DÉCALÉE À MINUIT');
+  expect(windowLabel('2026-11')).toBeNull();
+});
 import type { LiveItem } from '../lib/map-model';
 import type { Group } from '../lib/stats';
 

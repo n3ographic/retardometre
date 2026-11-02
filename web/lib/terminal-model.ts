@@ -61,6 +61,13 @@ export function periodQuery(p: Period): string {
   return /^\d+d$/.test(p) ? `period=${p}` : `month=${p}`;
 }
 
+const parisTime = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit' });
+// Heure du calcul côté serveur (unité mise en cache), à l'heure de Paris ; null si absente.
+export const calcLabel = (iso: string | undefined) => (iso ? `CALCULÉ À ${parisTime.format(new Date(iso))}` : null);
+
+// Périodes glissantes : jours complets de J-n à J-1, la fenêtre avance à minuit ; un mois inclut le jour en cours.
+export const windowLabel = (p: Period) => (/^\d+d$/.test(p) ? `JOURS COMPLETS · J-${p.slice(0, -1)} À J-1 · FENÊTRE DÉCALÉE À MINUIT` : null);
+
 export function periodLabel(p: Period): string {
   if (/^\d+d$/.test(p)) return `${p.slice(0, -1)}J`;
   const [y, m] = p.split('-');
