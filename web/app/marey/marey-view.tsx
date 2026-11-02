@@ -373,7 +373,7 @@ export default function MareyView() {
                 </button>
               ))}
             </div>
-            {bigBranches !== allBranches && (
+            {smallBranches.length > 0 && bigBranches !== allBranches && (
               <div className="marey-autres" onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setAutresOpen(false); }}
                 onKeyDown={(e) => { if (e.key === 'Escape') setAutresOpen(false); }}>
                 <div className="marey-tabs">
@@ -395,9 +395,6 @@ export default function MareyView() {
                 )}
               </div>
             )}
-            <span className="marey-legend" aria-label="Légende des retards">
-              {TERMINUS_BUCKETS.map((b, i) => <span key={b}><span className={`seg-c s${i}`} aria-hidden="true">█</span> {b} </span>)}MIN
-            </span>
           </div>
           {branch && (
             <div className="marey-head">
@@ -479,7 +476,16 @@ export default function MareyView() {
             )}
             {line && shown.length === 0 && data && !failed && <p className="term-dim marey-empty">AUCUN TRAIN SUR CETTE LIGNE DANS LES HEURES CHARGÉES</p>}
           </div>
-          <p className="marey-note term-dim">POINTILLÉ = HORAIRE THÉORIQUE · PLEIN = RETARD PUBLIÉ RECONSTITUÉ À CHAQUE COLLECTE (≈ TOUTES LES {COLLECT_INTERVAL_S / 60} MIN) · APPROXIMATIF · ESTOMPÉ = PROLONGATION APRÈS MAINTENANT · FAITES DÉFILER POUR VOIR LA JOURNÉE (4 H → 2 H) · TOUCHES 1-5 : AXE, ← → : BRANCHE</p>
+          <dl className="marey-foot">
+            <dt>RETARD</dt>
+            <dd className="marey-legend" aria-label="Légende des retards">
+              {TERMINUS_BUCKETS.map((b, i) => <span key={b}><span className={`seg-c s${i}`} aria-hidden="true">█</span> {b} </span>)}MIN
+            </dd>
+            <dt>TRAIT</dt>
+            <dd>POINTILLÉ = HORAIRE THÉORIQUE · PLEIN = RETARD PUBLIÉ, RECONSTITUÉ À CHAQUE COLLECTE (≈ TOUTES LES {COLLECT_INTERVAL_S / 60} MIN) · ESTOMPÉ = APRÈS MAINTENANT · APPROXIMATIF</dd>
+            <dt>COMMANDES</dt>
+            <dd>FAITES DÉFILER POUR VOIR LA JOURNÉE (4 H → 2 H) · TOUCHES 1-5 : AXE · ← → : BRANCHE</dd>
+          </dl>
         </div>
         <aside className="term-panel marey-side" aria-live="polite">
           <h2 className="term-panel-title">TRAIN</h2>
