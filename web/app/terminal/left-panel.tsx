@@ -2,7 +2,6 @@ import { suppressionPct } from '../../lib/dashboard-model';
 import type { LiveItem } from '../../lib/map-model';
 import type { StatsPayload } from '../../lib/stats';
 import { TERMINUS_BUCKETS } from '../../lib/dashboard-model';
-import { mareyHref } from '../../lib/marey';
 import { charBar, delayTone, liveBuckets, nextArrivals, periodLabel, topDelays, type Period } from '../../lib/terminal-model';
 
 const pct = (n: number | null) => (n === null ? '—' : `${n.toLocaleString('fr-FR', { minimumFractionDigits: 1 })} %`);
@@ -24,19 +23,15 @@ export default function LeftPanel({ trains, liveFailed, stats, statsFailed, stat
         <h2 className="term-panel-title">Top retards</h2>
         {liveFailed && trains.length === 0 ? <p className="term-dim">INDISPONIBLE</p> : top.length === 0 ? <p className="term-dim">AUCUN RETARD</p> : (
           <ol className="top-list">
-            {top.map((t) => {
-              const tone = delayTone(t.delay_s, t.cancelled), href = mareyHref(t);
-              return (
-                <li key={t.trip_id}>
-                  {/* Numéro = lien vers le Marey (axe couvert) ; le reste de la ligne centre la carte sur le train. */}
-                  {href ? <a href={href} className="top-num to-marey" title="Voir sur le diagramme de Marey" aria-label={`Train ${t.train_number} sur le diagramme de Marey`}>{t.brand === 'OUIGO' ? 'OG' : 'IN'} {t.train_number}</a> : null}
-                  <button type="button" onClick={() => onFocus(t.trip_id)} title={[t.origin, t.dest].filter(Boolean).join(' → ')}>
-                    {href ? <span /> : <span>{t.brand === 'OUIGO' ? 'OG' : 'IN'} {t.train_number}</span>}
-                    <span className={`tone-${tone}`}>+{Math.round((t.delay_s ?? 0) / 60)}′</span>
-                  </button>
-                </li>
-              );
-            })}
+            {/* Toute la ligne sélectionne le train : carte centrée et fiche ouverte. */}
+            {top.map((t) => (
+              <li key={t.trip_id}>
+                <button type="button" onClick={() => onFocus(t.trip_id)} title={[t.origin, t.dest].filter(Boolean).join(' → ')}>
+                  <span>{t.brand === 'OUIGO' ? 'OG' : 'IN'} {t.train_number}</span>
+                  <span className={`tone-${delayTone(t.delay_s, t.cancelled)}`}>+{Math.round((t.delay_s ?? 0) / 60)}′</span>
+                </button>
+              </li>
+            ))}
           </ol>
         )}
       </section>
@@ -68,12 +63,11 @@ export default function LeftPanel({ trains, liveFailed, stats, statsFailed, stat
         {down ? <p className="term-dim">INDISPONIBLE</p> : arrivals.length === 0 ? <p className="term-dim">AUCUN TRAIN EN ROUTE</p> : (
           <ol className="top-list arrivals">
             {arrivals.map((t) => {
-              const min = Math.round((t.delay_s ?? 0) / 60), href = mareyHref(t);
+              const min = Math.round((t.delay_s ?? 0) / 60);
               return (
                 <li key={t.trip_id}>
-                  {href ? <a href={href} className="top-num to-marey" title="Voir sur le diagramme de Marey" aria-label={`Train ${t.train_number} sur le diagramme de Marey`}>{t.eta} {t.brand === 'OUIGO' ? 'OG' : 'IN'} {t.train_number}</a> : null}
                   <button type="button" onClick={() => onFocus(t.trip_id)} title={[t.origin, t.dest].filter(Boolean).join(' → ')}>
-                    {!href && <span>{t.eta} {t.brand === 'OUIGO' ? 'OG' : 'IN'} {t.train_number}</span>}
+                    <span className="arr-num">{t.eta} {t.brand === 'OUIGO' ? 'OG' : 'IN'} {t.train_number}</span>
                     <span className="arr-dest">{t.dest ?? ''}</span>
                     {min > 0 && <span className={`tone-${delayTone(t.delay_s, false)}`}>+{min}′</span>}
                   </button>

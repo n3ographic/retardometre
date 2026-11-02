@@ -31,12 +31,9 @@ test('tickerItems : libellé, minutes arrondies, destination absente omise', () 
     item({ trip_id: 'T1', train_number: '9713', origin: 'Paris', dest: 'Barcelone', delay_s: 13800 }),
     item({ trip_id: 'T2', brand: 'OUIGO', train_number: '7825', origin: 'Paris', delay_s: 10230 }),
   ], 5);
-  expect(a).toEqual({ trip_id: 'T1', label: 'INOUI 9713 Paris → Barcelone', minutes: 230, tone: 'severe', href: '/marey?axe=SUD_EST&train=9713' });
+  expect(a).toEqual({ trip_id: 'T1', label: 'INOUI 9713 Paris → Barcelone', minutes: 230, tone: 'severe' });
   expect(b.label).toBe('OUIGO 7825 Paris');
   expect(b.minutes).toBe(171);
-  // Lien vers le Marey pour tous les axes ouverts dans la vue F3.
-  expect(tickerItems([item({ axis: 'INTERSECTEURS', train_number: '5100', delay_s: 2400 })], 1)[0].href).toBe('/marey?axe=INTERSECTEURS&train=5100');
-  expect(tickerItems([item({ axis: 'ATLANTIQUE', train_number: '8537', delay_s: 2400 })], 1)[0].href).toBe('/marey?axe=ATLANTIQUE&train=8537');
 });
 
 test('axisRegularity : somme des marques par axe, pourcentage, petit échantillon', () => {

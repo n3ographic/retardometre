@@ -35,6 +35,8 @@ export default function TerminalView() {
   const statsLatest = useRef(latest());
   const [focus, setFocus] = useState<Focus>(null);
   const [selected, setSelected] = useState<string | null>(null);
+  // Numéro demandé par ?sel= mais absent du flux : la fiche s'ouvre quand même, « PAS EN CIRCULATION ».
+  const [missing, setMissing] = useState<string | null>(null);
   const [speed, setSpeed] = useState<number | null>(null);
   // Train sélectionné gardé dans l'URL (?sel=) : un retour depuis le Marey le retrouve.
   const initialSel = useRef<string | null>(null);
@@ -54,6 +56,7 @@ export default function TerminalView() {
         initialSel.current = null;
         const hit = sel ? d.trains.find((t) => t.train_number === sel) : undefined;
         if (hit) { setFocus({ trip_id: hit.trip_id, at: Date.now() }); setSelected(hit.trip_id); }
+        else if (sel && /^\d{1,5}$/.test(sel)) setMissing(sel);
         setLastOk(Date.now());
         setLiveFailed(false);
       } catch {
@@ -99,16 +102,17 @@ export default function TerminalView() {
   useEffect(() => { loadStats(period); }, [period, loadStats]);
   const reloadStats = useCallback(() => loadStats(period), [period, loadStats]);
 
-  const select = useCallback((id: string | null) => { setSelected(id); setSpeed(null); }, []);
+  const select = useCallback((id: string | null) => { setSelected(id); setMissing(null); setSpeed(null); }, []);
   useEffect(() => {
     if (initialSel.current) return; // pas avant d'avoir relu ?sel=
-    const n = trains.find((t) => t.trip_id === selected)?.train_number;
+    const n = trains.find((t) => t.trip_id === selected)?.train_number ?? missing;
     const u = new URL(window.location.href);
     if (n) u.searchParams.set('sel', n); else u.searchParams.delete('sel');
     window.history.replaceState(null, '', u);
-  }, [selected]); // seule la sélection réécrit l'URL, pas chaque rafraîchissement des trains
+  }, [selected, missing]); // seule la sélection réécrit l'URL, pas chaque rafraîchissement des trains
   const rules = useMemo(() => (stats ? { compensation_scale: stats.assumptions.compensation_scale, prices: stats.assumptions.prices } : null), [stats]);
-  const onFocus = useCallback((trip_id: string) => { setFocus({ trip_id, at: Date.now() }); setSelected(trip_id); }, []);
+  // Règle unique de l'accueil : un clic sur un train le centre sur la carte (s'il a une position) et ouvre sa fiche.
+  const onFocus = useCallback((trip_id: string) => { setFocus({ trip_id, at: Date.now() }); select(trip_id); }, [select]);
   const items = useMemo(() => tickerItems(trains, 15), [trains]);
   // Retard du collecteur mesuré à la production de la réponse (comme sur /marey), pas l'âge du cache de /api/live (jusqu'à ~6 min).
   const status = (liveFailed && trains.length === 0) || !generatedAt ? { status: 'unknown' as const, ageMin: null } : collectHealth(generatedAt, trains);
@@ -116,13 +120,13 @@ export default function TerminalView() {
   return (
     <div className="term">
       <StatusBar status={status} coveragePct={cumul?.coverage_pct ?? null} picker={<PeriodPicker value={period} onChange={setPeriod} />} />
-      <Ticker items={items} failed={liveFailed} />
+      <Ticker items={items} failed={liveFailed} onFocus={onFocus} />
       <main className="term-grid">
         <h1 className="sr-only">Observatoire TGV : trains en circulation, retards et indemnités théoriques</h1>
         <LeftPanel trains={trains} liveFailed={liveFailed} stats={stats} statsFailed={statsFailed} statsLoading={statsLoading} period={period} onFocus={onFocus} />
         <div className="term-center">
           <CarteView trains={trains} failed={liveFailed} lastOk={lastOk} focus={focus} selected={selected} onSelect={select} onSpeed={setSpeed}
-            overlay={selected ? <TrainPanel train={trains.find((t) => t.trip_id === selected) ?? null} rules={rules} speed={speed} onClose={() => select(null)} /> : null} />
+            overlay={selected || missing ? <TrainPanel train={trains.find((t) => t.trip_id === selected) ?? null} missing={missing} rules={rules} speed={speed} onClose={() => select(null)} /> : null} />
           <div className="term-bottom">
             <GroupsPanel stats={stats} failed={statsFailed} loading={statsLoading} period={period} onRetry={reloadStats} />
             <CausesPanel stats={stats} failed={statsFailed} loading={statsLoading} period={period} />
