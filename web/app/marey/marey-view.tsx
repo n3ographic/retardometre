@@ -8,7 +8,7 @@ import {
   collectHealth, serviceDay, span, trainSpan, trainTrace,
   type AxesFile, type Match, type MareyGares, type MareyTrain, type Trace,
 } from '../../lib/marey';
-import { LABEL_MAX, isForeign, layoutLabels, pickLabels, shortName } from '../../lib/marey-layout';
+import { LABEL_MAX, isForeign, spreadLabels, pickLabels, shortName } from '../../lib/marey-layout';
 import { buildAxis, type Branch, type BuiltLine } from '../../lib/marey-lines';
 import { searchTrains } from '../../lib/train-search';
 import { bucketIndex, delayTone } from '../../lib/terminal-model';
@@ -21,6 +21,7 @@ const SCROLLBAR_PX = 12; // place de la barre de défilement horizontale
 const CHAR_PX = 6.6; // largeur d'un caractère des étiquettes (monospace 11 px)
 const COL_PX = Math.ceil(LABEL_MAX * CHAR_PX) + 10;
 const LABEL_GAP_PX = 14;
+const LEADER_PX = 16; // trait entre le nom (déplacé si besoin) et la hauteur réelle de la gare
 const MIN_BRANCH_TRAINS = 5; // branche rangée dans le menu AUTRES sous ce nombre de trains
 const NUM_CHAR_PX = 6.1; // numéros de train (monospace 10 px)
 const HIT_PX = 8;
@@ -59,6 +60,7 @@ function writeUrl(axe: string, train: string | null) {
   const u = new URL(window.location.href);
   u.searchParams.set('axe', axe);
   if (train) u.searchParams.set('train', train); else u.searchParams.delete('train');
+  u.searchParams.delete('gare'); // un choix d'axe ou de train remplace la gare demandée
   window.history.replaceState(null, '', u);
 }
 
@@ -76,7 +78,7 @@ export default function MareyView() {
   const [tab, setTab] = useState<string | null>(null);
   const [lineId, setLineId] = useState<string | null>(null);
   const [hover, setHover] = useState<string | null>(null);
-  const [wanted, setWanted] = useState<{ axe: string; train: string | null; axeGiven: boolean } | null>(null);
+  const [wanted, setWanted] = useState<{ axe: string; train: string | null; gare: string | null; axeGiven: boolean } | null>(null);
   const [query, setQuery] = useState('');
   const [autresOpen, setAutresOpen] = useState(false);
   const [viewFrom, setViewFrom] = useState<number | null>(null); // heure du bord gauche du graphique (défilement)
@@ -114,7 +116,24 @@ export default function MareyView() {
     const row = index.find((r) => r[1] === wanted.train);
     setWanted({ ...wanted, axeGiven: true, axe: row?.[0] ?? wanted.axe });
   }, [wanted, index]);
-  const axe = wanted && (wanted.axeGiven || !wanted.train) ? wanted.axe : null;
+  // ?gare= sans axe : premier axe dont la tranche en cours dessert la gare (réponses en cache serveur).
+  // ponytail: jusqu'à 5 requêtes, une seule fois par ouverture ; une route gare → axes si ça devient fréquent.
+  useEffect(() => {
+    if (!wanted || wanted.axeGiven || !wanted.gare) return;
+    let alive = true;
+    (async () => {
+      let found = wanted.axe; // axe par défaut si aucun ne dessert la gare
+      for (const a of MAREY_AXES) {
+        try {
+          const r = await fetch(`/api/marey?axe=${a}&bloc=${blockOf(Date.now() / 1000)}`);
+          if (r.ok && ((await r.json()) as Payload).gares[wanted.gare!]) { found = a; break; }
+        } catch { /* axe suivant */ }
+      }
+      if (alive) setWanted({ ...wanted, axeGiven: true, axe: found });
+    })();
+    return () => { alive = false; };
+  }, [wanted]);
+  const axe = wanted && (wanted.axeGiven || (!wanted.train && !wanted.gare)) ? wanted.axe : null;
 
   const nowS = nowMs === null ? null : Math.floor(nowMs / 1000);
   const [dayStart, dayEnd] = nowS === null ? [0, 0] : serviceDay(nowS);
@@ -193,10 +212,14 @@ export default function MareyView() {
   const smallBranches = allBranches.filter((b) => branchTotal(b) < MIN_BRANCH_TRAINS).sort((a, b) => branchTotal(b) - branchTotal(a));
   const bigBranches = smallBranches.length === allBranches.length ? allBranches : allBranches.filter((b) => !smallBranches.includes(b));
   const branches: Branch[] = bigBranches === allBranches ? allBranches : [...bigBranches, ...smallBranches];
-  const branch = branches.find((b) => b.id === tab) ?? branches.find((b) => hlMatches.some((m) => m.branch === b.id)) ?? branches[0] ?? null;
+  const gare = wanted?.gare ?? null;
+  const hasGare = (l: BuiltLine) => gare !== null && l.gares.some((g) => g.stop_ids.includes(gare));
+  const branch = branches.find((b) => b.id === tab) ?? branches.find((b) => hlMatches.some((m) => m.branch === b.id))
+    ?? branches.find((b) => [...b.lignes, ...b.autres].some(hasGare)) ?? branches[0] ?? null;
   const allLines: BuiltLine[] = branch ? [...branch.lignes, ...branch.autres] : [];
   const line = allLines.find((l) => l.id === lineId)
     ?? allLines.find((l) => hlMatches.some((m) => m.branch === branch!.id && m.line === l.id))
+    ?? allLines.find(hasGare)
     ?? branch?.lignes[0] ?? branch?.autres[0] ?? null;
 
   // Tracés : trains de la ligne sur l'écran ± 3 h, recalculés à la minute, au changement de ligne ou par demi-heure de défilement.
@@ -209,9 +232,9 @@ export default function MareyView() {
   const W = Math.max(size.w, 320), H = Math.max(size.h - SCROLLBAR_PX, 240);
   const maxKm = line ? Math.max(...line.gares.map((g) => g.km), 1) : 1;
   const y = useCallback((km: number) => MARGIN.top + (km / maxKm) * (H - MARGIN.top - MARGIN.bottom), [maxKm, H]);
-  // Étiquettes de gares (colonne fixe) : deux colonnes si la largeur le permet, la seconde avec un trait de rappel.
-  const cols = useMemo(() => (line ? layoutLabels(line.gares.map((g) => y(g.km)), LABEL_GAP_PX, W >= 640) : []), [line, y, W]);
-  const left = (cols.includes(1) ? 2 * COL_PX : COL_PX) + 8;
+  // Étiquettes de gares (colonne fixe) : une colonne, noms écartés au besoin et reliés à leur gare par un trait.
+  const labelYs = useMemo(() => (line ? spreadLabels(line.gares.map((g) => y(g.km)), LABEL_GAP_PX, MARGIN.top, H - MARGIN.bottom) : []), [line, y, H]);
+  const left = COL_PX + LEADER_PX + 8;
   const plotW = Math.max(W - left, 160);
   const pxPerS = plotW / (2 * HALF_WINDOW_S); // l'écran montre toujours 6 h
   const totalW = Math.ceil((dayEnd - dayStart) * pxPerS) + MARGIN.right;
@@ -249,12 +272,12 @@ export default function MareyView() {
 
   const selectTrain = (axeId: string, number: string) => {
     setTab(null); setLineId(null); setHover(null);
-    setWanted({ axe: axeId, train: number, axeGiven: true });
+    setWanted({ axe: axeId, train: number, gare: null, axeGiven: true });
     writeUrl(axeId, number);
   };
   const selectAxe = (axeId: string) => {
     setTab(null); setLineId(null); setHover(null);
-    setWanted({ axe: axeId, train: null, axeGiven: true });
+    setWanted({ axe: axeId, train: null, gare: null, axeGiven: true });
     writeUrl(axeId, null);
   };
   // Clavier : 1 à 5 change d'axe, ← → change de branche, Échap revient à la page précédente (sauf pendant une saisie).
@@ -294,7 +317,7 @@ export default function MareyView() {
     if (!it || !branch || !line || !axe) return;
     setTab(branch.id); setLineId(line.id);
     placed.current = { key: `${axe}:${it.train.train_number}`, onTrain: true, user: true }; // pas de recentrage sur un clic
-    setWanted({ axe, train: it.train.train_number, axeGiven: true });
+    setWanted({ axe, train: it.train.train_number, gare: null, axeGiven: true });
     writeUrl(axe, it.train.train_number);
   };
 
@@ -426,12 +449,12 @@ export default function MareyView() {
               <>
                 <svg className="marey-labels" width={left} height={H} aria-hidden="true">
                   {line.gares.map((g, i) => {
-                    const gy = y(g.km), col = cols[i];
-                    const lx = col === 1 ? left - COL_PX - 8 : left - 6;
+                    const on = gare !== null && g.stop_ids.includes(gare);
+                    const gy = y(g.km), ly = labelYs[i] ?? gy, lx = left - LEADER_PX - 4;
                     return (
                       <g key={g.nom}>
-                        {col === 1 && <line x1={lx + 3} x2={left} y1={gy} y2={gy} className="m-leader" />}
-                        {col !== null && <text x={lx} y={gy + 4} textAnchor="end" className={isForeign(g.stop_ids) ? 'm-lab m-lab-foreign' : 'm-lab'}><title>{g.nom}</title>{shortName(g.nom)}</text>}
+                        <polyline points={`${lx + 2},${ly} ${left - LEADER_PX / 2},${ly} ${left},${gy}`} className={on ? 'm-leader m-leader-on' : 'm-leader'} />
+                        <text x={lx} y={ly + 4} textAnchor="end" className={on ? 'm-lab m-lab-on' : isForeign(g.stop_ids) ? 'm-lab m-lab-foreign' : 'm-lab'}><title>{g.nom}</title>{on ? '▸ ' : ''}{shortName(g.nom)}</text>
                       </g>
                     );
                   })}
@@ -455,7 +478,7 @@ export default function MareyView() {
                         {(t / 3600) % hourStep === 0 && <text x={x(t)} y={MARGIN.top - 8} textAnchor={t === dayStart ? 'start' : 'middle'} className="m-lab">{hhmm(t)}</text>}
                       </g>
                     ))}
-                    {line.gares.map((g) => <line key={g.nom} x1={0} x2={totalW} y1={y(g.km)} y2={y(g.km)} className="m-grid" />)}
+                    {line.gares.map((g) => <line key={g.nom} x1={0} x2={totalW} y1={y(g.km)} y2={y(g.km)} className={gare !== null && g.stop_ids.includes(gare) ? 'm-grid m-grid-on' : 'm-grid'} />)}
                     {shown.map((i) => {
                       const hl = i.key === highlighted, hov = i.key === hover;
                       const op = hl || hov ? 1 : highlighted ? 0.25 : 1;

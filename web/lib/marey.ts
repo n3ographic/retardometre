@@ -92,12 +92,12 @@ export function mareyHref(t: { axis: string; train_number: string }): string | n
   return (MAREY_AXES as readonly string[]).includes(t.axis) ? `/marey?axe=${t.axis}&train=${encodeURIComponent(t.train_number)}` : null;
 }
 
-export type MareyParams = { axe: string; train: string | null };
-// Paramètres d'URL de la vue : axe connu et numéro de train de 1 à 5 chiffres, sinon valeurs par défaut.
+export type MareyParams = { axe: string; train: string | null; gare: string | null };
+// Paramètres d'URL de la vue : axe connu, numéro de train de 1 à 5 chiffres, gare en code UIC à 8 chiffres, sinon valeurs par défaut.
 export function parseMareyParams(search: URLSearchParams): MareyParams {
   const axe = (search.get('axe') ?? '').toUpperCase();
-  const train = search.get('train') ?? '';
-  return { axe: (MAREY_AXES as readonly string[]).includes(axe) ? axe : DEFAULT_AXE, train: /^\d{1,5}$/.test(train) ? train : null };
+  const train = search.get('train') ?? '', gare = search.get('gare') ?? '';
+  return { axe: (MAREY_AXES as readonly string[]).includes(axe) ? axe : DEFAULT_AXE, train: /^\d{1,5}$/.test(train) ? train : null, gare: /^\d{8}$/.test(gare) ? gare : null };
 }
 
 // Requête de l'API : refuse tout paramètre inconnu et tout axe hors liste.
