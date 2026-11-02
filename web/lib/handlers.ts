@@ -130,19 +130,23 @@ export async function loadTrainProfile(deps: Deps, number: string): Promise<Prof
   });
 }
 
-// Toutes les gares, une par code UIC : [uic, nom, lat, lon] triées par nom (barre de commande, gares de la carte).
-// Coordonnées du premier point d'arrêt qui en a ; aucune : [uic, nom]. Même lecture des arrêts que le Marey.
+// Toutes les gares, une par code UIC : [uic, nom, lat, lon] triées par nom (barre de commande, gares de la carte, liens
+// vers le panneau gare). Coordonnées du premier point d'arrêt qui en a ; aucune : [uic, nom]. Même lecture des arrêts que le Marey.
+export async function loadGares(deps: Deps): Promise<GareRow[]> {
+  const stops = await deps.cached(['marey-gares', 'v1'], 86_400, () => unwrap<StopRow[]>(deps.select('stops', 'stop_id,name,lat,lon'), 'stops'));
+  const byUic = new Map<string, GareRow>();
+  for (const s of stops) {
+    const uic = s.stop_id.slice(-8), has = s.lat !== null && s.lon !== null;
+    if (!byUic.has(uic) || (has && byUic.get(uic)!.length === 2)) byUic.set(uic, has ? [uic, s.name, Number(s.lat), Number(s.lon)] : [uic, s.name]);
+  }
+  return [...byUic.values()].sort((a, b) => a[1].localeCompare(b[1], 'fr'));
+}
+
 export function createGaresHandler(deps: Deps) {
   return async (req: Request) => {
     if (new URL(req.url).search !== '') return json({ error: 'aucun paramètre accepté' }, 400, 'no-store');
     return guarded(async () => {
-      const stops = await deps.cached(['marey-gares', 'v1'], 86_400, () => unwrap<StopRow[]>(deps.select('stops', 'stop_id,name,lat,lon'), 'stops'));
-      const byUic = new Map<string, GareRow>();
-      for (const s of stops) {
-        const uic = s.stop_id.slice(-8), has = s.lat !== null && s.lon !== null;
-        if (!byUic.has(uic) || (has && byUic.get(uic)!.length === 2)) byUic.set(uic, has ? [uic, s.name, Number(s.lat), Number(s.lon)] : [uic, s.name]);
-      }
-      return json({ gares: [...byUic.values()].sort((a, b) => a[1].localeCompare(b[1], 'fr')) }, 200, CUMUL_CACHE);
+      return json({ gares: await loadGares(deps) }, 200, CUMUL_CACHE);
     });
   };
 }
