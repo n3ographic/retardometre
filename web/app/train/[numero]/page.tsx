@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { CAUSE_LABELS } from '../../../lib/causes';
 import { TERMINUS_BUCKETS } from '../../../lib/dashboard-model';
-import { loadTrainProfile } from '../../../lib/handlers';
+import { loadGares, loadTrainProfile } from '../../../lib/handlers';
 import { supabaseDeps } from '../../../lib/supabase';
 import { bucketIndex, delayTone } from '../../../lib/terminal-model';
 import { SMALL_DAYS, todayLabel, type Day, type Profile } from '../../../lib/train-profile';
@@ -56,6 +56,12 @@ export default async function Page({ params }: Props) {
   }
   const now = new Date();
   const today = todayLabel(p, now);
+  // Origine et destination : lien vers le panneau gare de l'accueil quand le nom est connu (liste des gares en cache 24 h).
+  const uicByName = new Map((await loadGares(supabaseDeps).catch(() => [])).map((g) => [g[1], g[0]]));
+  const station = (nom: string | null) => {
+    const uic = nom ? uicByName.get(nom) : undefined;
+    return uic ? <a className="to-marey" href={`/?gare=${uic}`}>{nom}</a> : (nom ?? '?');
+  };
   const pct = p.score.n ? Math.round((p.score.ok / p.score.n) * 100) : null;
   const maxStop = Math.max(1, ...p.stops.map((s) => s.avg_min ?? 0));
   const maxCause = Math.max(1, ...p.causes.map((c) => c.days));
@@ -64,7 +70,7 @@ export default async function Page({ params }: Props) {
       <StatusBar />
       <main className="tp">
         <header className="tp-head">
-          <h1><span className="term-logo">{brandShort(p.info.brand)} {numero}</span> {p.info.origin ?? '?'} → {p.info.dest ?? '?'}</h1>
+          <h1><span className="term-logo">{brandShort(p.info.brand)} {numero}</span> {station(p.info.origin)} → {station(p.info.dest)}</h1>
           <TrainActions number={numero} current="FICHE" onMap={today.en_route} />
           <p className="term-dim">
             {HHMM.format(new Date(p.info.dep_planned))} → {HHMM.format(new Date(p.info.arr_planned))} (HORAIRE THÉORIQUE) · AXE {p.info.axis.replace('_', '-')}

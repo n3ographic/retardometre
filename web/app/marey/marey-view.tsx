@@ -349,6 +349,7 @@ export default function MareyView() {
   const ticks = nowS === null ? [] : hourTicks(dayStart, dayEnd);
   const halfTicks = ticks.map((t) => t + 1800).filter((t) => t < dayEnd);
   const hourStep = pxPerS * 3600 < 44 ? 2 : 1;
+  const uicByName = useMemo(() => new Map(Object.entries(data?.gares ?? {}).map(([uic, g]) => [g.nom, uic])), [data]);
   const focused = items.find((i) => i.key === (hover ?? highlighted)) ?? null;
   // Bandeau : retard de la collecte d'après la tranche la plus récente (celle qui contient maintenant).
   const health = useMemo(() => {
@@ -524,7 +525,7 @@ export default function MareyView() {
         <aside className="term-panel marey-side" aria-live="polite">
           <h2 className="term-panel-title">TRAIN</h2>
           {wanted?.train && data && !highlighted && <p className="bad" role="status">TRAIN {wanted.train} INTROUVABLE DANS LES HEURES CHARGÉES</p>}
-          {focused ? <TrainInfo item={focused} nowS={nowS ?? 0} /> : <p className="term-dim">SURVOLEZ UN TRAIN</p>}
+          {focused ? <TrainInfo item={focused} nowS={nowS ?? 0} gareUic={(nom) => uicByName.get(nom) ?? null} /> : <p className="term-dim">SURVOLEZ UN TRAIN</p>}
         </aside>
       </main>
       <FootBar />
@@ -532,7 +533,7 @@ export default function MareyView() {
   );
 }
 
-function TrainInfo({ item, nowS }: { item: Item; nowS: number }) {
+function TrainInfo({ item, nowS, gareUic }: { item: Item; nowS: number; gareUic: (nom: string) => string | null }) {
   const t = item.train;
   const delay = t.delay_s ?? 0;
   const tone = delayTone(t.delay_s, t.cancelled);
@@ -543,7 +544,11 @@ function TrainInfo({ item, nowS }: { item: Item; nowS: number }) {
     <>
     <dl className="marey-info">
       <div><dt>N°</dt><dd>{t.train_number} · {t.brand}</dd></div>
-      <div><dt>TRAJET</dt><dd>{[t.origin, t.dest].filter(Boolean).map((n) => shortName(n!, 40)).join(' → ') || '—'}</dd></div>
+      <div><dt>TRAJET</dt><dd>{[t.origin, t.dest].some(Boolean) ? [t.origin, t.dest].filter((n): n is string => Boolean(n)).map((n, i) => {
+        // Gare connue des gares chargées : son nom ouvre son panneau sur l'accueil.
+        const uic = gareUic(n);
+        return <span key={i}>{i > 0 && ' → '}{uic ? <a className="to-marey" href={`/?gare=${uic}`}>{shortName(n, 40)}</a> : shortName(n, 40)}</span>;
+      }) : '—'}</dd></div>
     </dl>
     <TrainActions number={t.train_number} current="MAREY" onMap={state === 'EN ROUTE'} />
     <dl className="marey-info">
