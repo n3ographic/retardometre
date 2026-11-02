@@ -71,6 +71,12 @@ a.to-marey:hover, a.to-marey:focus-visible { text-decoration-style: solid; }
 .ticker-track { display: inline-flex; animation: ticker 80s linear infinite; }
 .ticker:hover .ticker-track, .ticker:focus .ticker-track, .ticker:focus-within .ticker-track { animation-play-state: paused; }
 .ticker-list { display: inline-flex; list-style: none; margin: 0; padding: 0 0 0 8px; gap: 28px; }
+.train-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin: 6px 0 8px; }
+.ta-btn { display: flex; align-items: center; gap: 6px; padding: 3px 6px; border: 1px solid var(--t-line); text-decoration: none; font-size: 12px; white-space: nowrap; }
+.ta-btn kbd { font: inherit; font-size: 10px; line-height: 1; padding: 1px 3px; border: 1px solid currentColor; }
+a.ta-btn:hover, a.ta-btn:focus-visible, .ta-btn.on { background: var(--t-amber); color: var(--t-bg); border-color: var(--t-amber); }
+.ta-btn.on { cursor: default; }
+.ta-btn.off { color: var(--t-cancelled); border-style: dashed; cursor: not-allowed; }
 .ticker-btn { all: unset; cursor: pointer; }
 .ticker-btn:hover { background: #1a1200; }
 .ticker-btn:focus-visible { outline: 1px solid var(--t-amber); }

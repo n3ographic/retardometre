@@ -66,7 +66,9 @@ export default function CarteView({ trains, failed, lastOk, focus, selected, onS
   const pathRef = useRef<((a: Lngl, b: Lngl) => Lngl[]) | undefined>(undefined);
   const onSelectRef = useRef(onSelect);
   const onSpeedRef = useRef(onSpeed);
+  const focusRef = useRef(focus);
   trainsRef.current = trains;
+  focusRef.current = focus;
   onSelectRef.current = onSelect;
   onSpeedRef.current = onSpeed;
   filtersRef.current = filters;
@@ -188,6 +190,9 @@ export default function CarteView({ trains, failed, lastOk, focus, selected, onS
         m.on('mouseenter', 'trains', () => { m.getCanvas().style.cursor = 'pointer'; });
         m.on('mouseleave', 'trains', () => { m.getCanvas().style.cursor = ''; });
         refresh();
+        // Centrage demandé avant que la carte soit prête (?sel= à l'ouverture) : on le rejoue maintenant.
+        const f = focusRef.current, t = f && trainsRef.current.find((x) => x.trip_id === f.trip_id);
+        if (t) focusTrain(t);
       });
     })();
     return () => { cancelled = true; clearInterval(timer); map?.remove(); mapRef.current = null; };

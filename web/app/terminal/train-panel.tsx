@@ -1,6 +1,6 @@
 import { TERMINUS_BUCKETS } from '../../lib/dashboard-model';
 import { isStale, type LiveItem } from '../../lib/map-model';
-import { mareyHref } from '../../lib/marey';
+import TrainActions from './train-actions';
 import { bucketIndex, delayTone } from '../../lib/terminal-model';
 import { estimatePosition, segmentProgress } from '../../lib/position';
 import { compensationView, delayBounds, observedAgo, speedView, thresholdProgress, type Rules } from '../../lib/train-card';
@@ -25,8 +25,8 @@ export default function TrainPanel({ train: t, missing, rules, speed, onClose }:
   );
   if (!t && missing) return shell(`TRAIN ${missing}`, (
     <>
+      <TrainActions number={missing} current="CARTE" onMap={false} />
       <p className="tone-late">PAS EN CIRCULATION</p>
-      <p><a className="to-marey" href={`/train/${missing}`}>FICHE →</a></p>
     </>
   ));
   if (!t) return shell('TRAIN', <p className="term-dim">TRAIN TERMINÉ OU HORS DU FLUX</p>);
@@ -39,11 +39,12 @@ export default function TrainPanel({ train: t, missing, rules, speed, onClose }:
   const prog = !t.cancelled && rules ? thresholdProgress(t.brand, t.delay_s, rules) : null;
   const ago = observedAgo(t.last_seen_at, now);
   const sv = speedView(speed, segmentProgress(t, now));
+  const onMap = estimatePosition(t, now) !== null;
   return shell(`${t.brand} ${t.train_number}`, (
     <>
       {t.origin && t.dest && <p>{t.origin} → {t.dest}</p>}
-      {!estimatePosition(t, now) && <p className="tone-late">PAS EN CIRCULATION</p>}
-      <p><a className="to-marey" href={`/train/${t.train_number}`}>FICHE →</a>{mareyHref(t) && <> · <a className="to-marey" href={mareyHref(t)!}>VOIR DANS MAREY →</a></>}</p>
+      <TrainActions number={t.train_number} current="CARTE" onMap={onMap} />
+      {!onMap && <p className="tone-late">PAS EN CIRCULATION</p>}
       <section className="train-block">
         <h3>Retard</h3>
         <p className={`train-big tone-${tone}`}>{tone === 'cancelled' ? 'ANNULÉ' : tone === 'ontime' ? 'À L’HEURE' : `+${Math.round(delay / 60)}′`}</p>

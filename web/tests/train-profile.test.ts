@@ -41,4 +41,7 @@ test('todayLabel : non prévu, supprimé, pas encore parti, en route, arrivé', 
   expect(todayLabel(t(), at('2026-11-02T09:00:00Z')).text).toBe('PAS ENCORE PARTI');
   expect(todayLabel(t(), at('2026-11-02T14:00:00Z')).text).toBe('EN ROUTE · +50′'); // 13:48 + 50 min
   expect(todayLabel(t({ delay_s: 0 }), at('2026-11-02T14:00:00Z')).text).toBe('ARRIVÉ · À L’HEURE');
+  // Seul un train en route est sur la carte (bouton CARTE actif).
+  expect(todayLabel(t(), at('2026-11-02T14:00:00Z')).en_route).toBe(true);
+  expect(todayLabel(t(), at('2026-11-02T09:00:00Z')).en_route).toBe(false);
 });

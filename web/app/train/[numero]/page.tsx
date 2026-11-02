@@ -3,12 +3,12 @@ import { notFound } from 'next/navigation';
 import { CAUSE_LABELS } from '../../../lib/causes';
 import { TERMINUS_BUCKETS } from '../../../lib/dashboard-model';
 import { loadTrainProfile } from '../../../lib/handlers';
-import { mareyHref } from '../../../lib/marey';
 import { supabaseDeps } from '../../../lib/supabase';
 import { bucketIndex, delayTone } from '../../../lib/terminal-model';
 import { SMALL_DAYS, todayLabel, type Day, type Profile } from '../../../lib/train-profile';
 import FootBar from '../../terminal/foot-bar';
 import StatusBar from '../../terminal/status-bar';
+import TrainActions from '../../terminal/train-actions';
 
 // Rendue à chaque requête ; la base n'est lue qu'une fois par numéro et par cycle de collecte (cache de loadTrainProfile).
 export const dynamic = 'force-dynamic';
@@ -56,7 +56,6 @@ export default async function Page({ params }: Props) {
   }
   const now = new Date();
   const today = todayLabel(p, now);
-  const marey = mareyHref({ axis: p.info.axis, train_number: numero });
   const pct = p.score.n ? Math.round((p.score.ok / p.score.n) * 100) : null;
   const maxStop = Math.max(1, ...p.stops.map((s) => s.avg_min ?? 0));
   const maxCause = Math.max(1, ...p.causes.map((c) => c.days));
@@ -66,12 +65,12 @@ export default async function Page({ params }: Props) {
       <main className="tp">
         <header className="tp-head">
           <h1><span className="term-logo">{brandShort(p.info.brand)} {numero}</span> {p.info.origin ?? '?'} → {p.info.dest ?? '?'}</h1>
+          <TrainActions number={numero} current="FICHE" onMap={today.en_route} />
           <p className="term-dim">
             {HHMM.format(new Date(p.info.dep_planned))} → {HHMM.format(new Date(p.info.arr_planned))} (HORAIRE THÉORIQUE) · AXE {p.info.axis.replace('_', '-')}
           </p>
           <p>
             AUJOURD’HUI : <span className={`tone-${delayTone(today.delay_s ?? undefined, p.today?.cancelled ?? false)}`}>{today.text}</span>
-            {marey && <> · <a className="to-marey" href={marey}>VOIR DANS MAREY →</a></>}
           </p>
         </header>
 

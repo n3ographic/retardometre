@@ -12,7 +12,7 @@ const RECENTS_KEY = 'cmd-recents';
 const readRecents = (): Suggestion[] => { try { const v = JSON.parse(localStorage.getItem(RECENTS_KEY) ?? '[]'); return Array.isArray(v) ? v : []; } catch { return []; } };
 const saveRecents = (r: Suggestion[]) => { try { localStorage.setItem(RECENTS_KEY, JSON.stringify(r)); } catch { /* stockage indisponible */ } };
 
-const typing = (el: EventTarget | null) =>
+export const typing = (el: EventTarget | null) =>
   el instanceof HTMLElement && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable);
 
 // Barre de commande façon terminal : « / » (hors champ texte) ou Ctrl+K / Cmd+K, sur toutes les pages (montée dans le pied).
