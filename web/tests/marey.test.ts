@@ -1,5 +1,5 @@
 import { beforeEach, expect, test, vi } from 'vitest';
-import { createMareyHandler, createMareyIndexHandler } from '../lib/handlers';
+import { createGaresHandler, createMareyHandler, createMareyIndexHandler } from '../lib/handlers';
 import {
   blockOf, collectHealth, matchLines, fetchWindow, serviceDay, findTrain, hourTicks, parseApiParams, parseMareyParams, plannedPoints, publishedDelayAt, shapeMarey, trainTrace,
   type AxesFile, type RawStop, type RawTrain,
@@ -84,9 +84,9 @@ test('findTrain : le bon numéro dans la fenêtre ±3 h, sinon null (jamais un a
 });
 
 test('parseMareyParams et parseApiParams : valeurs par défaut, axe et numéro validés, paramètre inconnu refusé', () => {
-  expect(parseMareyParams(new URLSearchParams('axe=atlantique&train=8537'))).toEqual({ axe: 'ATLANTIQUE', train: '8537' });
-  expect(parseMareyParams(new URLSearchParams('axe=est&train=abc'))).toEqual({ axe: 'EST', train: null });
-  expect(parseMareyParams(new URLSearchParams('axe=OUEST'))).toEqual({ axe: 'ATLANTIQUE', train: null });
+  expect(parseMareyParams(new URLSearchParams('axe=atlantique&train=8537'))).toEqual({ axe: 'ATLANTIQUE', train: '8537', gare: null });
+  expect(parseMareyParams(new URLSearchParams('axe=est&train=abc&gare=8758'))).toEqual({ axe: 'EST', train: null, gare: null });
+  expect(parseMareyParams(new URLSearchParams('axe=OUEST&gare=87581009'))).toEqual({ axe: 'ATLANTIQUE', train: null, gare: '87581009' });
   const n = 1_793_620_000; // 2026-11-02
   expect(parseApiParams(new URLSearchParams(''), n)).toEqual({ ok: true, axe: 'ATLANTIQUE', bloc: null });
   expect(parseApiParams(new URLSearchParams('axe=EST'), n)).toEqual({ ok: true, axe: 'EST', bloc: null });
@@ -147,6 +147,21 @@ test('index : fenêtre affichée ±3 h autour du seau, aucun paramètre accepté
   expect((await r.json()).trains).toEqual([['ATLANTIQUE', '8537', 'Paris', 'Hendaye', 2400]]);
   expect(d.rpc).toHaveBeenCalledWith('marey_index', { p_from: '2026-11-02T07:00:00.000Z', p_to: '2026-11-02T13:00:00.000Z' });
   expect((await createMareyIndexHandler(deps())(new Request('http://x/api/marey/index?axe=EST'))).status).toBe(400);
+});
+
+test('gares : une par code UIC (8 derniers caractères), triées par nom, aucun paramètre accepté', async () => {
+  const stops = [
+    { stop_id: 'StopPoint:OCETGV INOUI-87581009', name: 'Bordeaux St-Jean', lat: 44.8, lon: -0.6 },
+    { stop_id: 'StopArea:OCE87581009', name: 'Bordeaux St-Jean', lat: 44.8, lon: -0.6 },
+    { stop_id: 'StopArea:OCE87391003', name: 'Paris Montparnasse', lat: null, lon: null },
+    { stop_id: 'StopArea:OCE87471003', name: 'Angers St-Laud', lat: 47.4, lon: -0.5 },
+  ];
+  const d = { ...deps(), select: vi.fn(async () => ({ data: stops, error: null })) };
+  const r = await createGaresHandler(d)(new Request('http://x/api/gares'));
+  expect(r.status).toBe(200);
+  expect(r.headers.get('cache-control')).toBe('public, s-maxage=3600, stale-while-revalidate=600');
+  expect((await r.json()).gares).toEqual([['87471003', 'Angers St-Laud'], ['87581009', 'Bordeaux St-Jean'], ['87391003', 'Paris Montparnasse']]);
+  expect((await createGaresHandler(deps())(new Request('http://x/api/gares?q=a'))).status).toBe(400);
 });
 
 test('serviceDay : de 4 h à 2 h le lendemain (Paris), avant 4 h la journée de la veille', () => {

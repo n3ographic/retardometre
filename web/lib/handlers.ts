@@ -110,6 +110,19 @@ export function createMareyHandler(deps: Deps) {
   };
 }
 
+// Toutes les gares, une par code UIC : [uic, nom] triées par nom (barre de commande). Même lecture des arrêts que le Marey.
+export function createGaresHandler(deps: Deps) {
+  return async (req: Request) => {
+    if (new URL(req.url).search !== '') return json({ error: 'aucun paramètre accepté' }, 400, 'no-store');
+    return guarded(async () => {
+      const stops = await deps.cached(['marey-gares', 'v1'], 86_400, () => unwrap<StopRow[]>(deps.select('stops', 'stop_id,name,lat,lon'), 'stops'));
+      const byUic = new Map<string, string>();
+      for (const s of stops) if (!byUic.has(s.stop_id.slice(-8))) byUic.set(s.stop_id.slice(-8), s.name);
+      return json({ gares: [...byUic].sort((a, b) => a[1].localeCompare(b[1], 'fr')) }, 200, CUMUL_CACHE);
+    });
+  };
+}
+
 // Index léger des trains de la fenêtre, tous axes : [axe, numéro, origine, destination, retard au terminus].
 export function createMareyIndexHandler(deps: Deps) {
   return async (req: Request) => {

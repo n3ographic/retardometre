@@ -1,7 +1,7 @@
 import type { LiveItem } from './map-model';
 
 // Minuscules sans accents : « Besançon » et « besancon » se valent.
-const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+export const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
 // Recherche parmi les trains du flux temps réel (ceux de /api/live) : numéro de train (début du numéro), marque,
 // gare d'origine ou de destination (sous-chaîne). Tous les mots saisis doivent correspondre ; un mot de lettres
