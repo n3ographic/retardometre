@@ -1,7 +1,7 @@
 import { beforeEach, expect, test, vi } from 'vitest';
 import { createMareyHandler, createMareyIndexHandler } from '../lib/handlers';
 import {
-  blockOf, matchLines, fetchWindow, serviceDay, findTrain, hourTicks, parseApiParams, parseMareyParams, plannedPoints, publishedDelayAt, shapeMarey, trainTrace,
+  blockOf, collectHealth, matchLines, fetchWindow, serviceDay, findTrain, hourTicks, parseApiParams, parseMareyParams, plannedPoints, publishedDelayAt, shapeMarey, trainTrace,
   type AxesFile, type RawStop, type RawTrain,
 } from '../lib/marey';
 import { prices } from './fixtures';
@@ -166,4 +166,13 @@ test('handler par tranche : fenêtre de 3 h, cache 1 h pour une tranche passée,
   expect(d.rpc).toHaveBeenLastCalledWith('marey_trains', { p_axis: 'ATLANTIQUE', p_from: new Date(old * 1000).toISOString(), p_to: new Date((old + 10800) * 1000).toISOString() });
   await createMareyHandler({ ...d, cached })(new Request(`http://x/api/marey?axe=ATLANTIQUE&bloc=${blockOf(nowS)}`));
   expect(calls.filter((s) => s !== 86_400)).toEqual([3600, 600]);
+});
+
+test('collectHealth : retard de la collecte à l\'heure de la requête ; orange au-delà de 2 intervalles, rouge au-delà de 10 min', () => {
+  const at = '2026-11-02T13:32:30Z';
+  const seen = (s: string) => [{ last_seen_at: '2026-11-02T13:00:00Z' }, { last_seen_at: s }];
+  expect(collectHealth(at, seen('2026-11-02T13:32:01Z'))).toEqual({ status: 'ok', ageMin: 0 });
+  expect(collectHealth(at, seen('2026-11-02T13:28:00Z'))).toEqual({ status: 'slow', ageMin: 5 });
+  expect(collectHealth(at, seen('2026-11-02T13:20:00Z'))).toEqual({ status: 'late', ageMin: 13 });
+  expect(collectHealth(at, [{}])).toEqual({ status: 'unknown', ageMin: null });
 });

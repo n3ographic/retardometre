@@ -9,6 +9,19 @@ export const FETCH_MARGIN_S = 3600; // marge côté serveur : la réponse peut a
 export const BUCKET_S = 600; // seau du cache serveur : un appel à la base par axe toutes les 10 min au plus
 // Défilement sur la journée : données par tranches de 3 h chargées à la demande ; une tranche finie depuis plus d'une heure
 // change peu (seuls des trains très en retard y circulent encore) et reste une heure en cache.
+export const COLLECT_INTERVAL_S = 120; // cron « collect » toutes les 2 min (vérifié le 2026-11-02 : 180 passages appliqués en 6 h)
+export const COLLECT_LATE_S = 600;
+
+// État de la collecte vu par une réponse : écart entre l'heure de la requête et le dernier passage du collecteur sur un
+// train de la réponse. Il ne dépend pas de l'âge du cache (qui peut atteindre 10 min). Orange (lent) au-delà de deux
+// intervalles, rouge au-delà de 10 min, comme le reste du site.
+export function collectHealth(generatedAt: string, trains: Pick<MareyTrain, 'last_seen_at'>[]): { status: 'ok' | 'slow' | 'late' | 'unknown'; ageMin: number | null } {
+  const seen = trains.map((t) => (t.last_seen_at ? Date.parse(t.last_seen_at) : NaN)).filter(Number.isFinite);
+  const at = Date.parse(generatedAt);
+  if (seen.length === 0 || !Number.isFinite(at)) return { status: 'unknown', ageMin: null };
+  const lag = Math.max(0, (at - Math.max(...seen)) / 1000);
+  return { status: lag > COLLECT_LATE_S ? 'late' : lag > 2 * COLLECT_INTERVAL_S ? 'slow' : 'ok', ageMin: Math.round(lag / 60) };
+}
 export const BLOCK_S = 3 * 3600;
 export const PAST_TTL_S = 3600;
 export const DAY_START_H = 4; // journée de service affichée : 4 h → 2 h le lendemain (heure de Paris)
