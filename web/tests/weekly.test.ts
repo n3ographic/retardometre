@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { lastCompleteWeek, shapeWeek, type WeekPayload, type WeekRow } from '../lib/weekly';
+import { lastCompleteWeek, shapeWeek, summaryText, type WeekPayload, type WeekRow } from '../lib/weekly';
 
 const prices = [
   { brand: 'INOUI', price_eur_ht: 50, seats: 500, price_source: '', seats_source: '', as_of: '' },
@@ -35,6 +35,18 @@ test('chiffres clés, variations et mention de la semaine précédente incomplè
   expect(w.causes[0].sentence).toMatch(/^Obstacle, animal, choc : 3 trains seulement \(2e en nombre\), mais première cause en euros/);
   expect(w.heat[0].cells.map((c) => c.n)).toEqual([10, 0, 3]);
   expect(w.train?.days.map((d) => d.state)).toEqual(['ran', 'unobserved']);
+});
+
+test('résumé à copier : 5 lignes au plus, chiffres de la page et lien', () => {
+  const w = shapeWeek(row('2026-W44', payload(7, { EST: [100, 90], NORD: [100, 70] })), row('2026-W43', payload(6, { EST: [80, 76], NORD: [80, 76] })));
+  const lines = summaryText(w, 'https://x/semaine/2026-W44').split('\n');
+  expect(lines).toEqual([
+    'TGV · semaine 44 (26/10 → 01/11)',
+    'Régularité : 80,0 % (−15,0 pt vs S43, incomplète)',
+    'Indemnités théoriques : 0 k€ HT · 200 trains',
+    'Train de la semaine : 9255 Paris → Milano, à l’heure 0/7 jours',
+    'https://x/semaine/2026-W44',
+  ]);
 });
 
 test('sans semaine précédente : aucune variation', () => {

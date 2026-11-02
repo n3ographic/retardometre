@@ -20,3 +20,6 @@
 .wk-faint { opacity: 0.35; }
 .wk-keys { margin: 0; padding-left: 2ch; }
 .wk-keys li { margin-bottom: 4px; }
+.wk-share { display: flex; flex-wrap: wrap; gap: 8px; }
+.wk-share button.ta-btn { font: inherit; font-size: 12px; color: inherit; background: none; cursor: pointer; }
+.wk-share button.ta-btn:hover, .wk-share button.ta-btn:focus-visible { background: var(--t-amber); color: var(--t-bg); border-color: var(--t-amber); }

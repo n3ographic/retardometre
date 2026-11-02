@@ -140,4 +140,18 @@ export function shapeWeek(row: WeekRow, prev: WeekRow | null) {
 }
 
 export type WeekView = ReturnType<typeof shapeWeek>;
+
+// Résumé à coller sur un réseau social : 5 lignes au plus, chiffres de la page et lien.
+export function summaryText(v: WeekView, url: string): string {
+  const k = v.kpis, d = k.regularity.delta;
+  const vs = d && v.prev ? ` (${d.value > 0 ? '+' : d.value < 0 ? '−' : '±'}${fr1(Math.abs(d.value))} pt vs S${v.prev.num}${v.prev.incomplete ? ', incomplète' : ''})` : '';
+  const cost = k.cost.value >= 1e6 ? `${fr1(k.cost.value / 1e6)} M€` : `${nf(Math.round(k.cost.value / 1000))} k€`;
+  return [
+    `TGV · semaine ${v.num} (${ddmm(v.from)} → ${ddmm(v.to)})${v.complete ? '' : `, ${v.days} jours`}`,
+    `Régularité : ${k.regularity.value === null ? '—' : `${fr1(k.regularity.value)} %`}${vs}`,
+    `Indemnités théoriques : ${cost} HT · ${nf(k.trains.value)} trains`,
+    ...(v.train ? [`Train de la semaine : ${v.train.number} ${v.train.origin ?? '?'} → ${v.train.dest ?? '?'}, à l’heure ${v.train.ok}/${v.train.counted} jours`] : []),
+    url,
+  ].join('\n');
+}
 export const axisName = (a: string) => a.replace('_', '-');

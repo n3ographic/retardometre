@@ -6,9 +6,10 @@ import { TERMINUS_BUCKETS } from '../../../lib/dashboard-model';
 import { loadWeek } from '../../../lib/handlers';
 import { supabaseDeps } from '../../../lib/supabase';
 import { RANGE_HINT, bucketIndex, charBar, eurRange } from '../../../lib/terminal-model';
-import { axisName, shapeWeek, weekNum, type WeekView } from '../../../lib/weekly';
+import { axisName, shapeWeek, summaryText, weekNum, type WeekView } from '../../../lib/weekly';
 import FootBar from '../../terminal/foot-bar';
 import StatusBar from '../../terminal/status-bar';
+import ShareBar from './share-bar';
 
 // Bilan figé : la base n'est relue qu'une fois par heure et par semaine (cache de loadWeek).
 export const dynamic = 'force-dynamic';
@@ -230,6 +231,8 @@ export default async function Page({ params }: Props) {
             <ul className="wk-keys">{v.takeaways.map((t) => <li key={t}>{t}</li>)}</ul>
           </section>
         )}
+        {/* L'adresse est ajoutée côté navigateur : la même page sert en local et en production. */}
+        <ShareBar text={summaryText(v, '').trimEnd()} week={v.week} />
 
         <p className="term-dim wk-small">
           RÉGULARITÉ APPROCHÉE (RETARDS PUBLIÉS PAR PAS DE 5′) · INDEMNITÉS THÉORIQUES HT, OCCUPATION {nf(v.occupancy)} · TRAINS OBSERVÉS SEULEMENT · OBSERVATOIRE INDÉPENDANT, NON AFFILIÉ SNCF/OUIGO · <a href="/methodologie">MÉTHODOLOGIE →</a>
