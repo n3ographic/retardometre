@@ -453,7 +453,7 @@ export default function MareyView() {
                     return (
                       <g key={g.nom}>
                         {col === 1 && <line x1={lx + 3} x2={left} y1={gy} y2={gy} className="m-leader" />}
-                        {col !== null && <text x={lx} y={gy + 4} textAnchor="end" className={on ? 'm-lab m-lab-on' : isForeign(g.stop_ids) ? 'm-lab m-lab-foreign' : 'm-lab'}><title>{g.nom}</title>{shortName(g.nom)}</text>}
+                        {col !== null && <text x={lx} y={gy + 4} textAnchor="end" className={on ? 'm-lab m-lab-on' : isForeign(g.stop_ids) ? 'm-lab m-lab-foreign' : 'm-lab'}><title>{g.nom}</title>{on ? '▸ ' : ''}{shortName(g.nom)}</text>}
                       </g>
                     );
                   })}
