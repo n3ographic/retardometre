@@ -47,28 +47,27 @@ export function shortName(nom: string, max = LABEL_MAX): string {
   return `${(at > max / 2 ? cut.slice(0, at) : cut).replace(/[ -]+$/, '')}…`;
 }
 
-// Étiquettes de gares sur l'axe vertical, de haut en bas : colonne 0 si l'écart avec la précédente de cette colonne est d'au
-// moins `minGap` px, sinon colonne 1 (décalée à gauche, avec un trait de rappel) si la place le permet, sinon masquée.
-// La première et la dernière gare sont toujours en colonne 0.
-export function layoutLabels(ys: number[], minGap: number, twoCols: boolean): (0 | 1 | null)[] {
-  const out: (0 | 1 | null)[] = ys.map(() => null);
-  if (ys.length === 0) return out;
-  const last: [number, number] = [-Infinity, -Infinity];
-  const end = ys.length - 1;
+// Étiquettes de gares sur une seule colonne : chacune au plus près de sa gare, écartées d'au moins `gap` px. Les gares trop
+// proches forment un groupe centré sur leur hauteur moyenne, borné à [top, bottom] ; un trait relie ensuite chaque nom à sa
+// gare. S'il n'y a pas la place pour toutes, la colonne est tassée régulièrement (chevauchement plutôt que nom masqué).
+export function spreadLabels(ys: number[], gap: number, top: number, bottom: number): number[] {
+  const step = ys.length > 1 ? Math.min(gap, (bottom - top) / (ys.length - 1)) : gap;
+  const groups: { first: number; n: number; sum: number; at: number }[] = [];
+  const place = (g: (typeof groups)[number]) => {
+    g.at = Math.min(Math.max(g.sum / g.n - ((g.n - 1) * step) / 2, top), bottom - (g.n - 1) * step);
+  };
   ys.forEach((y, i) => {
-    if (i === end && end > 0) return;
-    if (y - last[0] >= minGap) { out[i] = 0; last[0] = y; } else if (twoCols && y - last[1] >= minGap) { out[i] = 1; last[1] = y; }
-  });
-  if (end > 0) {
-    // La dernière gare prend la colonne 0 ; une étiquette trop proche y est déplacée en colonne 1 ou masquée.
-    for (let i = end - 1; i >= 0 && ys[end] - ys[i] < minGap; i--) {
-      if (out[i] !== 0) continue;
-      const free = twoCols && !ys.some((y, j) => j !== i && out[j] === 1 && Math.abs(y - ys[i]) < minGap);
-      out[i] = free ? 1 : null;
+    const g = { first: i, n: 1, sum: y, at: y };
+    place(g);
+    groups.push(g);
+    // Fusion tant que le groupe chevauche le précédent.
+    while (groups.length > 1) {
+      const a = groups[groups.length - 2], b = groups[groups.length - 1];
+      if (a.at + a.n * step <= b.at + 1e-9) break;
+      a.n += b.n; a.sum += b.sum; place(a); groups.pop();
     }
-    out[end] = 0;
-  }
-  return out;
+  });
+  return groups.flatMap((g) => Array.from({ length: g.n }, (_, k) => g.at + k * step));
 }
 
 export type Box = { key: string; x: number; y: number; w: number; h: number; priority: number };

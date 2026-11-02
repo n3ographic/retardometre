@@ -8,7 +8,7 @@ import {
   collectHealth, serviceDay, span, trainSpan, trainTrace,
   type AxesFile, type Match, type MareyGares, type MareyTrain, type Trace,
 } from '../../lib/marey';
-import { LABEL_MAX, isForeign, layoutLabels, pickLabels, shortName } from '../../lib/marey-layout';
+import { LABEL_MAX, isForeign, spreadLabels, pickLabels, shortName } from '../../lib/marey-layout';
 import { buildAxis, type Branch, type BuiltLine } from '../../lib/marey-lines';
 import { searchTrains } from '../../lib/train-search';
 import { bucketIndex, delayTone } from '../../lib/terminal-model';
@@ -21,6 +21,7 @@ const SCROLLBAR_PX = 12; // place de la barre de défilement horizontale
 const CHAR_PX = 6.6; // largeur d'un caractère des étiquettes (monospace 11 px)
 const COL_PX = Math.ceil(LABEL_MAX * CHAR_PX) + 10;
 const LABEL_GAP_PX = 14;
+const LEADER_PX = 16; // trait entre le nom (déplacé si besoin) et la hauteur réelle de la gare
 const MIN_BRANCH_TRAINS = 5; // branche rangée dans le menu AUTRES sous ce nombre de trains
 const NUM_CHAR_PX = 6.1; // numéros de train (monospace 10 px)
 const HIT_PX = 8;
@@ -231,9 +232,9 @@ export default function MareyView() {
   const W = Math.max(size.w, 320), H = Math.max(size.h - SCROLLBAR_PX, 240);
   const maxKm = line ? Math.max(...line.gares.map((g) => g.km), 1) : 1;
   const y = useCallback((km: number) => MARGIN.top + (km / maxKm) * (H - MARGIN.top - MARGIN.bottom), [maxKm, H]);
-  // Étiquettes de gares (colonne fixe) : deux colonnes si la largeur le permet, la seconde avec un trait de rappel.
-  const cols = useMemo(() => (line ? layoutLabels(line.gares.map((g) => y(g.km)), LABEL_GAP_PX, W >= 640) : []), [line, y, W]);
-  const left = (cols.includes(1) ? 2 * COL_PX : COL_PX) + 8;
+  // Étiquettes de gares (colonne fixe) : une colonne, noms écartés au besoin et reliés à leur gare par un trait.
+  const labelYs = useMemo(() => (line ? spreadLabels(line.gares.map((g) => y(g.km)), LABEL_GAP_PX, MARGIN.top, H - MARGIN.bottom) : []), [line, y, H]);
+  const left = COL_PX + LEADER_PX + 8;
   const plotW = Math.max(W - left, 160);
   const pxPerS = plotW / (2 * HALF_WINDOW_S); // l'écran montre toujours 6 h
   const totalW = Math.ceil((dayEnd - dayStart) * pxPerS) + MARGIN.right;
@@ -448,12 +449,12 @@ export default function MareyView() {
               <>
                 <svg className="marey-labels" width={left} height={H} aria-hidden="true">
                   {line.gares.map((g, i) => {
-                    const on = gare !== null && g.stop_ids.includes(gare), col = cols[i] ?? (on ? 0 : null); // gare demandée : toujours nommée
-                    const gy = y(g.km), lx = col === 1 ? left - COL_PX - 8 : left - 6;
+                    const on = gare !== null && g.stop_ids.includes(gare);
+                    const gy = y(g.km), ly = labelYs[i] ?? gy, lx = left - LEADER_PX - 4;
                     return (
                       <g key={g.nom}>
-                        {col === 1 && <line x1={lx + 3} x2={left} y1={gy} y2={gy} className="m-leader" />}
-                        {col !== null && <text x={lx} y={gy + 4} textAnchor="end" className={on ? 'm-lab m-lab-on' : isForeign(g.stop_ids) ? 'm-lab m-lab-foreign' : 'm-lab'}><title>{g.nom}</title>{on ? '▸ ' : ''}{shortName(g.nom)}</text>}
+                        <polyline points={`${lx + 2},${ly} ${left - LEADER_PX / 2},${ly} ${left},${gy}`} className={on ? 'm-leader m-leader-on' : 'm-leader'} />
+                        <text x={lx} y={ly + 4} textAnchor="end" className={on ? 'm-lab m-lab-on' : isForeign(g.stop_ids) ? 'm-lab m-lab-foreign' : 'm-lab'}><title>{g.nom}</title>{on ? '▸ ' : ''}{shortName(g.nom)}</text>
                       </g>
                     );
                   })}

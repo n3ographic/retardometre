@@ -32,7 +32,8 @@
 .marey-chart .m-grid-half { stroke: var(--t-line); stroke-width: 1; opacity: 0.25; stroke-dasharray: 2 3; }
 .marey-chart .m-future { fill: #ffffff; opacity: 0.035; }
 .marey-chart .m-num { fill: var(--t-amber-dim); font-size: 10px; pointer-events: none; }
-.marey-chart .m-leader { stroke: var(--t-amber-dim); stroke-width: 1; opacity: 0.6; }
+.marey-chart .m-leader { fill: none; stroke: var(--t-amber-dim); stroke-width: 1; opacity: 0.6; }
+.marey-chart .m-leader-on { stroke: var(--t-amber); opacity: 1; }
 .marey-chart .m-foreign { fill: #8a8a8a; opacity: 0.08; }
 .marey-chart .m-foreign-lab { fill: #8a8a8a; font-size: 10px; letter-spacing: 0.04em; }
 .marey-chart .m-lab-foreign { fill: #8a8a8a; }
