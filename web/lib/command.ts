@@ -5,7 +5,7 @@ import { norm } from './train-search';
 
 // Barre de commande (« / » ou Ctrl+K) : suggestions calculées à la main sur les trains du flux (/api/live) et les gares (/api/gares).
 export type Kind = 'TRAIN' | 'AXE' | 'GARE' | 'PAGE' | 'CMD';
-export type Suggestion = { kind: Kind; label: string; href: string | null; delay_s?: number; cancelled?: boolean };
+export type Suggestion = { kind: Kind; label: string; href: string | null; delay_s?: number; cancelled?: boolean; group?: string };
 export type CommandData = { trains: Pick<LiveItem, 'train_number' | 'brand' | 'origin' | 'dest' | 'delay_s' | 'cancelled' | 'axis'>[]; gares: [string, string][] };
 
 export const MAX_SUGGESTIONS = 6;
@@ -50,7 +50,21 @@ export function suggest(query: string, data: CommandData): Suggestion[] {
   return out.slice(0, MAX_SUGGESTIONS);
 }
 
-// Les 10 plus gros retards du moment, sous forme de suggestions (commande TOP).
-export function topSuggestions(trains: LiveItem[]): Suggestion[] {
-  return topDelays(trains, 10).map(trainSuggestion);
+// Les n plus gros retards du moment, sous forme de suggestions (commande TOP : 10).
+export function topSuggestions(trains: LiveItem[], n = 10): Suggestion[] {
+  return topDelays(trains, n).map(trainSuggestion);
+}
+
+// Saisie vide : 3 plus gros retards puis les 3 dernières commandes ouvertes (sans doublon de lien).
+export const RECENT_MAX = 3;
+export function emptySuggestions(trains: LiveItem[], recents: Suggestion[]): Suggestion[] {
+  const top = topSuggestions(trains, 3).map((s) => ({ ...s, group: 'TOP RETARDS' }));
+  const seen = new Set(top.map((s) => s.href));
+  return [...top, ...recents.filter((s) => !seen.has(s.href)).slice(0, RECENT_MAX).map((s) => ({ ...s, group: 'RÉCENTS' }))];
+}
+
+// Mémorise une commande ouverte en tête des récents (la plus récente d'abord, sans doublon).
+export function pushRecent(recents: Suggestion[], s: Suggestion): Suggestion[] {
+  const { group: _g, ...clean } = s;
+  return [clean, ...recents.filter((r) => r.href !== s.href)].slice(0, RECENT_MAX + 3); // marge : les récents déjà dans le top sont masqués
 }

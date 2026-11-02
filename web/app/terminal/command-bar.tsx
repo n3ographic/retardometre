@@ -1,11 +1,16 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { HELP, UNKNOWN, suggest, topSuggestions, type CommandData, type Suggestion } from '../../lib/command';
+import { HELP, UNKNOWN, emptySuggestions, pushRecent, suggest, topSuggestions, type CommandData, type Suggestion } from '../../lib/command';
 import type { LiveItem } from '../../lib/map-model';
 import { bucketIndex } from '../../lib/terminal-model';
 
 type Mode = 'suggest' | 'top' | 'help';
+const RECENTS_KEY = 'cmd-recents';
+
+// Récents propres à ce navigateur : confort seulement, tout échec de lecture ou d'écriture est ignoré.
+const readRecents = (): Suggestion[] => { try { const v = JSON.parse(localStorage.getItem(RECENTS_KEY) ?? '[]'); return Array.isArray(v) ? v : []; } catch { return []; } };
+const saveRecents = (r: Suggestion[]) => { try { localStorage.setItem(RECENTS_KEY, JSON.stringify(r)); } catch { /* stockage indisponible */ } };
 
 const typing = (el: EventTarget | null) =>
   el instanceof HTMLElement && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable);
@@ -20,6 +25,7 @@ export default function CommandBar() {
   const [msg, setMsg] = useState<string | null>(null);
   const [trains, setTrains] = useState<LiveItem[]>([]);
   const [gares, setGares] = useState<[string, string][]>([]);
+  const [recents, setRecents] = useState<Suggestion[]>([]);
   const loaded = useRef(false);
   const input = useRef<HTMLInputElement>(null);
 
@@ -38,6 +44,7 @@ export default function CommandBar() {
   useEffect(() => {
     if (!open) return;
     input.current?.focus();
+    setRecents(readRecents());
     if (loaded.current) return;
     loaded.current = true;
     fetch('/api/live').then((r) => (r.ok ? r.json() : null)).then((d: { trains: LiveItem[] } | null) => d && setTrains(d.trains)).catch(() => {});
@@ -45,12 +52,14 @@ export default function CommandBar() {
   }, [open]);
 
   const data = useMemo<CommandData>(() => ({ trains, gares }), [trains, gares]);
-  const list: Suggestion[] = mode === 'top' ? topSuggestions(trains) : mode === 'help' ? [] : suggest(value, data);
+  const list: Suggestion[] = mode === 'top' ? topSuggestions(trains) : mode === 'help' ? [] : value.trim() === '' ? emptySuggestions(trains, recents) : suggest(value, data);
   const close = () => { setOpen(false); setValue(''); setSel(0); setMode('suggest'); setMsg(null); };
   const run = (s: Suggestion | undefined) => {
     if (!s) { setMsg(value.trim() === '' ? null : UNKNOWN); return; }
     if (s.kind === 'CMD') { setMode(s.label === 'TOP' ? 'top' : 'help'); setValue(''); setSel(0); setMsg(null); return; }
-    if (s.href) window.location.assign(s.href);
+    if (!s.href) return;
+    saveRecents(pushRecent(recents, s));
+    window.location.assign(s.href);
   };
 
   const onKeyDown = (e: React.KeyboardEvent) => {
@@ -66,7 +75,8 @@ export default function CommandBar() {
   if (!open) return <button type="button" className="cmd-hint" onClick={() => setOpen(true)} title="Barre de commande (/ ou Ctrl+K)">/ COMMANDE</button>;
   const title = mode === 'top' ? 'TOP · 10 PLUS GROS RETARDS' : mode === 'help' ? 'HELP · COMMANDES' : null;
   return (
-    <div className="cmd-bar" role="dialog" aria-label="Barre de commande" onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) close(); }}>
+    <div className="cmd-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) close(); }}>
+    <div className="cmd-bar" role="dialog" aria-modal="true" aria-label="Barre de commande" onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) close(); }}>
       <div className="cmd-line">
         <span className="cmd-prompt" aria-hidden="true">&gt;</span>
         {/* Saisie réelle transparente posée sur son reflet : le reflet porte le curseur bloc clignotant et « <GO> ». */}
@@ -83,18 +93,21 @@ export default function CommandBar() {
       )}
       {list.length > 0 && (
         <ul id="cmd-list" className="cmd-list" role="listbox">
-          {list.map((s, i) => (
-            <li key={`${s.kind}${s.label}`} id={`cmd-opt-${i}`} role="option" aria-selected={i === sel} className={i === sel ? 'on' : undefined}
+          {list.map((s, i) => [
+            s.group && s.group !== list[i - 1]?.group && <li key={`g${s.group}`} role="presentation" className="cmd-group">{s.group}</li>,
+            <li key={`${s.group ?? ''}${s.kind}${s.label}`} id={`cmd-opt-${i}`} role="option" aria-selected={i === sel} className={i === sel ? 'on' : undefined}
               onMouseDown={(e) => { e.preventDefault(); run(s); }} onMouseEnter={() => setSel(i)}>
               <span className="cmd-label">{s.label}</span>
               {s.kind === 'TRAIN' && s.delay_s !== undefined && (s.cancelled
                 ? <span className="tone-cancelled">ANNULÉ</span>
                 : <span className={`seg-c s${bucketIndex(s.delay_s)}`}>+{Math.round(Math.max(s.delay_s, 0) / 60)}′</span>)}
               <span className="cmd-kind">{s.kind === 'CMD' ? 'COMMANDE' : s.kind}</span>
-            </li>
-          ))}
+            </li>,
+          ])}
         </ul>
       )}
+      <p className="cmd-keys">↑ ↓ CHOISIR · ENTRÉE VALIDER · ÉCHAP FERMER · HELP : COMMANDES</p>
+    </div>
     </div>
   );
 }

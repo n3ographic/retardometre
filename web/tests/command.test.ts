@@ -1,5 +1,6 @@
 import { expect, test } from 'vitest';
-import { MAX_SUGGESTIONS, suggest, type CommandData } from '../lib/command';
+import { MAX_SUGGESTIONS, emptySuggestions, pushRecent, suggest, type CommandData, type Suggestion } from '../lib/command';
+import type { LiveItem } from '../lib/map-model';
 
 const t = (train_number: string, axis: string, delay_s = 0, dest = 'Bordeaux St-Jean') =>
   ({ train_number, brand: 'INOUI', origin: 'Paris', dest, delay_s, cancelled: false, axis });
@@ -35,4 +36,21 @@ test('gares : nom partiel sans accents, début du nom en premier ; rien d’inco
   expect(suggest('  ', data)).toEqual([]);
   const many = { ...data, trains: Array.from({ length: 9 }, (_, i) => t(`70${i}`, 'EST')) };
   expect(suggest('70', many)).toHaveLength(MAX_SUGGESTIONS);
+});
+
+test('saisie vide : 3 plus gros retards puis récents sans doublon ; récents en tête, dédoublonnés', () => {
+  const live = [t('1', 'EST', 600), t('2', 'EST', 1800), t('3', 'EST', 60), t('4', 'EST', 120), t('5', 'EST', 0)] as unknown as LiveItem[];
+  const gare: Suggestion = { kind: 'GARE', label: 'BORDEAUX ST-JEAN', href: '/marey?gare=87581009' };
+  const train2: Suggestion = { kind: 'TRAIN', label: 'IN 2', href: '/marey?axe=EST&train=2' };
+  let recents: Suggestion[] = [];
+  recents = pushRecent(recents, train2);
+  recents = pushRecent(recents, gare);
+  recents = pushRecent(recents, { ...train2, group: 'TOP RETARDS' });
+  expect(recents.map((r) => r.href)).toEqual([train2.href, gare.href]);
+  expect(recents[0].group).toBeUndefined();
+  const out = emptySuggestions(live, recents);
+  expect(out.map((s) => `${s.group} ${s.href}`)).toEqual([
+    'TOP RETARDS /marey?axe=EST&train=2', 'TOP RETARDS /marey?axe=EST&train=1', 'TOP RETARDS /marey?axe=EST&train=4',
+    'RÉCENTS /marey?gare=87581009',
+  ]);
 });
