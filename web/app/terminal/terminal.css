@@ -77,6 +77,18 @@ a.to-marey:hover, a.to-marey:focus-visible { text-decoration-style: solid; }
 a.ta-btn:hover, a.ta-btn:focus-visible, .ta-btn.on { background: var(--t-amber); color: var(--t-bg); border-color: var(--t-amber); }
 .ta-btn.on { cursor: default; }
 .ta-btn.off { color: var(--t-cancelled); border-style: dashed; cursor: not-allowed; }
+.station-panel .train-actions { grid-template-columns: repeat(3, 1fr); }
+.st-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin: 8px 0 4px; }
+.st-tabs button { font: inherit; background: none; color: inherit; cursor: pointer; justify-content: center; }
+.st-board { list-style: none; margin: 0; padding: 0; font-size: 12px; }
+.st-board li > button, .st-head { all: unset; box-sizing: border-box; width: 100%; display: grid; grid-template-columns: 6ch 6ch 8ch minmax(0, 1fr) 6ch; gap: 6px; padding: 2px 0; border-bottom: 1px dotted var(--t-line); }
+.st-board li > button { cursor: pointer; }
+.st-board li > button:hover { background: #1a1200; }
+.st-board li > button:focus-visible { outline: 1px solid var(--t-amber); }
+.st-head { color: var(--t-amber-dim); }
+.st-place { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.st-board .seg-c, .st-board .tone-cancelled { text-align: right; }
+.st-past { opacity: 0.45; }
 .ticker-btn { all: unset; cursor: pointer; }
 .ticker-btn:hover { background: #1a1200; }
 .ticker-btn:focus-visible { outline: 1px solid var(--t-amber); }

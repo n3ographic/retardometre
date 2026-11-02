@@ -4,6 +4,7 @@ import { shapeLive, type LiveTrain } from './live';
 import { shapeProfile, type Profile, type RawProfile } from './train-profile';
 import { BLOCK_S, BUCKET_S, COLLECT_INTERVAL_S, HALF_WINDOW_S, PAST_TTL_S, fetchWindow, parseApiParams, shapeMarey, type RawTrain, type StopRow } from './marey';
 import { loadRules } from './rules';
+import { parseGares, shapeBoard } from './station';
 import { parseStatsParams } from './params';
 import { shapeStats, type Price, type Scale, type StatRow } from './stats';
 
@@ -138,6 +139,21 @@ export function createGaresHandler(deps: Deps) {
       for (const s of stops) if (!byUic.has(s.stop_id.slice(-8))) byUic.set(s.stop_id.slice(-8), s.name);
       return json({ gares: [...byUic].sort((a, b) => a[1].localeCompare(b[1], 'fr')) }, 200, CUMUL_CACHE);
     });
+  };
+}
+
+// Panneau gare (?gare=UIC[,UIC]) : un appel à station_board par jeu de gares et par cycle de collecte (2 min).
+export function createStationHandler(deps: Deps) {
+  return async (req: Request) => {
+    const uics = parseGares(new URL(req.url).searchParams.get('uic'));
+    if (!uics) return json({ error: 'paramètre uic : codes UIC de 8 chiffres séparés par des virgules' }, 400, 'no-store');
+    const cycle = Math.floor(deps.now().getTime() / 1000 / COLLECT_INTERVAL_S);
+    // Clé = codes validés et triés + cycle, jamais une chaîne brute de l'utilisateur.
+    return guarded(async () => json(await deps.cached(['gare', 'v1', [...uics].sort().join(','), String(cycle)], COLLECT_INTERVAL_S, async () => {
+      const { data, error } = await deps.rpc('station_board', { p_uics: uics });
+      if (error) throw new Error('lecture de station_board impossible');
+      return { generated_at: deps.now().toISOString(), ...shapeBoard(data) }; // lève si invalide : rien n'est mis en cache
+    }), 200, LIVE_CACHE));
   };
 }
 
