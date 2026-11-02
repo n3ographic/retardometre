@@ -1,4 +1,5 @@
 import { isSmallSample, suppressionPct } from '../../lib/dashboard-model';
+import { COUNT_KEYS, COUNT_LABELS, breakdownText } from '../../lib/counts';
 import type { CumulPayload } from '../../lib/cumul';
 import type { StatsPayload } from '../../lib/stats';
 import { RANGE_HINT, axisRegularity, brandSplit, calcLabel, charBar, eurRange, periodLabel, windowLabel, type Period } from '../../lib/terminal-model';
@@ -11,8 +12,11 @@ const BAR_W = 20;
 const stackLens = (shares: number[]) => (shares.length < 2 ? [BAR_W] : [Math.round((shares[0] / 100) * BAR_W), BAR_W - Math.round((shares[0] / 100) * BAR_W)]);
 const tone = (p: number | null) => (p === null ? 'term-dim' : p >= 80 ? 'tone-ontime' : p >= 60 ? 'tone-late' : p >= 40 ? 'tone-strong' : 'tone-severe');
 
-export default function RightPanel({ cumul, cumulFailed, stats, statsFailed, statsLoading, period }: {
-  cumul: CumulPayload | null; cumulFailed: boolean; stats: StatsPayload | null; statsFailed: boolean; statsLoading: boolean; period: Period;
+// Une ligne par catégorie de comptage, pour l'infobulle de la décomposition.
+const COUNTS_HINT = COUNT_KEYS.map((k) => `${COUNT_LABELS[k].short} : ${COUNT_LABELS[k].long}`).join('\n');
+
+export default function RightPanel({ cumul, cumulFailed, stats, statsFailed, statsLoading, period, inFeed }: {
+  cumul: CumulPayload | null; cumulFailed: boolean; stats: StatsPayload | null; statsFailed: boolean; statsLoading: boolean; period: Period; inFeed: number;
 }) {
   const t = stats?.totals;
   const day = cumul?.today;
@@ -28,7 +32,7 @@ export default function RightPanel({ cumul, cumulFailed, stats, statsFailed, sta
         {statsFailed ? <p className="term-dim">INDISPONIBLE</p> : !t ? <p className="term-dim">…</p> : (
           <>
           <dl className="kpi-list">
-            <dt>TRAINS</dt><dd>{nf(t.circulated)}</dd>
+            <dt title={COUNT_LABELS.circulated.long}>TRAINS (ONT ROULÉ)</dt><dd>{nf(t.circulated)}</dd>
             <dt>RÉGUL.</dt><dd>{pct(t.official_regularity_pct)}</dd>
             <dt>SUPPR.</dt><dd>{pct(suppressionPct(t))}</dd>
             <dt>INDEMN.</dt><dd>{nf(Math.round(t.estimated_cost_eur_ht))} € HT</dd>
@@ -38,7 +42,7 @@ export default function RightPanel({ cumul, cumulFailed, stats, statsFailed, sta
           </>
         )}
         {day && (
-          <p className="today-line" title="Trains terminés depuis minuit (heure de Paris), recalculé toutes les 5 minutes">
+          <p className="today-line" title={`Trains terminés depuis minuit (heure de Paris), recalculé toutes les 5 minutes.\n${breakdownText(day)}\n${nf(inFeed)} DANS LE FLUX EN CE MOMENT (EN ROUTE OU SUR LE POINT DE PARTIR)`}>
             AUJOURD&apos;HUI · {nf(day.circulated)} TR. TERMINÉS · RÉGUL. {pct(day.official_regularity_pct)} · {nf(Math.round(day.estimated_cost_eur_ht))} € HT
           </p>
         )}
@@ -50,7 +54,8 @@ export default function RightPanel({ cumul, cumulFailed, stats, statsFailed, sta
           <>
             <p className="big">{nf(Math.round(cumul.cost_eur_ht))} €</p>
             {cumulRange && <p className="term-dim" title={RANGE_HINT}>FOURCHETTE {cumulRange} HT</p>}
-            <p className="term-dim">HT · {nf(cumul.observed)} TRAINS OBS. · <span title="Part des trains prévus observés dans le flux temps réel, trains terminés depuis le 20 octobre 2026">{cumul.coverage_pct === null ? '—' : `${cumul.coverage_pct.toLocaleString('fr-FR')} %`} DU PRÉVU</span></p>
+            <p className="term-dim" title={COUNTS_HINT}>{breakdownText(cumul)}</p>
+            <p className="term-dim">HT · <span title="Part des trains prévus observés dans le flux temps réel, trains terminés depuis le 20 octobre 2026">{cumul.coverage_pct === null ? '—' : `${cumul.coverage_pct.toLocaleString('fr-FR')} %`} DU PRÉVU</span></p>
             {cumul.by_brand.map((b) => <p key={b.brand}>{b.brand} {nf(Math.round(b.cost_eur_ht))} €</p>)}
             <p className="term-dim">OBSERVÉ SEULEMENT, SANS EXTRAPOLATION · DEPUIS LE 20/10, AUJOURD&apos;HUI INCLUS</p>
             {calcLabel(cumul.computed_at) && <p className="term-dim">{calcLabel(cumul.computed_at)}</p>}

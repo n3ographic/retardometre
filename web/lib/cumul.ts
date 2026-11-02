@@ -3,7 +3,7 @@ import { DEFAULT_OCCUPANCY, type Price, type StatRow, type Totals } from './stat
 
 export type CumulRow = { brand: string; metric: string; n: number | string; days: number; first_day: string; last_day: string };
 export type CumulBrand = {
-  brand: string; planned: number; observed: number; circulated: number; comp_eligible: number; comp_pct_sum: number;
+  brand: string; planned: number; observed: number; circulated: number; cancelled: number; no_terminus: number; comp_eligible: number; comp_pct_sum: number;
   aberrant: number; comp_pct_sum_low: number; comp_pct_sum_high: number;
   cost_eur_ht: number; cost_eur_ht_at_full_occupancy: number;
   // Fourchette ; null quand des jours enregistrés n'ont pas encore les mesures basse et haute.
@@ -11,7 +11,8 @@ export type CumulBrand = {
 };
 export type Cumul = {
   since: string | null; through: string | null; days: number;
-  planned: number; observed: number; coverage_pct: number | null; circulated: number; comp_eligible: number; aberrant: number;
+  planned: number; observed: number; coverage_pct: number | null; circulated: number; cancelled: number; no_terminus: number;
+  comp_eligible: number; aberrant: number;
   cost_eur_ht: number; cost_eur_ht_at_full_occupancy: number;
   cost_eur_ht_low: number | null; cost_eur_ht_high: number | null;
   by_brand: CumulBrand[];
@@ -33,7 +34,7 @@ export function withLive(base: CumulRow[], live: StatRow[], from: string, to: st
   return [...base, ...live].map((r) => ({ brand: r.brand, metric: r.metric, n: r.n, days, first_day, last_day: to }));
 }
 
-const COUNTS = ['planned', 'observed', 'circulated', 'comp_eligible', 'comp_pct_sum', 'aberrant', 'comp_pct_sum_low', 'comp_pct_sum_high'] as const;
+const COUNTS = ['planned', 'observed', 'circulated', 'cancelled', 'no_terminus', 'comp_eligible', 'comp_pct_sum', 'aberrant', 'comp_pct_sum_low', 'comp_pct_sum_high'] as const;
 
 // Compteur observé seulement : jamais extrapolé aux trains non observés. Le coût se calcule à la lecture
 // (prix, places et occupation sont des hypothèses) : pourcentage cumulé × prix HT × places × occupation.
@@ -44,7 +45,7 @@ export function shapeCumul(rows: CumulRow[], prices: Price[], occupancy = DEFAUL
   const byBrand = new Map<string, Record<(typeof COUNTS)[number], number>>();
   for (const r of rows) {
     if (!(COUNTS as readonly string[]).includes(r.metric)) continue; // tranches de retard : sans objet ici
-    const c = byBrand.get(r.brand) ?? { planned: 0, observed: 0, circulated: 0, comp_eligible: 0, comp_pct_sum: 0, aberrant: 0, comp_pct_sum_low: 0, comp_pct_sum_high: 0 };
+    const c = byBrand.get(r.brand) ?? { planned: 0, observed: 0, circulated: 0, cancelled: 0, no_terminus: 0, comp_eligible: 0, comp_pct_sum: 0, aberrant: 0, comp_pct_sum_low: 0, comp_pct_sum_high: 0 };
     c[r.metric as (typeof COUNTS)[number]] += toNum(r.n, r.metric);
     byBrand.set(r.brand, c);
   }
@@ -65,6 +66,8 @@ export function shapeCumul(rows: CumulRow[], prices: Price[], occupancy = DEFAUL
     planned, observed,
     coverage_pct: planned === 0 ? null : round((observed / planned) * 100, 1),
     circulated: sum((b) => b.circulated),
+    cancelled: sum((b) => b.cancelled),
+    no_terminus: sum((b) => b.no_terminus),
     comp_eligible: sum((b) => b.comp_eligible),
     aberrant: sum((b) => b.aberrant),
     cost_eur_ht_low: sumOrNull((b) => b.low),

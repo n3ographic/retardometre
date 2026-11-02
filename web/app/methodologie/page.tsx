@@ -3,6 +3,8 @@ import { loadRules, type Rules } from '../../lib/rules';
 import FootBar from '../terminal/foot-bar';
 import StatusBar from '../terminal/status-bar';
 import { CAUSE_LABELS } from '../../lib/causes';
+import { COUNT_KEYS, COUNT_LABELS } from '../../lib/counts';
+import { Fragment } from 'react';
 
 export const metadata = { title: 'Méthodologie · Observatoire TGV' };
 // Rendue à chaque requête : un build sans accès à la base ne doit pas figer « règles indisponibles ».
@@ -74,12 +76,18 @@ export default async function Page() {
         <dl>
           <dt>Train</dt><dd>Un train est identifié par son numéro et son jour de service ; les variantes de l’horaire créées par les réimports ne comptent qu’une fois (la circulation retenue est la plus récemment vue).</dd>
           <dt>Prévu</dt><dd>Train du plan de transport (GTFS statique) pour un jour de service.</dd>
-          <dt>Observé / jamais observé</dt><dd>Observé : le train est apparu dans le flux temps réel. Jamais observé : prévu mais jamais vu (collecte absente ou train non publié).</dd>
-          <dt>Retiré tard, annulé</dt><dd>Retiré tard : retiré du plan après avoir été prévu. Annulé : suppression publiée dans le flux.</dd>
-          <dt>Sans terminus</dt><dd>Train observé dont le retard au terminus n’est pas connu.</dd>
-          <dt>Observés depuis le 20/10 (couverture)</dt><dd>Part des trains prévus (un par numéro et par jour, jours terminés depuis le 20 octobre 2026) qui ont été observés dans le flux temps réel ; c’est la couverture du compteur cumulé, affichée dans la barre d’état (« OBS. DEPUIS 20/10 ») et sous le compteur (« % DU PRÉVU »).</dd>
-          <dt>Ayant circulé</dt><dd>Train observé, non annulé, dont le retard au terminus est connu. C’est l’effectif de tous les pourcentages.</dd>
+          <dt>Jamais observé, retiré tard</dt><dd>Jamais observé : prévu mais jamais vu (collecte absente ou train non publié). Retiré tard : retiré du plan après avoir été prévu.</dd>
+          <dt>Observés depuis le 20/10 (couverture)</dt><dd>Part des trains prévus (un par numéro et par jour, trains terminés depuis le 20 octobre 2026) qui ont été observés dans le flux temps réel ; c’est la couverture du compteur cumulé, affichée dans la barre d’état (« OBS. DEPUIS 20/10 ») et sous le compteur (« % DU PRÉVU »).</dd>
         </dl>
+        <h3>Comptage des trains observés</h3>
+        <p>Chaque train observé et terminé entre dans une seule des quatre catégories qui suivent « OBSERVÉS » ci-dessous ; leur somme fait le total des observés.
+          Ces libellés sont les mêmes sur l’accueil, les bilans et les fiches de train.</p>
+        <dl>
+          {COUNT_KEYS.map((k) => <Fragment key={k}><dt>{COUNT_LABELS[k].short}</dt><dd>{COUNT_LABELS[k].long}.</dd></Fragment>)}
+        </dl>
+        <p>Seuls les trains qui <strong>ont roulé</strong> entrent dans la régularité, les tranches de retard et les indemnités : c’est l’effectif de tous les pourcentages.
+          Les suppressions sont comptées à part (taux de suppression). Les trains au terminus non desservi n’ont pas de retard final mesurable et sont exclus de la régularité ;
+          dans les faits, ce sont des parcours limités (terminus supprimé), souvent lors de perturbations importantes : leur exclusion rend la régularité un peu plus favorable que la réalité vécue.</p>
         <h3>Régularité officielle</h3>
         <p>Un train est à l’heure si son retard au terminus est <strong>strictement inférieur</strong> à un seuil qui dépend de la durée prévue du trajet.
           Taux = trains à l’heure / trains ayant circulé ; les suppressions sont exclues du dénominateur, comme dans la mesure officielle.</p>

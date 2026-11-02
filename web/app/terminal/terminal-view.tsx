@@ -197,7 +197,7 @@ export default function TerminalView() {
             <CausesPanel stats={stats} failed={statsFailed} loading={statsLoading} period={period} />
           </div>
         </div>
-        <RightPanel cumul={cumul} cumulFailed={cumulFailed} stats={stats} statsFailed={statsFailed} statsLoading={statsLoading} period={period} />
+        <RightPanel cumul={cumul} cumulFailed={cumulFailed} stats={stats} statsFailed={statsFailed} statsLoading={statsLoading} period={period} inFeed={trains.length} />
       </main>
       <FootBar />
     </div>

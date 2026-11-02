@@ -81,7 +81,7 @@ export function createCumulHandler(deps: Deps) {
   return async (req: Request) => {
     // Aucun paramètre : une seule clé de cache, refus avant toute lecture de la base.
     if (new URL(req.url).search !== '') return json({ error: 'aucun paramètre accepté' }, 400, 'no-store');
-    return guarded(async () => json(await deps.cached(['cumul', 'v3'], 300, async (): Promise<CumulPayload> => {
+    return guarded(async () => json(await deps.cached(['cumul', 'v4'], 300, async (): Promise<CumulPayload> => {
       const now = deps.now();
       const day = parisDate.format(now);
       const rows = await unwrap<CumulRow[]>(deps.rpc('cumul_totals', {}), 'cumul_totals');

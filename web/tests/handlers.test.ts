@@ -219,7 +219,7 @@ test('cumul : 200, forme, Cache-Control exact, clé et durée du cache', async (
   expect(body.computed_at).toBe(deps.now().toISOString());
   expect(body.today.circulated).toBe(0);
   expect(deps.rpc).toHaveBeenCalledWith('cumul_totals', {});
-  expect(cached.mock.calls[0].slice(0, 2)).toEqual([['cumul', 'v3'], 300]);
+  expect(cached.mock.calls[0].slice(0, 2)).toEqual([['cumul', 'v4'], 300]);
 });
 
 test('cumul : jours manquants puis jour en cours calculés à la volée, ligne AUJOURD\'HUI', async () => {
