@@ -1,7 +1,7 @@
 import { beforeEach, expect, test, vi } from 'vitest';
 import { createMareyHandler, createMareyIndexHandler } from '../lib/handlers';
 import {
-  matchLines, fetchWindow, findTrain, hourTicks, parseApiParams, parseMareyParams, plannedPoints, publishedDelayAt, shapeMarey, trainTrace,
+  blockOf, matchLines, fetchWindow, serviceDay, findTrain, hourTicks, parseApiParams, parseMareyParams, plannedPoints, publishedDelayAt, shapeMarey, trainTrace,
   type AxesFile, type RawStop, type RawTrain,
 } from '../lib/marey';
 import { prices } from './fixtures';
@@ -87,10 +87,16 @@ test('parseMareyParams et parseApiParams : valeurs par défaut, axe et numéro v
   expect(parseMareyParams(new URLSearchParams('axe=atlantique&train=8537'))).toEqual({ axe: 'ATLANTIQUE', train: '8537' });
   expect(parseMareyParams(new URLSearchParams('axe=est&train=abc'))).toEqual({ axe: 'EST', train: null });
   expect(parseMareyParams(new URLSearchParams('axe=OUEST'))).toEqual({ axe: 'ATLANTIQUE', train: null });
-  expect(parseApiParams(new URLSearchParams(''))).toEqual({ ok: true, axe: 'ATLANTIQUE' });
-  expect(parseApiParams(new URLSearchParams('axe=EST'))).toEqual({ ok: true, axe: 'EST' });
-  expect(parseApiParams(new URLSearchParams('axe=OUEST')).ok).toBe(false);
-  expect(parseApiParams(new URLSearchParams('train=1')).ok).toBe(false);
+  const n = 1_793_620_000; // 2026-11-02
+  expect(parseApiParams(new URLSearchParams(''), n)).toEqual({ ok: true, axe: 'ATLANTIQUE', bloc: null });
+  expect(parseApiParams(new URLSearchParams('axe=EST'), n)).toEqual({ ok: true, axe: 'EST', bloc: null });
+  expect(parseApiParams(new URLSearchParams('axe=OUEST'), n).ok).toBe(false);
+  expect(parseApiParams(new URLSearchParams('train=1'), n).ok).toBe(false);
+  const b = blockOf(n);
+  expect(parseApiParams(new URLSearchParams(`axe=NORD&bloc=${b}`), n)).toEqual({ ok: true, axe: 'NORD', bloc: b });
+  expect(parseApiParams(new URLSearchParams(`bloc=${b + 60}`), n).ok).toBe(false); // pas aligné
+  expect(parseApiParams(new URLSearchParams(`bloc=${b - 3 * 86_400}`), n).ok).toBe(false); // trop ancien
+  expect(parseApiParams(new URLSearchParams('bloc=abc'), n).ok).toBe(false);
 });
 
 test('hourTicks : chaque heure pleine de la fenêtre', () => {
@@ -141,4 +147,23 @@ test('index : fenêtre affichée ±3 h autour du seau, aucun paramètre accepté
   expect((await r.json()).trains).toEqual([['ATLANTIQUE', '8537', 'Paris', 'Hendaye', 2400]]);
   expect(d.rpc).toHaveBeenCalledWith('marey_index', { p_from: '2026-11-02T07:00:00.000Z', p_to: '2026-11-02T13:00:00.000Z' });
   expect((await createMareyIndexHandler(deps())(new Request('http://x/api/marey/index?axe=EST'))).status).toBe(400);
+});
+
+test('serviceDay : de 4 h à 2 h le lendemain (Paris), avant 4 h la journée de la veille', () => {
+  const at = (iso: string) => Date.parse(iso) / 1000;
+  expect(serviceDay(at('2026-11-02T13:00:00Z')).map((t) => new Date(t * 1000).toISOString())).toEqual(['2026-11-02T03:00:00.000Z', '2026-11-03T01:00:00.000Z']);
+  expect(serviceDay(at('2026-11-03T02:30:00Z'))[0]).toBe(at('2026-11-02T03:00:00Z')); // 3 h 30 à Paris : encore le 2
+  expect(serviceDay(at('2026-07-01T12:00:00Z'))[0]).toBe(at('2026-07-01T02:00:00Z')); // heure d'été
+});
+
+test('handler par tranche : fenêtre de 3 h, cache 1 h pour une tranche passée, 10 min pour la tranche en cours', async () => {
+  const d = deps();
+  const calls: number[] = [];
+  const cached = <T>(_k: string[], s: number, fn: () => Promise<T>) => { calls.push(s); return fn(); };
+  const nowS = Date.parse('2026-11-02T10:07:30Z') / 1000;
+  const old = blockOf(nowS) - 3 * 3 * 3600;
+  await createMareyHandler({ ...d, cached })(new Request(`http://x/api/marey?axe=ATLANTIQUE&bloc=${old}`));
+  expect(d.rpc).toHaveBeenLastCalledWith('marey_trains', { p_axis: 'ATLANTIQUE', p_from: new Date(old * 1000).toISOString(), p_to: new Date((old + 10800) * 1000).toISOString() });
+  await createMareyHandler({ ...d, cached })(new Request(`http://x/api/marey?axe=ATLANTIQUE&bloc=${blockOf(nowS)}`));
+  expect(calls.filter((s) => s !== 86_400)).toEqual([3600, 600]);
 });

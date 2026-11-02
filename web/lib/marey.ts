@@ -7,6 +7,25 @@ export const DEFAULT_AXE = 'ATLANTIQUE';
 export const HALF_WINDOW_S = 3 * 3600; // fenêtre de 6 h centrée sur maintenant
 export const FETCH_MARGIN_S = 3600; // marge côté serveur : la réponse peut avoir jusqu'à ~11 min
 export const BUCKET_S = 600; // seau du cache serveur : un appel à la base par axe toutes les 10 min au plus
+// Défilement sur la journée : données par tranches de 3 h chargées à la demande ; une tranche finie depuis plus d'une heure
+// change peu (seuls des trains très en retard y circulent encore) et reste une heure en cache.
+export const BLOCK_S = 3 * 3600;
+export const PAST_TTL_S = 3600;
+export const DAY_START_H = 4; // journée de service affichée : 4 h → 2 h le lendemain (heure de Paris)
+export const DAY_SPAN_H = 22;
+
+export const blockOf = (t: number) => Math.floor(t / BLOCK_S) * BLOCK_S;
+
+// Début et fin de la journée de service contenant `nowS` ; avant 4 h, c'est encore celle de la veille.
+// ponytail: décalage de Paris pris à `nowS` ; un jour de changement d'heure, la plage glisse d'une heure.
+export function serviceDay(nowS: number): [number, number] {
+  const off = new Intl.DateTimeFormat('en-US', { timeZone: 'Europe/Paris', timeZoneName: 'longOffset' })
+    .formatToParts(new Date(nowS * 1000)).find((x) => x.type === 'timeZoneName')!.value;
+  const m = off.match(/([+-])(\d{2}):(\d{2})/);
+  const offS = m ? (m[1] === '-' ? -1 : 1) * (Number(m[2]) * 3600 + Number(m[3]) * 60) : 0;
+  const local = nowS + offS, start = Math.floor((local - DAY_START_H * 3600) / 86_400) * 86_400 + DAY_START_H * 3600 - offS;
+  return [start, start + DAY_SPAN_H * 3600];
+}
 
 // Clés produites par public.marey_trains() ; les valeurs nulles sont omises.
 // Arrêt = [code UIC, arrivée (epoch s), départ (epoch s), retard (s) ou null, supprimé, stop_sequence].
@@ -69,10 +88,16 @@ export function parseMareyParams(search: URLSearchParams): MareyParams {
 }
 
 // Requête de l'API : refuse tout paramètre inconnu et tout axe hors liste.
-export function parseApiParams(search: URLSearchParams): { ok: true; axe: string } | { ok: false; error: string } {
-  for (const k of search.keys()) if (k !== 'axe') return { ok: false, error: `paramètre inconnu : ${k}` };
+// `bloc` (facultatif) : début d'une tranche de 3 h (epoch s, multiple de 3 h), d'hier à demain seulement.
+export function parseApiParams(search: URLSearchParams, nowS: number): { ok: true; axe: string; bloc: number | null } | { ok: false; error: string } {
+  for (const k of search.keys()) if (k !== 'axe' && k !== 'bloc') return { ok: false, error: `paramètre inconnu : ${k}` };
   const axe = search.get('axe') ?? DEFAULT_AXE;
-  return (MAREY_AXES as readonly string[]).includes(axe) ? { ok: true, axe } : { ok: false, error: 'axe inconnu' };
+  if (!(MAREY_AXES as readonly string[]).includes(axe)) return { ok: false, error: 'axe inconnu' };
+  const raw = search.get('bloc');
+  if (raw === null) return { ok: true, axe, bloc: null };
+  const bloc = /^\d{9,11}$/.test(raw) ? Number(raw) : NaN;
+  if (!Number.isFinite(bloc) || bloc % BLOCK_S !== 0 || bloc < nowS - 36 * 3600 || bloc > nowS + 30 * 3600) return { ok: false, error: 'tranche invalide' };
+  return { ok: true, axe, bloc };
 }
 
 export type Line = { id: string; label: string; gares: { nom: string; km: number; stop_ids: string[] }[] };
@@ -185,17 +210,17 @@ export function trainSpan(t: Pick<MareyTrain, 'stops'>): [number, number] | null
   if (t.stops.length === 0) return null;
   return [t.stops[0][1], t.stops[t.stops.length - 1][2] + Math.max(0, ...t.stops.map((s) => s[3] ?? 0))];
 }
-export function inWindow(t: Pick<MareyTrain, 'stops'>, nowS: number): boolean {
+export function inWindow(t: Pick<MareyTrain, 'stops'>, nowS: number, half = HALF_WINDOW_S): boolean {
   const sp = trainSpan(t);
-  return sp !== null && sp[1] >= nowS - HALF_WINDOW_S && sp[0] <= nowS + HALF_WINDOW_S;
+  return sp !== null && sp[1] >= nowS - half && sp[0] <= nowS + half;
 }
 
 // Train désigné par ?train= : un train de ce numéro dont le parcours (retard compris) croise la fenêtre ±3 h ;
 // s'il y en a deux (hier et aujourd'hui), le plus proche de maintenant. Aucun : null, jamais un autre numéro.
-export function findTrain<T extends Pick<MareyTrain, 'train_number' | 'stops'>>(trains: T[], number: string, nowS: number): T | null {
+export function findTrain<T extends Pick<MareyTrain, 'train_number' | 'stops'>>(trains: T[], number: string, nowS: number, half = HALF_WINDOW_S): T | null {
   let best: { t: T; gap: number } | null = null;
   for (const t of trains) {
-    if (t.train_number !== number || !inWindow(t, nowS)) continue;
+    if (t.train_number !== number || !inWindow(t, nowS, half)) continue;
     const [lo, hi] = trainSpan(t)!;
     const gap = nowS < lo ? lo - nowS : nowS > hi ? nowS - hi : 0;
     if (!best || gap < best.gap) best = { t, gap };

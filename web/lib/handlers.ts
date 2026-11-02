@@ -1,7 +1,7 @@
 import { unwrap, type Result } from './db';
 import { shapeCumul, type CumulRow } from './cumul';
 import { shapeLive, type LiveTrain } from './live';
-import { BUCKET_S, HALF_WINDOW_S, fetchWindow, parseApiParams, shapeMarey, type RawTrain, type StopRow } from './marey';
+import { BLOCK_S, BUCKET_S, HALF_WINDOW_S, PAST_TTL_S, fetchWindow, parseApiParams, shapeMarey, type RawTrain, type StopRow } from './marey';
 import { loadRules } from './rules';
 import { parseStatsParams } from './params';
 import { shapeStats, type Price, type Scale, type StatRow } from './stats';
@@ -89,11 +89,16 @@ export function createCumulHandler(deps: Deps) {
 
 export function createMareyHandler(deps: Deps) {
   return async (req: Request) => {
-    const p = parseApiParams(new URL(req.url).searchParams);
+    const nowS = Math.floor(deps.now().getTime() / 1000);
+    const p = parseApiParams(new URL(req.url).searchParams, nowS);
     if (!p.ok) return json({ error: p.error }, 400, 'no-store');
-    const w = fetchWindow(deps.now());
-    // Clé = axe validé + seau de 10 min, jamais une chaîne brute de l'utilisateur. Les gares (244 lignes) sont relues une fois par jour.
-    return guarded(async () => json(await deps.cached(['marey', 'v2', p.axe, String(w.bucket)], BUCKET_S, async () => {
+    // Sans tranche : la fenêtre autour de maintenant. Avec : la tranche demandée, en cache 1 h si elle est finie depuis plus d'une heure.
+    const fw = fetchWindow(deps.now());
+    const past = p.bloc !== null && p.bloc + BLOCK_S < nowS - PAST_TTL_S;
+    const ttl = past ? PAST_TTL_S : BUCKET_S;
+    const w = p.bloc === null ? fw : { bucket: Math.floor(nowS / ttl) * ttl, from: new Date(p.bloc * 1000).toISOString(), to: new Date((p.bloc + BLOCK_S) * 1000).toISOString() };
+    // Clé = axe et tranche validés + seau de temps, jamais une chaîne brute de l'utilisateur. Les gares (244 lignes) sont relues une fois par jour.
+    return guarded(async () => json(await deps.cached(['marey', 'v3', p.axe, String(p.bloc ?? 'now'), String(w.bucket)], ttl, async () => {
       const [trains, prices, stops] = await Promise.all([
         unwrap<RawTrain[]>(deps.rpc('marey_trains', { p_axis: p.axe, p_from: w.from, p_to: w.to }), 'marey_trains'),
         unwrap<Price[]>(deps.select('reference_prices', 'brand,price_eur_ht,seats,price_source,seats_source,as_of'), 'reference_prices'),

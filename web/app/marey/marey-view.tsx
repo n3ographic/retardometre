@@ -4,7 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CAUSE_LABELS } from '../../lib/causes';
 import { TERMINUS_BUCKETS } from '../../lib/dashboard-model';
 import {
-  HALF_WINDOW_S, MAREY_AXES, findTrain, hourTicks, inWindow, matchLines, parseMareyParams, span, trainTrace,
+  BLOCK_S, DAY_SPAN_H, HALF_WINDOW_S, MAREY_AXES, PAST_TTL_S, blockOf, findTrain, hourTicks, inWindow, matchLines, parseMareyParams,
+  serviceDay, span, trainSpan, trainTrace,
   type AxesFile, type Match, type MareyGares, type MareyTrain, type Trace,
 } from '../../lib/marey';
 import { LABEL_MAX, isForeign, layoutLabels, pickLabels, shortName } from '../../lib/marey-layout';
@@ -15,6 +16,7 @@ import StatusBar from '../terminal/status-bar';
 
 const REFRESH_MS = 60_000;
 const MARGIN = { top: 22, right: 12, bottom: 16 };
+const SCROLLBAR_PX = 12; // place de la barre de défilement horizontale
 const CHAR_PX = 6.6; // largeur d'un caractère des étiquettes (monospace 11 px)
 const COL_PX = Math.ceil(LABEL_MAX * CHAR_PX) + 10;
 const LABEL_GAP_PX = 14;
@@ -59,7 +61,7 @@ function writeUrl(axe: string, train: string | null) {
 }
 
 export default function MareyView() {
-  const [data, setData] = useState<Payload | null>(null);
+  const [blocks, setBlocks] = useState<Record<string, Payload>>({});
   const [failed, setFailed] = useState(false);
   const [index, setIndex] = useState<IndexRow[] | null>(null);
   const [nowMs, setNowMs] = useState<number | null>(null);
@@ -68,7 +70,10 @@ export default function MareyView() {
   const [hover, setHover] = useState<string | null>(null);
   const [wanted, setWanted] = useState<{ axe: string; train: string | null; axeGiven: boolean } | null>(null);
   const [query, setQuery] = useState('');
+  const [viewFrom, setViewFrom] = useState<number | null>(null); // heure du bord gauche du graphique (défilement)
   const [box, size] = useSize<HTMLDivElement>();
+  const scroller = useRef<HTMLDivElement>(null);
+  const placed = useRef<{ key: string; onTrain: boolean; user: boolean } | null>(null); // centrage déjà fait pour (axe, train)
 
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
@@ -101,32 +106,61 @@ export default function MareyView() {
     setWanted({ ...wanted, axeGiven: true, axe: row?.[0] ?? wanted.axe });
   }, [wanted, index]);
   const axe = wanted && (wanted.axeGiven || !wanted.train) ? wanted.axe : null;
+
+  const nowS = nowMs === null ? null : Math.floor(nowMs / 1000);
+  const [dayStart, dayEnd] = nowS === null ? [0, 0] : serviceDay(nowS);
+  const vFrom = viewFrom ?? (nowS ?? 0) - HALF_WINDOW_S;
+  const vTo = vFrom + 2 * HALF_WINDOW_S;
+  // Tranches de 3 h nécessaires : celles qui couvrent l'écran, plus une heure de chaque côté, dans la journée de service.
+  const needed = useMemo(() => {
+    if (nowS === null) return [];
+    const out: number[] = [];
+    for (let b = blockOf(Math.max(vFrom - 3600, dayStart - BLOCK_S)); b < Math.min(vTo + 3600, dayEnd); b += BLOCK_S) out.push(b);
+    return out;
+  }, [vFrom, vTo, dayStart, dayEnd, nowS]);
+  const inflight = useRef(new Set<string>());
+  useEffect(() => { setBlocks({}); inflight.current.clear(); }, [axe]);
+  const fetchBlock = useCallback(async (a: string, b: number) => {
+    const key = `${a}:${b}`;
+    if (inflight.current.has(key)) return;
+    inflight.current.add(key);
+    try {
+      const r = await fetch(`/api/marey?axe=${a}&bloc=${b}`);
+      if (!r.ok) throw new Error(String(r.status));
+      const d = (await r.json()) as Payload;
+      setBlocks((prev) => (d.axe === a ? { ...prev, [key]: d } : prev));
+      setFailed(false);
+    } catch { setFailed(true); } finally { inflight.current.delete(key); }
+  }, []);
   useEffect(() => {
     if (!axe) return;
-    let alive = true;
-    setData(null);
-    const load = async () => {
-      try {
-        const r = await fetch(`/api/marey?axe=${axe}`);
-        if (!r.ok) throw new Error(String(r.status));
-        const d = (await r.json()) as Payload;
-        if (!alive) return;
-        setData(d);
-        setFailed(false);
-      } catch { if (alive) setFailed(true); } // on garde les derniers trains
-    };
-    load();
-    const t = setInterval(load, REFRESH_MS);
-    return () => { alive = false; clearInterval(t); };
-  }, [axe]);
+    for (const b of needed) if (!blocks[`${axe}:${b}`]) fetchBlock(axe, b);
+  }, [axe, needed, blocks, fetchBlock]);
+  // Rafraîchissement : seules les tranches encore vivantes (finies il y a moins d'une heure) sont relues.
+  useEffect(() => {
+    if (!axe) return;
+    const t = setInterval(() => {
+      const n = Date.now() / 1000;
+      for (const key of Object.keys(blocks)) {
+        const [a, b] = key.split(':');
+        if (a === axe && Number(b) + BLOCK_S >= n - PAST_TTL_S) fetchBlock(a, Number(b));
+      }
+    }, REFRESH_MS);
+    return () => clearInterval(t);
+  }, [axe, blocks, fetchBlock]);
+  // Trains de toutes les tranches chargées, sans doublon (un train à cheval sur deux tranches y figure deux fois).
+  const data = useMemo<Payload | null>(() => {
+    const list = Object.entries(blocks).filter(([k]) => k.startsWith(`${axe}:`)).map(([, v]) => v);
+    if (!axe || list.length === 0) return null;
+    const trains = new Map<string, MareyTrain>(), gares: MareyGares = {};
+    for (const p of list) { Object.assign(gares, p.gares); for (const t of p.trains) trains.set(keyOf(t), t); }
+    return { axe, gares, trains: [...trains.values()], generated_at: list.map((p) => p.generated_at).sort().at(-1)! };
+  }, [blocks, axe]);
 
-  // Lignes et branches : construites une fois par réponse (toutes les 60 s au plus), jamais à chaque rendu.
-  // Seulement les trains de la fenêtre ±3 h (au moment de la réponse) : le seuil « moins de 3 trains » et les compteurs en dépendent.
-  const built = useMemo(() => {
-    if (!data || data.axe !== axe) return null;
-    const at = Math.floor(Date.now() / 1000);
-    return buildAxis(data.trains.filter((t) => inWindow(t, at)), data.gares, data.axe);
-  }, [data, axe]);
+  // Lignes et branches : construites sur les trains de l'écran (fenêtre de 6 h, arrondie à la demi-heure), une fois par
+  // réponse ou par demi-heure de défilement, jamais à chaque rendu. Le seuil « moins de 3 trains » en dépend.
+  const winMid = Math.round((vFrom + HALF_WINDOW_S) / 1800) * 1800;
+  const built = useMemo(() => (data ? buildAxis(data.trains.filter((t) => inWindow(t, winMid)), data.gares, data.axe) : null), [data, winMid]);
   useEffect(() => { for (const w of built?.warnings ?? []) console.warn(w); }, [built]);
   const axesFile = useMemo<AxesFile | null>(() => (built ? { branches: built.branches.map((b) => ({ ...b, lignes: [...b.lignes, ...b.autres] })) } : null), [built]);
   const items = useMemo<Item[]>(() => {
@@ -134,15 +168,14 @@ export default function MareyView() {
     return data.trains.map((train) => ({ train, key: keyOf(train), matches: matchLines(train, axesFile) })).filter((i) => i.matches.length > 0);
   }, [axesFile, data]);
 
-  const nowS = nowMs === null ? null : Math.floor(nowMs / 1000);
+  // Train désigné : cherché dans toute la journée chargée.
   const highlighted = useMemo(() => {
     if (!wanted?.train || nowS === null) return null;
-    const t = findTrain(items.map((i) => i.train), wanted.train, nowS);
+    const t = findTrain(items.map((i) => i.train), wanted.train, nowS, DAY_SPAN_H * 3600);
     return t ? keyOf(t) : null;
   }, [items, wanted, nowS]);
-  const hlMatches = items.find((i) => i.key === highlighted)?.matches ?? [];
-  const minuteS = nowS === null ? null : Math.floor(nowS / 60) * 60;
-  const visible = useMemo(() => (minuteS === null ? [] : items.filter((i) => inWindow(i.train, minuteS))), [items, minuteS]);
+  const hlItem = items.find((i) => i.key === highlighted) ?? null;
+  const hlMatches = hlItem?.matches ?? [];
 
   const branches: Branch[] = built?.branches ?? [];
   const branch = branches.find((b) => b.id === tab) ?? branches.find((b) => hlMatches.some((m) => m.branch === b.id)) ?? branches[0] ?? null;
@@ -151,20 +184,53 @@ export default function MareyView() {
     ?? allLines.find((l) => hlMatches.some((m) => m.branch === branch!.id && m.line === l.id))
     ?? branch?.lignes[0] ?? branch?.autres[0] ?? null;
 
-  const from = nowS === null ? 0 : nowS - HALF_WINDOW_S, to = nowS === null ? 0 : nowS + HALF_WINDOW_S;
-  // Tracés recalculés à la minute et au changement de ligne ; seule la ligne MAINTENANT suit la seconde.
-  const shown = useMemo<Shown[]>(() => (!line || !branch || minuteS === null ? [] : visible
-    .filter((i) => i.matches.some((m) => m.branch === branch.id && m.line === line.id))
-    .map((i) => ({ ...i, trace: trainTrace(i.train, line, minuteS - HALF_WINDOW_S - 60, minuteS + HALF_WINDOW_S + 60, minuteS) }))
-    .filter((i) => { const sp = span(i.trace); return sp !== null && sp[1] >= minuteS - HALF_WINDOW_S && sp[0] <= minuteS + HALF_WINDOW_S; })), [visible, branch, line, minuteS]);
+  // Tracés : trains de la ligne sur l'écran ± 3 h, recalculés à la minute, au changement de ligne ou par demi-heure de défilement.
+  const minuteS = nowS === null ? null : Math.floor(nowS / 60) * 60;
+  const shown = useMemo<Shown[]>(() => (!line || !branch || minuteS === null ? [] : items
+    .filter((i) => inWindow(i.train, winMid, 2 * HALF_WINDOW_S) && i.matches.some((m) => m.branch === branch.id && m.line === line.id))
+    .map((i) => ({ ...i, trace: trainTrace(i.train, line, winMid - 2 * HALF_WINDOW_S, winMid + 2 * HALF_WINDOW_S, minuteS) }))
+    .filter((i) => span(i.trace) !== null)), [items, branch, line, minuteS, winMid]);
 
-  const W = Math.max(size.w, 320), H = Math.max(size.h, 260);
+  const W = Math.max(size.w, 320), H = Math.max(size.h - SCROLLBAR_PX, 240);
   const maxKm = line ? Math.max(...line.gares.map((g) => g.km), 1) : 1;
   const y = useCallback((km: number) => MARGIN.top + (km / maxKm) * (H - MARGIN.top - MARGIN.bottom), [maxKm, H]);
-  // Étiquettes de gares : deux colonnes si la largeur le permet (la seconde décalée à gauche, avec un trait de rappel).
+  // Étiquettes de gares (colonne fixe) : deux colonnes si la largeur le permet, la seconde avec un trait de rappel.
   const cols = useMemo(() => (line ? layoutLabels(line.gares.map((g) => y(g.km)), LABEL_GAP_PX, W >= 640) : []), [line, y, W]);
   const left = (cols.includes(1) ? 2 * COL_PX : COL_PX) + 8;
-  const x = useCallback((t: number) => left + ((t - from) / (to - from)) * (W - left - MARGIN.right), [from, to, W, left]);
+  const plotW = Math.max(W - left, 160);
+  const pxPerS = plotW / (2 * HALF_WINDOW_S); // l'écran montre toujours 6 h
+  const totalW = Math.ceil((dayEnd - dayStart) * pxPerS) + MARGIN.right;
+  const x = useCallback((t: number) => (t - dayStart) * pxPerS, [dayStart, pxPerS]);
+
+  // Défilement : l'heure du bord gauche suit la barre de défilement.
+  const scrollTo = useCallback((t: number, smooth = false) => {
+    const el = scroller.current;
+    if (!el) return;
+    el.scrollTo({ left: Math.max(0, (t - dayStart) * pxPerS - plotW / 2), behavior: smooth ? 'smooth' : 'auto' });
+  }, [dayStart, pxPerS, plotW]);
+  const programmatic = useRef(false);
+  const onScroll = () => {
+    const el = scroller.current;
+    if (el && pxPerS > 0) setViewFrom(dayStart + el.scrollLeft / pxPerS);
+    if (programmatic.current) programmatic.current = false;
+    else if (placed.current) placed.current.user = true; // défilement à la main : plus de recentrage automatique
+  };
+  // Centrage : à l'ouverture d'un axe ou d'un train (sur le train s'il est chargé, sinon sur maintenant), puis une seule fois
+  // sur le train dès qu'il arrive, sauf si l'utilisateur a déjà fait défiler. Le recalcul des lignes au défilement ne recentre pas.
+  useEffect(() => {
+    if (!axe || nowS === null || !scroller.current || size.w === 0) return;
+    const key = `${axe}:${wanted?.train ?? ''}`;
+    const sp = hlItem ? trainSpan(hlItem.train) : null;
+    const center = (t: number) => { programmatic.current = true; scrollTo(t); };
+    const onTrain = (s: [number, number]) => center(Math.min(Math.max((s[0] + s[1]) / 2, s[0] + HALF_WINDOW_S / 2), s[1]));
+    if (placed.current?.key !== key) {
+      placed.current = { key, onTrain: sp !== null, user: false };
+      if (sp) onTrain(sp); else center(nowS);
+    } else if (!placed.current.onTrain && sp && !placed.current.user) {
+      placed.current.onTrain = true;
+      onTrain(sp);
+    }
+  });
 
   const selectTrain = (axeId: string, number: string) => {
     setTab(null); setLineId(null); setHover(null);
@@ -173,7 +239,7 @@ export default function MareyView() {
   };
   const selectAxe = (axeId: string) => {
     setTab(null); setLineId(null); setHover(null);
-    setWanted((w) => ({ axe: axeId, train: null, axeGiven: true, ...(w ? {} : {}) }));
+    setWanted({ axe: axeId, train: null, axeGiven: true });
     writeUrl(axeId, null);
   };
   // Clavier : 1 à 5 change d'axe, ← → change de branche (sauf pendant une saisie).
@@ -211,17 +277,17 @@ export default function MareyView() {
     const it = shown.find((i) => i.key === hover);
     if (!it || !branch || !line || !axe) return;
     setTab(branch.id); setLineId(line.id);
+    placed.current = { key: `${axe}:${it.train.train_number}`, onTrain: true, user: true }; // pas de recentrage sur un clic
     setWanted({ axe, train: it.train.train_number, axeGiven: true });
     writeUrl(axe, it.train.train_number);
   };
 
-  // Numéros en bout de ligne (dernier point visible) : boîtes englobantes, le surligné puis les plus en retard d'abord.
+  // Numéros en bout de ligne (dernier point tracé) : boîtes englobantes, le surligné puis les plus en retard d'abord.
   const numbers = pickLabels(shown.flatMap((i) => {
-    const pts = i.trace.actual.filter((p) => p.t >= from && p.t <= to);
-    const p = pts[pts.length - 1];
+    const p = i.trace.actual[i.trace.actual.length - 1];
     if (!p || i.train.cancelled) return [];
     const w = i.train.train_number.length * NUM_CHAR_PX, h = 10;
-    const bx = Math.min(x(p.t) + 4, W - MARGIN.right - w), by = Math.min(Math.max(y(p.km) - 7, MARGIN.top), H - h - 2);
+    const bx = Math.min(x(p.t) + 4, totalW - MARGIN.right - w), by = Math.min(Math.max(y(p.km) - 7, MARGIN.top), H - h - 2);
     return [{ key: i.key, x: bx, y: by, w, h, priority: i.key === highlighted ? 1e9 : (i.train.delay_s ?? 0) }];
   }));
   // Bandes HORS FRANCE : suites de gares étrangères, jusqu'à mi-chemin des gares françaises voisines (ou au bord).
@@ -240,9 +306,9 @@ export default function MareyView() {
     }
     return out;
   })();
-  const halfTicks = nowS === null ? [] : hourTicks(from - 1800, to).map((t) => t + 1800).filter((t) => t >= from && t <= to);
-  const ticks = nowS === null ? [] : hourTicks(from, to);
-  const hourStep = (W - left - MARGIN.right) / ((to - from) / 3600) < 44 ? 2 : 1;
+  const ticks = nowS === null ? [] : hourTicks(dayStart, dayEnd);
+  const halfTicks = ticks.map((t) => t + 1800).filter((t) => t < dayEnd);
+  const hourStep = pxPerS * 3600 < 44 ? 2 : 1;
   const focused = items.find((i) => i.key === (hover ?? highlighted)) ?? null;
   const status = data ? { status: 'ok' as const, ageMin: Math.round((Date.now() - Date.parse(data.generated_at)) / 60000) } : { status: 'unknown' as const, ageMin: null };
   const axisCount = (a: string) => (index ? index.filter((r) => r[0] === a).length : null);
@@ -253,6 +319,8 @@ export default function MareyView() {
     const row = num && index?.find((r) => r[1] === num);
     if (row && (v.includes('·') || v.trim() === num)) { selectTrain(row[0], num); setQuery(''); }
   };
+  const nowOffscreen = nowS !== null && (nowS < vFrom || nowS > vTo);
+  const plotH = H - MARGIN.top - MARGIN.bottom;
 
   return (
     <div className="term">
@@ -305,65 +373,71 @@ export default function MareyView() {
             {failed && data && <p className="marey-stale" role="status">MISE À JOUR ÉCHOUÉE · DERNIÈRES DONNÉES AFFICHÉES</p>}
             {!data && !failed && <p className="term-dim marey-empty">CHARGEMENT…</p>}
             {line && nowS !== null && (
-              <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Trains vers ${line.label} : distance selon l'heure`}
-                onMouseMove={onMove} onMouseLeave={() => setHover(null)} onClick={onClick}>
-                <defs><clipPath id="marey-plot"><rect x={left} y={MARGIN.top} width={W - left - MARGIN.right} height={H - MARGIN.top - MARGIN.bottom} /></clipPath></defs>
-                {foreign.map((f, k) => (
-                  <g key={`f${k}`}>
-                    <rect x={left} y={f.y0} width={W - left - MARGIN.right} height={Math.max(0, f.y1 - f.y0)} className="m-foreign" />
-                    <text x={W - MARGIN.right - 4} y={f.y0 + 11} textAnchor="end" className="m-foreign-lab">HORS FRANCE</text>
-                  </g>
-                ))}
-                <rect x={x(nowS)} y={MARGIN.top} width={Math.max(0, W - MARGIN.right - x(nowS))} height={H - MARGIN.top - MARGIN.bottom} className="m-future" />
-                {halfTicks.map((t) => <line key={`h${t}`} x1={x(t)} x2={x(t)} y1={MARGIN.top} y2={H - MARGIN.bottom} className="m-grid-half" />)}
-                {ticks.map((t) => (
-                  <g key={t}>
-                    <line x1={x(t)} x2={x(t)} y1={MARGIN.top} y2={H - MARGIN.bottom} className="m-grid" />
-                    {(t / 3600) % hourStep === 0 && <text x={x(t)} y={MARGIN.top - 8} textAnchor="middle" className="m-lab">{hhmm(t)}</text>}
-                  </g>
-                ))}
-                {line.gares.map((g, i) => {
-                  const gy = y(g.km), col = cols[i];
-                  const lx = col === 1 ? left - COL_PX - 8 : left - 6;
-                  return (
-                    <g key={g.nom}>
-                      <line x1={left} x2={W - MARGIN.right} y1={gy} y2={gy} className="m-grid" />
-                      {col === 1 && <line x1={lx + 3} x2={left - 2} y1={gy} y2={gy} className="m-leader" />}
-                      {col !== null && <text x={lx} y={gy + 4} textAnchor="end" className={isForeign(g.stop_ids) ? 'm-lab m-lab-foreign' : 'm-lab'}><title>{g.nom}</title>{shortName(g.nom)}</text>}
-                    </g>
-                  );
-                })}
-                <g clipPath="url(#marey-plot)">
-                  {shown.map((i) => {
-                    const hl = i.key === highlighted, hov = i.key === hover;
-                    const op = hl || hov ? 1 : highlighted ? 0.25 : 1;
-                    const d = i.trace.planned.map((p, k) => `${k ? 'L' : 'M'}${x(p.t).toFixed(1)},${y(p.km).toFixed(1)}`).join('');
+              <>
+                <svg className="marey-labels" width={left} height={H} aria-hidden="true">
+                  {line.gares.map((g, i) => {
+                    const gy = y(g.km), col = cols[i];
+                    const lx = col === 1 ? left - COL_PX - 8 : left - 6;
                     return (
-                      <g key={i.key} opacity={op}>
-                        <path d={d} className="m-plan" strokeWidth={hl || hov ? 1.25 : 1} />
-                        {!i.train.cancelled && i.trace.runs.map((r, k) => (
-                          <path key={k} d={r.points.map((p, j) => `${j ? 'L' : 'M'}${x(p.t).toFixed(1)},${y(p.km).toFixed(1)}`).join('')} className="m-run"
-                            stroke={`var(--seg${bucketIndex(r.delay)})`} strokeWidth={hl ? 2.5 : hov ? 2 : 1.25} opacity={r.future ? 0.5 : 1} />
-                        ))}
+                      <g key={g.nom}>
+                        {col === 1 && <line x1={lx + 3} x2={left} y1={gy} y2={gy} className="m-leader" />}
+                        {col !== null && <text x={lx} y={gy + 4} textAnchor="end" className={isForeign(g.stop_ids) ? 'm-lab m-lab-foreign' : 'm-lab'}><title>{g.nom}</title>{shortName(g.nom)}</text>}
                       </g>
                     );
                   })}
-                </g>
-                {numbers.map((n) => {
-                  const hl = n.key === highlighted;
-                  return <text key={n.key} x={n.x} y={n.y + 8} className={hl ? 'm-num m-hl' : 'm-num'} opacity={hl || n.key === hover || !highlighted ? 1 : 0.35}>{n.key.split(':')[1]}</text>;
-                })}
-                <line x1={x(nowS)} x2={x(nowS)} y1={MARGIN.top} y2={H - MARGIN.bottom} className="m-now" />
-                <text x={x(nowS) + 4} y={H - MARGIN.bottom - 4} className="m-now-lab">MAINTENANT</text>
-              </svg>
+                </svg>
+                <div className="marey-scroll" ref={scroller} onScroll={onScroll} style={{ left }} tabIndex={0} aria-label="Défilement horaire de la journée">
+                  <svg width={totalW} height={H} role="img" aria-label={`Trains vers ${line.label} : distance selon l'heure, journée de service`}
+                    onMouseMove={onMove} onMouseLeave={() => setHover(null)} onClick={onClick}>
+                    {foreign.map((f, k) => (
+                      <g key={`f${k}`}>
+                        <rect x={0} y={f.y0} width={totalW} height={Math.max(0, f.y1 - f.y0)} className="m-foreign" />
+                        {ticks.filter((t) => ((t - dayStart) / 3600) % 3 === 0).map((t) => (
+                          <text key={t} x={x(t) + 4} y={f.y0 + 11} className="m-foreign-lab">HORS FRANCE</text>
+                        ))}
+                      </g>
+                    ))}
+                    <rect x={x(nowS)} y={MARGIN.top} width={Math.max(0, totalW - x(nowS))} height={plotH} className="m-future" />
+                    {halfTicks.map((t) => <line key={`h${t}`} x1={x(t)} x2={x(t)} y1={MARGIN.top} y2={H - MARGIN.bottom} className="m-grid-half" />)}
+                    {ticks.map((t) => (
+                      <g key={t}>
+                        <line x1={x(t)} x2={x(t)} y1={MARGIN.top} y2={H - MARGIN.bottom} className="m-grid" />
+                        {(t / 3600) % hourStep === 0 && <text x={x(t)} y={MARGIN.top - 8} textAnchor={t === dayStart ? 'start' : 'middle'} className="m-lab">{hhmm(t)}</text>}
+                      </g>
+                    ))}
+                    {line.gares.map((g) => <line key={g.nom} x1={0} x2={totalW} y1={y(g.km)} y2={y(g.km)} className="m-grid" />)}
+                    {shown.map((i) => {
+                      const hl = i.key === highlighted, hov = i.key === hover;
+                      const op = hl || hov ? 1 : highlighted ? 0.25 : 1;
+                      const d = i.trace.planned.map((p, k) => `${k ? 'L' : 'M'}${x(p.t).toFixed(1)},${y(p.km).toFixed(1)}`).join('');
+                      return (
+                        <g key={i.key} opacity={op}>
+                          <path d={d} className="m-plan" strokeWidth={hl || hov ? 1.25 : 1} />
+                          {!i.train.cancelled && i.trace.runs.map((r, k) => (
+                            <path key={k} d={r.points.map((p, j) => `${j ? 'L' : 'M'}${x(p.t).toFixed(1)},${y(p.km).toFixed(1)}`).join('')} className="m-run"
+                              stroke={`var(--seg${bucketIndex(r.delay)})`} strokeWidth={hl ? 2.5 : hov ? 2 : 1.25} opacity={r.future ? 0.5 : 1} />
+                          ))}
+                        </g>
+                      );
+                    })}
+                    {numbers.map((n) => {
+                      const hl = n.key === highlighted;
+                      return <text key={n.key} x={n.x} y={n.y + 8} className={hl ? 'm-num m-hl' : 'm-num'} opacity={hl || n.key === hover || !highlighted ? 1 : 0.35}>{n.key.split(':')[1]}</text>;
+                    })}
+                    <line x1={x(nowS)} x2={x(nowS)} y1={MARGIN.top} y2={H - MARGIN.bottom} className="m-now" />
+                    <text x={x(nowS) + 4} y={H - MARGIN.bottom - 4} className="m-now-lab">MAINTENANT</text>
+                  </svg>
+                </div>
+                {nowOffscreen && <button type="button" className="marey-now-btn" onClick={() => scrollTo(nowS, true)}>{nowS < vFrom ? '← ' : ''}MAINTENANT{nowS > vTo ? ' →' : ''}</button>}
+              </>
             )}
-            {line && shown.length === 0 && data && !failed && <p className="term-dim marey-empty">AUCUN TRAIN DANS LA FENÊTRE SUR CETTE LIGNE</p>}
+            {line && shown.length === 0 && data && !failed && <p className="term-dim marey-empty">AUCUN TRAIN SUR CETTE LIGNE DANS LES HEURES CHARGÉES</p>}
           </div>
-          <p className="marey-note term-dim">POINTILLÉ = HORAIRE THÉORIQUE · PLEIN = RETARD PUBLIÉ RECONSTITUÉ À CHAQUE COLLECTE (≈ TOUTES LES 2 MIN) · APPROXIMATIF · ESTOMPÉ = PROLONGATION APRÈS MAINTENANT · TOUCHES 1-5 : AXE, ← → : BRANCHE</p>
+          <p className="marey-note term-dim">POINTILLÉ = HORAIRE THÉORIQUE · PLEIN = RETARD PUBLIÉ RECONSTITUÉ À CHAQUE COLLECTE (≈ TOUTES LES 2 MIN) · APPROXIMATIF · ESTOMPÉ = PROLONGATION APRÈS MAINTENANT · FAITES DÉFILER POUR VOIR LA JOURNÉE (4 H → 2 H) · TOUCHES 1-5 : AXE, ← → : BRANCHE</p>
         </div>
         <aside className="term-panel marey-side" aria-live="polite">
           <h2 className="term-panel-title">TRAIN</h2>
-          {wanted?.train && data && !highlighted && <p className="bad" role="status">TRAIN {wanted.train} INTROUVABLE DANS LA FENÊTRE</p>}
+          {wanted?.train && data && !highlighted && <p className="bad" role="status">TRAIN {wanted.train} INTROUVABLE DANS LES HEURES CHARGÉES</p>}
           {focused ? <TrainInfo item={focused} nowS={nowS ?? 0} /> : <p className="term-dim">SURVOLEZ UN TRAIN</p>}
         </aside>
       </main>
