@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { CAUSE_LABELS } from '../../../lib/causes';
 import { COUNT_KEYS, COUNT_LABELS, breakdownText } from '../../../lib/counts';
-import { TERMINUS_BUCKETS } from '../../../lib/dashboard-model';
+import { SAMPLE_MIN, TERMINUS_BUCKETS } from '../../../lib/dashboard-model';
 import { loadWeek } from '../../../lib/handlers';
 import { supabaseDeps } from '../../../lib/supabase';
 import { RANGE_HINT, bucketIndex, charBar, eurRange } from '../../../lib/terminal-model';
@@ -176,7 +176,7 @@ export default async function Page({ params }: Props) {
             <ol className="wk-causes">
               {v.causes.map((c) => (
                 <li key={c.category}>
-                  <p><strong>{c.label}</strong> <span className="wk-bar" aria-hidden="true">{charBar((c.cost_eur_ht / maxCause) * 100, 16)}</span> {eur(c.cost_eur_ht)}</p>
+                  <p><strong>{c.label}</strong> <span className="wk-bar" aria-hidden="true">{charBar((c.cost_eur_ht / maxCause) * 100, 16)}</span> {eur(c.cost_eur_ht)}{c.trains < SAMPLE_MIN && <span className="tone-late"> · ÉCHANTILLON FAIBLE</span>}</p>
                   <p className="term-dim">{c.sentence}</p>
                 </li>
               ))}

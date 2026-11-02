@@ -174,3 +174,4 @@ a.ta-btn:hover, a.ta-btn:focus-visible, .ta-btn.on { background: var(--t-amber);
 .cmd-help dt { width: 30ch; }
 .cmd-help dd { margin: 0; color: var(--t-amber-dim); }
 .live-note { margin: 4px 0 0; font-size: 11px; }
+.cause-more { font: inherit; font-size: 11px; color: var(--t-amber); background: none; border: 0; border-bottom: 1px dotted currentColor; padding: 0; cursor: pointer; }

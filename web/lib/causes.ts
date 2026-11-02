@@ -14,3 +14,13 @@ export const CAUSE_LABELS: Record<string, { short: string; long: string }> = {
   autre: { short: 'AUTRE', long: 'Autre' },
   sans_cause: { short: 'SANS CAUSE', long: 'Sans cause déclarée' },
 };
+
+// Extrait d'un texte de cause SNCF : jusqu'à la dernière fin de phrase avant max caractères (sinon dernier mot entier),
+// suivi de « … » ; texte court rendu tel quel.
+export function causeExcerpt(text: string, max = 160): { short: string; cut: boolean } {
+  if (text.length <= max) return { short: text, cut: false };
+  const head = text.slice(0, max);
+  const end = Math.max(head.lastIndexOf('. '), head.lastIndexOf('! '), head.lastIndexOf('? '));
+  const at = end >= 40 ? end + 1 : head.lastIndexOf(' ');
+  return { short: `${head.slice(0, at > 0 ? at : max).trimEnd()} …`, cut: true };
+}
