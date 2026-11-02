@@ -119,6 +119,13 @@ export default function TerminalView() {
     if (gare) u.searchParams.set('gare', gare.join(',')); else u.searchParams.delete('gare');
     window.history.replaceState(null, '', u);
   }, [selected, missing, gare]); // seule la sélection réécrit l'URL, pas chaque rafraîchissement des trains
+  // Train choisi avant l'arrivée du flux (ou entré dans le flux depuis) : il devient une vraie sélection, carte centrée.
+  useEffect(() => {
+    const hit = missing ? trains.find((t) => t.train_number === missing) : undefined;
+    if (!hit) return;
+    setFocus({ trip_id: hit.trip_id, at: Date.now() });
+    select(hit.trip_id);
+  }, [trains, missing, select]);
 
   // Tableau de la gare : relu à chaque minute tant que le panneau est ouvert (cache serveur d'un cycle de collecte).
   useEffect(() => {
