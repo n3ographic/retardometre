@@ -1,0 +1,30 @@
+/* Fiche par train (/train/XXXX) : même esthétique terminal, colonne unique lisible. */
+.tp { max-width: 980px; margin: 0 auto; padding: 12px 16px 24px; display: flex; flex-direction: column; gap: 10px; font-size: 13px; }
+.tp p { margin: 0 0 4px; }
+.tp .term-panel { order: 0; } /* l'accueil réordonne ses panneaux en largeur étroite */
+.tp-head h1 { margin: 0 0 4px; font-size: 18px; font-weight: 600; text-transform: uppercase; }
+.tp-big { font-size: 22px; letter-spacing: 0.02em; }
+.tp-big strong { font-size: 30px; }
+.tp-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+@media (max-width: 700px) { .tp-row { grid-template-columns: 1fr; } }
+
+/* Bande calendrier : une case par jour prévu, couleur de l'échelle des retards. */
+.tp-cal { list-style: none; margin: 4px 0 8px; padding: 0; display: flex; flex-wrap: wrap; gap: 3px; }
+.tp-cal li, .tp-key { display: inline-grid; place-items: center; width: 18px; height: 18px; font-size: 13px; line-height: 1; cursor: default; }
+.tp-key { width: 12px; height: 12px; vertical-align: -1px; }
+.tp-s0 { background: var(--seg0); } .tp-s1 { background: var(--seg1); } .tp-s2 { background: var(--seg2); } .tp-s3 { background: var(--seg3); }
+.tp-s4 { background: var(--seg4); } .tp-s5 { background: var(--seg5); } .tp-s6 { background: var(--seg6); }
+.tp-unobs { background: repeating-linear-gradient(45deg, var(--t-line) 0 2px, transparent 2px 5px); outline: 1px solid var(--t-line); outline-offset: -1px; }
+.tp-cancel { background: #000; color: var(--t-cancelled); outline: 1px solid var(--t-cancelled); outline-offset: -1px; }
+.tp-legend { font-size: 11px; }
+
+.tp-stops { border-collapse: collapse; width: 100%; }
+.tp-stops th, .tp-stops td { padding: 1px 10px 1px 0; text-align: left; white-space: nowrap; border-bottom: 1px dotted var(--t-line); font-weight: 400; }
+.tp-stops thead th { color: var(--t-amber-dim); text-transform: uppercase; }
+.tp-stops td:nth-child(2) { width: 100%; }
+.tp-bar { display: block; height: 8px; min-width: 1px; }
+.tp-amber { background: var(--t-amber); }
+.tp-track { align-self: center; width: 10ch; }
+.tp-list { list-style: none; margin: 0 0 6px; padding: 0; }
+.tp-list li { display: grid; grid-template-columns: 1fr 10ch 4ch; align-items: center; gap: 8px; border-bottom: 1px dotted var(--t-line); }
+.tp-list li span:last-child { text-align: right; }

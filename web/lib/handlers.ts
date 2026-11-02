@@ -1,7 +1,8 @@
 import { unwrap, type Result } from './db';
 import { shapeCumul, type CumulRow } from './cumul';
 import { shapeLive, type LiveTrain } from './live';
-import { BLOCK_S, BUCKET_S, HALF_WINDOW_S, PAST_TTL_S, fetchWindow, parseApiParams, shapeMarey, type RawTrain, type StopRow } from './marey';
+import { shapeProfile, type Profile, type RawProfile } from './train-profile';
+import { BLOCK_S, BUCKET_S, COLLECT_INTERVAL_S, HALF_WINDOW_S, PAST_TTL_S, fetchWindow, parseApiParams, shapeMarey, type RawTrain, type StopRow } from './marey';
 import { loadRules } from './rules';
 import { parseStatsParams } from './params';
 import { shapeStats, type Price, type Scale, type StatRow } from './stats';
@@ -108,6 +109,23 @@ export function createMareyHandler(deps: Deps) {
       return shapeMarey(p.axe, trains, prices, stops, deps.now()); // lève si invalide : rien n'est mis en cache
     }), 200, MAREY_CACHE));
   };
+}
+
+// Fiche d'un train (page /train/XXXX et son image de partage) : un appel à train_profile par numéro et par cycle de
+// collecte (2 min). Numéro invalide ou inconnu : null. Erreur de base : lève (rien n'est mis en cache).
+export async function loadTrainProfile(deps: Deps, number: string): Promise<Profile | null> {
+  if (!/^\d{1,5}$/.test(number)) return null;
+  const cycle = Math.floor(deps.now().getTime() / 1000 / COLLECT_INTERVAL_S);
+  return deps.cached(['train', 'v1', number, String(cycle)], COLLECT_INTERVAL_S, async () => {
+    const [raw, prices] = await Promise.all([
+      deps.rpc('train_profile', { p_number: number }).then(({ data, error }) => {
+        if (error || (data !== null && (typeof data !== 'object' || !Array.isArray((data as RawProfile).days)))) throw new Error('lecture de train_profile impossible');
+        return data as RawProfile | null; // objet, ou null pour un numéro inconnu
+      }),
+      unwrap<Price[]>(deps.select('reference_prices', 'brand,price_eur_ht,seats,price_source,seats_source,as_of'), 'reference_prices'),
+    ]);
+    return raw ? shapeProfile(number, raw, prices) : null;
+  });
 }
 
 // Toutes les gares, une par code UIC : [uic, nom] triées par nom (barre de commande). Même lecture des arrêts que le Marey.

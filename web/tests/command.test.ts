@@ -11,11 +11,11 @@ const data: CommandData = {
 const labels = (q: string) => suggest(q, data).map((s) => `${s.kind} ${s.label} ${s.href}`);
 
 test('train : numéro exact en premier, lien Marey avec axe ; hors axe ou hors flux, le Marey cherche par numéro', () => {
-  expect(labels('8537')).toEqual(['TRAIN IN 8537 → BORDEAUX ST-JEAN /marey?axe=ATLANTIQUE&train=8537']);
-  expect(suggest('8537', data)[0]).toMatchObject({ delay_s: 1200, cancelled: false });
-  expect(labels('85')[0]).toBe('TRAIN IN 85 → BORDEAUX ST-JEAN /marey?train=85');
-  expect(labels('853')).toEqual(['TRAIN IN 8537 → BORDEAUX ST-JEAN /marey?axe=ATLANTIQUE&train=8537', 'TRAIN IN 8538 → BORDEAUX ST-JEAN /marey?axe=ATLANTIQUE&train=8538']);
-  expect(labels('9999')).toEqual(['TRAIN 9999 /marey?train=9999']);
+  expect(labels('8537')).toEqual(['FICHE FICHE 8537 /train/8537', 'TRAIN IN 8537 → BORDEAUX ST-JEAN /marey?axe=ATLANTIQUE&train=8537']);
+  expect(suggest('8537', data)[1]).toMatchObject({ delay_s: 1200, cancelled: false });
+  expect(labels('85').slice(0, 2)).toEqual(['FICHE FICHE 85 /train/85', 'TRAIN IN 85 → BORDEAUX ST-JEAN /marey?train=85']);
+  expect(labels('853')).toEqual(['FICHE FICHE 8537 /train/8537', 'TRAIN IN 8537 → BORDEAUX ST-JEAN /marey?axe=ATLANTIQUE&train=8537', 'TRAIN IN 8538 → BORDEAUX ST-JEAN /marey?axe=ATLANTIQUE&train=8538']);
+  expect(labels('9999')).toEqual(['FICHE FICHE 9999 /train/9999', 'TRAIN 9999 /marey?train=9999']);
 });
 
 test('axes, pages et commandes : alias, insensibles à la casse', () => {

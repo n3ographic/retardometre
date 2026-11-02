@@ -4,7 +4,7 @@ import { topDelays } from './terminal-model';
 import { norm } from './train-search';
 
 // Barre de commande (« / » ou Ctrl+K) : suggestions calculées à la main sur les trains du flux (/api/live) et les gares (/api/gares).
-export type Kind = 'TRAIN' | 'AXE' | 'GARE' | 'PAGE' | 'CMD';
+export type Kind = 'TRAIN' | 'FICHE' | 'AXE' | 'GARE' | 'PAGE' | 'CMD';
 export type Suggestion = { kind: Kind; label: string; href: string | null; delay_s?: number; cancelled?: boolean; group?: string };
 export type CommandData = { trains: Pick<LiveItem, 'train_number' | 'brand' | 'origin' | 'dest' | 'delay_s' | 'cancelled' | 'axis'>[]; gares: [string, string][] };
 
@@ -16,7 +16,7 @@ const AXES: [string, string][] = [['ATL', 'ATLANTIQUE'], ['EST', 'EST'], ['NORD'
 const CMDS = ['TOP', 'HELP'];
 
 export const HELP: [string, string][] = [
-  ['8537', 'TRAIN PAR NUMÉRO'],
+  ['8537', 'FICHE DU TRAIN OU MAREY'],
   ['ATL · EST · NORD · SE · INTER', 'AXE DU MAREY'],
   ['BORD', 'GARE (NOM PARTIEL)'],
   ['CARTE · MAREY · METHODO', 'PAGES F1 · F3 · F2'],
@@ -40,6 +40,9 @@ export function suggest(query: string, data: CommandData): Suggestion[] {
   if (/^\d{1,5}$/.test(q)) {
     const hits = data.trains.filter((t) => t.train_number.startsWith(q))
       .sort((a, b) => Number(b.train_number === q) - Number(a.train_number === q) || a.train_number.localeCompare(b.train_number));
+    // Le meilleur numéro (exact, sinon le premier) a sa fiche en tête, puis chaque train ouvre le Marey.
+    const best = hits[0]?.train_number ?? q;
+    out.push({ kind: 'FICHE', label: `FICHE ${best}`, href: `/train/${best}` });
     if (hits.length === 0) out.push({ kind: 'TRAIN', label: q, href: `/marey?train=${q}` }); // hors du flux : le Marey le cherche
     out.push(...hits.map(trainSuggestion));
   } else if (q.length >= 2) {
