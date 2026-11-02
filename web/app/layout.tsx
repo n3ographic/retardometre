@@ -5,10 +5,12 @@ import './carte.css';
 import './methodologie/methodologie.css';
 import './terminal/terminal.css';
 import './marey/marey.css';
+import './train/train.css';
 
 const mono = IBM_Plex_Mono({ subsets: ['latin'], weight: ['400', '600'], variable: '--font-term', display: 'swap' });
 
-export const metadata = { title: 'Observatoire TGV' };
+// metadataBase : adresses absolues des images de partage (og:image) ; site de production.
+export const metadata = { title: 'Observatoire TGV', metadataBase: new URL('https://sncf-tracking.vercel.app') };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (

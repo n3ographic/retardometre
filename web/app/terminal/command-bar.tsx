@@ -101,7 +101,7 @@ export default function CommandBar() {
               {s.kind === 'TRAIN' && s.delay_s !== undefined && (s.cancelled
                 ? <span className="tone-cancelled">ANNULÉ</span>
                 : <span className={`seg-c s${bucketIndex(s.delay_s)}`}>+{Math.round(Math.max(s.delay_s, 0) / 60)}′</span>)}
-              <span className="cmd-kind">{s.kind === 'CMD' ? 'COMMANDE' : s.kind}</span>
+              <span className="cmd-kind">{s.kind === 'CMD' ? 'COMMANDE' : s.kind === 'TRAIN' ? 'MAREY' : s.kind}</span>
             </li>,
           ])}
         </ul>

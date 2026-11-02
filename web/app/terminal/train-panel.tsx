@@ -36,7 +36,7 @@ export default function TrainPanel({ train: t, rules, speed, onClose }: {
   return shell(`${t.brand} ${t.train_number}`, (
     <>
       {t.origin && t.dest && <p>{t.origin} → {t.dest}</p>}
-      {mareyHref(t) && <p><a className="to-marey" href={mareyHref(t)!}>VOIR DANS MAREY →</a></p>}
+      <p><a className="to-marey" href={`/train/${t.train_number}`}>FICHE →</a>{mareyHref(t) && <> · <a className="to-marey" href={mareyHref(t)!}>VOIR DANS MAREY →</a></>}</p>
       <section className="train-block">
         <h3>Retard</h3>
         <p className={`train-big tone-${tone}`}>{tone === 'cancelled' ? 'ANNULÉ' : tone === 'ontime' ? 'À L’HEURE' : `+${Math.round(delay / 60)}′`}</p>

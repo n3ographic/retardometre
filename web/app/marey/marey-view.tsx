@@ -537,7 +537,7 @@ function TrainInfo({ item, nowS }: { item: Item; nowS: number }) {
   const cat = t.cause_cat ? CAUSE_LABELS[t.cause_cat]?.short : undefined;
   return (
     <dl className="marey-info">
-      <div><dt>N°</dt><dd>{t.train_number} · {t.brand}</dd></div>
+      <div><dt>N°</dt><dd>{t.train_number} · {t.brand} · <a className="to-marey" href={`/train/${t.train_number}`}>FICHE →</a></dd></div>
       <div><dt>TRAJET</dt><dd>{[t.origin, t.dest].filter(Boolean).map((n) => shortName(n!, 40)).join(' → ') || '—'}</dd></div>
       <div><dt>ÉTAT</dt><dd>{state}</dd></div>
       <div><dt>RETARD</dt><dd className={`tone-${tone}`}>{t.cancelled ? 'SUPPRIMÉ' : t.delay_s === undefined ? 'INCONNU' : `${delay >= 60 ? '+' : ''}${Math.round(delay / 60)} MIN`}</dd></div>
