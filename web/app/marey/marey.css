@@ -63,3 +63,5 @@
 .marey-cause-text { display: block; margin-top: 2px; font-size: 11px; color: var(--t-amber-dim); opacity: 0.8; }
 .marey-tabs { flex-wrap: wrap; }
 }
+.marey-chart .m-lab-link { cursor: pointer; }
+.marey-chart .m-lab-link:hover .m-lab, .marey-chart .m-lab-link:focus-visible .m-lab { fill: var(--t-amber); text-decoration: underline; }

@@ -171,7 +171,7 @@ export default function TerminalView() {
         <LeftPanel trains={trains} liveFailed={liveFailed} stats={stats} statsFailed={statsFailed} statsLoading={statsLoading} period={period} onFocus={onFocus} />
         <div className="term-center">
           <CarteView trains={trains} failed={liveFailed} lastOk={lastOk} focus={focus} selected={selected} onSelect={select} onSpeed={setSpeed}
-            highlight={highlight}
+            highlight={highlight} onGare={(uic) => { select(null); setGare([uic]); }}
             overlay={gare ? <StationPanel uics={gare} board={board} failed={boardFailed} tab={tab} onTab={setTab} onPick={onPick} onClose={() => setGare(null)} />
               : selected || missing ? <TrainPanel train={trains.find((t) => t.trip_id === selected) ?? null} missing={missing} rules={rules} speed={speed} onClose={() => select(null)} /> : null} />
           <div className="term-bottom">

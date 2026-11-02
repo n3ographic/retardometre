@@ -5,6 +5,7 @@ import { shapeProfile, type Profile, type RawProfile } from './train-profile';
 import { BLOCK_S, BUCKET_S, COLLECT_INTERVAL_S, HALF_WINDOW_S, PAST_TTL_S, fetchWindow, parseApiParams, shapeMarey, type RawTrain, type StopRow } from './marey';
 import { loadRules } from './rules';
 import { parseGares, shapeBoard } from './station';
+import type { GareRow } from './command';
 import { parseStatsParams } from './params';
 import { shapeStats, type Price, type Scale, type StatRow } from './stats';
 
@@ -129,15 +130,19 @@ export async function loadTrainProfile(deps: Deps, number: string): Promise<Prof
   });
 }
 
-// Toutes les gares, une par code UIC : [uic, nom] triées par nom (barre de commande). Même lecture des arrêts que le Marey.
+// Toutes les gares, une par code UIC : [uic, nom, lat, lon] triées par nom (barre de commande, gares de la carte).
+// Coordonnées du premier point d'arrêt qui en a ; aucune : [uic, nom]. Même lecture des arrêts que le Marey.
 export function createGaresHandler(deps: Deps) {
   return async (req: Request) => {
     if (new URL(req.url).search !== '') return json({ error: 'aucun paramètre accepté' }, 400, 'no-store');
     return guarded(async () => {
       const stops = await deps.cached(['marey-gares', 'v1'], 86_400, () => unwrap<StopRow[]>(deps.select('stops', 'stop_id,name,lat,lon'), 'stops'));
-      const byUic = new Map<string, string>();
-      for (const s of stops) if (!byUic.has(s.stop_id.slice(-8))) byUic.set(s.stop_id.slice(-8), s.name);
-      return json({ gares: [...byUic].sort((a, b) => a[1].localeCompare(b[1], 'fr')) }, 200, CUMUL_CACHE);
+      const byUic = new Map<string, GareRow>();
+      for (const s of stops) {
+        const uic = s.stop_id.slice(-8), has = s.lat !== null && s.lon !== null;
+        if (!byUic.has(uic) || (has && byUic.get(uic)!.length === 2)) byUic.set(uic, has ? [uic, s.name, Number(s.lat), Number(s.lon)] : [uic, s.name]);
+      }
+      return json({ gares: [...byUic.values()].sort((a, b) => a[1].localeCompare(b[1], 'fr')) }, 200, CUMUL_CACHE);
     });
   };
 }

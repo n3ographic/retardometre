@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { HELP, UNKNOWN, actionsOf, emptySuggestions, pushRecent, suggest, topSuggestions, type CommandData, type Suggestion } from '../../lib/command';
+import { HELP, UNKNOWN, actionsOf, type GareRow, emptySuggestions, pushRecent, suggest, topSuggestions, type CommandData, type Suggestion } from '../../lib/command';
 import type { LiveItem } from '../../lib/map-model';
 import { bucketIndex } from '../../lib/terminal-model';
 
@@ -25,7 +25,7 @@ export default function CommandBar() {
   const [mode, setMode] = useState<Mode>('suggest');
   const [msg, setMsg] = useState<string | null>(null);
   const [trains, setTrains] = useState<LiveItem[]>([]);
-  const [gares, setGares] = useState<[string, string][]>([]);
+  const [gares, setGares] = useState<GareRow[]>([]);
   const [recents, setRecents] = useState<Suggestion[]>([]);
   const loaded = useRef(false);
   const input = useRef<HTMLInputElement>(null);
@@ -49,7 +49,7 @@ export default function CommandBar() {
     if (loaded.current) return;
     loaded.current = true;
     fetch('/api/live').then((r) => (r.ok ? r.json() : null)).then((d: { trains: LiveItem[] } | null) => d && setTrains(d.trains)).catch(() => {});
-    fetch('/api/gares').then((r) => (r.ok ? r.json() : null)).then((d: { gares: [string, string][] } | null) => d && setGares(d.gares)).catch(() => {});
+    fetch('/api/gares').then((r) => (r.ok ? r.json() : null)).then((d: { gares: GareRow[] } | null) => d && setGares(d.gares)).catch(() => {});
   }, [open]);
 
   const data = useMemo<CommandData>(() => ({ trains, gares }), [trains, gares]);
