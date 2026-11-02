@@ -10,6 +10,7 @@ import {
 } from '../../lib/marey';
 import { LABEL_MAX, isForeign, layoutLabels, pickLabels, shortName } from '../../lib/marey-layout';
 import { buildAxis, type Branch, type BuiltLine } from '../../lib/marey-lines';
+import { searchTrains } from '../../lib/train-search';
 import { bucketIndex, delayTone } from '../../lib/terminal-model';
 import FootBar from '../terminal/foot-bar';
 import StatusBar from '../terminal/status-bar';
@@ -312,13 +313,10 @@ export default function MareyView() {
   const focused = items.find((i) => i.key === (hover ?? highlighted)) ?? null;
   const status = data ? { status: 'ok' as const, ageMin: Math.round((Date.now() - Date.parse(data.generated_at)) / 60000) } : { status: 'unknown' as const, ageMin: null };
   const axisCount = (a: string) => (index ? index.filter((r) => r[0] === a).length : null);
-  const options = useMemo(() => (index ?? []).map((r) => `${r[1]} · ${shortName(r[2] ?? '?', 40)} → ${shortName(r[3] ?? '?', 40)}`), [index]);
-  const onSearch = (v: string) => {
-    setQuery(v);
-    const num = v.match(/^\s*(\d{1,5})\b/)?.[1];
-    const row = num && index?.find((r) => r[1] === num);
-    if (row && (v.includes('·') || v.trim() === num)) { selectTrain(row[0], num); setQuery(''); }
-  };
+  // Recherche : mêmes règles et même liste que celle de la carte, sur l'index de tous les axes.
+  const entries = useMemo(() => (index ?? []).map((r) => ({ axe: r[0], train_number: r[1], origin: r[2] ?? undefined, dest: r[3] ?? undefined, delay_s: r[4] ?? undefined })), [index]);
+  const results = useMemo(() => searchTrains(entries, query), [entries, query]);
+  const pickResult = (r: (typeof entries)[number]) => { setQuery(''); selectTrain(r.axe, r.train_number); };
   const nowOffscreen = nowS !== null && (nowS < vFrom || nowS > vTo);
   const plotH = H - MARGIN.top - MARGIN.bottom;
 
@@ -336,9 +334,23 @@ export default function MareyView() {
                 </button>
               ))}
             </div>
-            <form className="marey-search" role="search" onSubmit={(e) => { e.preventDefault(); onSearch(query.trim()); }}>
-              <input id="marey-search" list="marey-trains" value={query} onChange={(e) => onSearch(e.target.value)} placeholder="N° DE TRAIN OU GARE" aria-label="Chercher un train" autoComplete="off" />
-              <datalist id="marey-trains">{options.map((o) => <option key={o} value={o} />)}</datalist>
+            <form className="carte-search marey-search" role="search" onSubmit={(e) => { e.preventDefault(); if (results[0]) pickResult(results[0]); }}>
+              <input id="marey-search" type="search" value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => { if (e.key === 'Escape') setQuery(''); }}
+                placeholder="N° DE TRAIN OU GARE" aria-label="Rechercher un train par numéro ou gare, tous axes" autoComplete="off" />
+              {query.trim() !== '' && (
+                <ul className="carte-results" aria-label="Résultats">
+                  {results.length === 0 ? <li className="term-dim carte-none">AUCUN TRAIN CORRESPONDANT DANS LA FENÊTRE</li> : results.map((r) => (
+                    <li key={`${r.axe}:${r.train_number}`}>
+                      <button type="button" onClick={() => pickResult(r)}>
+                        <span>{r.train_number}</span>
+                        <span className="carte-res-route">{[r.origin, r.dest].filter(Boolean).map((n) => shortName(n!, 40)).join(' → ')}</span>
+                        <span className="term-dim">{AXE_LABEL[r.axe] ?? r.axe}</span>
+                        <span className={`tone-${delayTone(r.delay_s, false)}`}>{(r.delay_s ?? 0) >= 300 ? `+${Math.round((r.delay_s ?? 0) / 60)}′` : ''}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </form>
           </div>
           <div className="marey-head">

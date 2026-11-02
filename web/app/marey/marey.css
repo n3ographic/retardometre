@@ -6,9 +6,9 @@
 .marey-tabs button { font: inherit; font-size: 12px; text-transform: uppercase; background: transparent; color: var(--t-amber-dim); border: 1px solid var(--t-line); padding: 1px 8px; cursor: pointer; }
 .marey-tabs button.on { background: var(--t-amber); color: #000; border-color: var(--t-amber); }
 .marey-tabs button.on .term-dim { color: #000; }
-.marey-search { margin-left: auto; }
-.marey-search input { font: inherit; font-size: 12px; text-transform: uppercase; background: var(--t-bg); color: var(--t-amber); border: 1px solid var(--t-line); padding: 2px 6px; width: 22ch; }
-.marey-search input::placeholder { color: var(--t-amber-dim); }
+/* Recherche : mêmes styles que celle de la carte (.carte-search, .carte-results), placée à droite. */
+.marey-search { margin-left: auto; z-index: 6; }
+.marey-search .carte-results { left: auto; right: 0; }
 .marey-tabs button.minor:not(.on) { opacity: 0.5; border-style: dashed; }
 .marey-cause-text { display: block; margin-top: 2px; font-size: 11px; color: var(--t-amber-dim); opacity: 0.8; }
 .marey-tabs { flex-wrap: wrap; }
