@@ -6,8 +6,9 @@
 .marey-tabs button { font: inherit; font-size: 12px; text-transform: uppercase; background: transparent; color: var(--t-amber-dim); border: 1px solid var(--t-line); padding: 1px 8px; cursor: pointer; }
 .marey-tabs button.on { background: var(--t-amber); color: #000; border-color: var(--t-amber); }
 .marey-tabs button.on .term-dim { color: #000; }
-/* Recherche : mêmes styles que celle de la carte (.carte-search, .carte-results), placée à droite. */
-.marey-search { margin-left: auto; z-index: 6; }
+/* Recherche : mêmes styles que celle de la carte (.carte-search, .carte-results), placée à droite. La carte lui donne 12 px
+   par son conteneur .carte-ctrl ; ici, sans ce conteneur, champ et résultats prendraient la taille de la page (16 px). */
+.marey-search { margin-left: auto; z-index: 6; font-size: 12px; }
 .marey-search .carte-results { left: auto; right: 0; }
 .marey-tabs button.minor:not(.on) { opacity: 0.5; border-style: dashed; }
 .marey-cause-text { display: block; margin-top: 2px; font-size: 11px; color: var(--t-amber-dim); opacity: 0.8; }
