@@ -1,7 +1,7 @@
 import { beforeEach, expect, test, vi } from 'vitest';
-import { createMareyHandler } from '../lib/handlers';
+import { createMareyHandler, createMareyIndexHandler } from '../lib/handlers';
 import {
-  matchLines, fetchWindow, findTrain, hourTicks, labelIndices, parseApiParams, parseMareyParams, plannedPoints, publishedDelayAt, shapeMarey, trainTrace,
+  matchLines, fetchWindow, findTrain, hourTicks, parseApiParams, parseMareyParams, plannedPoints, publishedDelayAt, shapeMarey, trainTrace,
   type AxesFile, type RawStop, type RawTrain,
 } from '../lib/marey';
 import { prices } from './fixtures';
@@ -85,35 +85,36 @@ test('findTrain : le bon numéro dans la fenêtre ±3 h, sinon null (jamais un a
 
 test('parseMareyParams et parseApiParams : valeurs par défaut, axe et numéro validés, paramètre inconnu refusé', () => {
   expect(parseMareyParams(new URLSearchParams('axe=atlantique&train=8537'))).toEqual({ axe: 'ATLANTIQUE', train: '8537' });
-  expect(parseMareyParams(new URLSearchParams('axe=EST&train=abc'))).toEqual({ axe: 'ATLANTIQUE', train: null });
+  expect(parseMareyParams(new URLSearchParams('axe=est&train=abc'))).toEqual({ axe: 'EST', train: null });
+  expect(parseMareyParams(new URLSearchParams('axe=OUEST'))).toEqual({ axe: 'ATLANTIQUE', train: null });
   expect(parseApiParams(new URLSearchParams(''))).toEqual({ ok: true, axe: 'ATLANTIQUE' });
-  expect(parseApiParams(new URLSearchParams('axe=EST')).ok).toBe(false);
+  expect(parseApiParams(new URLSearchParams('axe=EST'))).toEqual({ ok: true, axe: 'EST' });
+  expect(parseApiParams(new URLSearchParams('axe=OUEST')).ok).toBe(false);
   expect(parseApiParams(new URLSearchParams('train=1')).ok).toBe(false);
 });
 
-test('hourTicks et labelIndices', () => {
+test('hourTicks : chaque heure pleine de la fenêtre', () => {
   expect(hourTicks(3601, 3600 * 4)).toEqual([7200, 10800, 14400]);
-  expect(labelIndices([0, 5, 20, 24, 40], 12)).toEqual([0, 2, 4]);
-  expect(labelIndices([0, 20, 30], 12)).toEqual([0, 20, 30].map((_, i) => i).filter((i) => i !== 1));
-  expect(labelIndices([], 12)).toEqual([]);
 });
 
-test('fetchWindow : seau de 5 min, marge d\'une heure de chaque côté de la fenêtre de 6 h', () => {
+test('fetchWindow : seau de 10 min, marge d\'une heure de chaque côté de la fenêtre de 6 h', () => {
   const w = fetchWindow(new Date('2026-11-02T10:07:30Z'));
-  expect(w.from).toBe('2026-11-02T06:05:00.000Z');
-  expect(w.to).toBe('2026-11-02T14:05:00.000Z');
+  expect(w.from).toBe('2026-11-02T06:00:00.000Z');
+  expect(w.to).toBe('2026-11-02T14:00:00.000Z');
 });
 
 test('shapeMarey : indemnité de référence par voyageur ; marque sans prix = erreur', () => {
-  const s = shapeMarey('ATLANTIQUE', [train('1', [stop('P', 0, 0)], { comp_pct: 50 })], prices, new Date('2026-11-02T10:00:00Z'));
+  const stops = [{ stop_id: 'StopPoint:OCETGV INOUI-87391003', name: 'Paris Montparnasse', lat: 48.84, lon: 2.32 }, { stop_id: 'X-87000000', name: 'Sans coord', lat: null, lon: null }];
+  const s = shapeMarey('ATLANTIQUE', [train('1', [stop('87391003', 0, 0), stop('87000000', 1, 1)], { comp_pct: 50 })], prices, stops, new Date('2026-11-02T10:00:00Z'));
   expect(s.trains[0].comp_eur_per_passenger_ref).toBe(23.3);
-  expect(() => shapeMarey('ATLANTIQUE', [train('1', [], { brand: 'XX' })], prices, new Date())).toThrow('prix de référence');
+  expect(s.gares).toEqual({ '87391003': { nom: 'Paris Montparnasse', lat: 48.84, lon: 2.32 } }); // gare sans coordonnées omise
+  expect(() => shapeMarey('ATLANTIQUE', [train('1', [], { brand: 'XX' })], prices, [], new Date())).toThrow('prix de référence');
 });
 
 const now = () => new Date('2026-11-02T10:07:30Z');
 const deps = () => ({
   rpc: vi.fn(async () => ({ data: [train('1', [stop('P', 0, 0)], { comp_pct: 25 })], error: null })),
-  select: vi.fn(async () => ({ data: prices, error: null })),
+  select: vi.fn(async (table: string) => ({ data: table === 'stops' ? [] : prices, error: null })),
   now,
   cached: <T>(_k: string[], _s: number, fn: () => Promise<T>) => fn(),
 });
@@ -124,11 +125,20 @@ test('handler : 200 avec cache court et fenêtre alignée ; 400 sur axe ou param
   expect(r.status).toBe(200);
   expect(r.headers.get('cache-control')).toBe('public, s-maxage=60, stale-while-revalidate=60');
   expect((await r.json()).trains[0].comp_eur_per_passenger_ref).toBe(11.65);
-  expect(d.rpc).toHaveBeenCalledWith('marey_trains', { p_axis: 'ATLANTIQUE', p_from: '2026-11-02T06:05:00.000Z', p_to: '2026-11-02T14:05:00.000Z' });
-  expect((await createMareyHandler(deps())(new Request('http://x/api/marey?axe=EST'))).status).toBe(400);
+  expect(d.rpc).toHaveBeenCalledWith('marey_trains', { p_axis: 'ATLANTIQUE', p_from: '2026-11-02T06:00:00.000Z', p_to: '2026-11-02T14:00:00.000Z' });
+  expect((await createMareyHandler(deps())(new Request('http://x/api/marey?axe=OUEST'))).status).toBe(400);
   expect((await createMareyHandler(deps())(new Request('http://x/api/marey?x=1'))).status).toBe(400);
   const bad = { ...deps(), rpc: vi.fn(async () => ({ data: null, error: { message: 'timeout' } })) };
   const e = await createMareyHandler(bad as never)(new Request('http://x/api/marey'));
   expect(e.status).toBe(502);
   expect(e.headers.get('cache-control')).toBe('no-store');
+});
+
+test('index : fenêtre affichée ±3 h autour du seau, aucun paramètre accepté', async () => {
+  const d = { ...deps(), rpc: vi.fn(async () => ({ data: [['ATLANTIQUE', '8537', 'Paris', 'Hendaye', 2400]], error: null })) };
+  const r = await createMareyIndexHandler(d)(new Request('http://x/api/marey/index'));
+  expect(r.status).toBe(200);
+  expect((await r.json()).trains).toEqual([['ATLANTIQUE', '8537', 'Paris', 'Hendaye', 2400]]);
+  expect(d.rpc).toHaveBeenCalledWith('marey_index', { p_from: '2026-11-02T07:00:00.000Z', p_to: '2026-11-02T13:00:00.000Z' });
+  expect((await createMareyIndexHandler(deps())(new Request('http://x/api/marey/index?axe=EST'))).status).toBe(400);
 });

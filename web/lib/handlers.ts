@@ -1,7 +1,7 @@
 import { unwrap, type Result } from './db';
 import { shapeCumul, type CumulRow } from './cumul';
 import { shapeLive, type LiveTrain } from './live';
-import { fetchWindow, parseApiParams, shapeMarey, type RawTrain } from './marey';
+import { BUCKET_S, HALF_WINDOW_S, fetchWindow, parseApiParams, shapeMarey, type RawTrain, type StopRow } from './marey';
 import { loadRules } from './rules';
 import { parseStatsParams } from './params';
 import { shapeStats, type Price, type Scale, type StatRow } from './stats';
@@ -92,13 +92,29 @@ export function createMareyHandler(deps: Deps) {
     const p = parseApiParams(new URL(req.url).searchParams);
     if (!p.ok) return json({ error: p.error }, 400, 'no-store');
     const w = fetchWindow(deps.now());
-    // Clé = axe validé + seau de 5 min, jamais une chaîne brute de l'utilisateur.
-    return guarded(async () => json(await deps.cached(['marey', 'v1', p.axe, String(w.bucket)], 300, async () => {
-      const [trains, prices] = await Promise.all([
+    // Clé = axe validé + seau de 10 min, jamais une chaîne brute de l'utilisateur. Les gares (244 lignes) sont relues une fois par jour.
+    return guarded(async () => json(await deps.cached(['marey', 'v2', p.axe, String(w.bucket)], BUCKET_S, async () => {
+      const [trains, prices, stops] = await Promise.all([
         unwrap<RawTrain[]>(deps.rpc('marey_trains', { p_axis: p.axe, p_from: w.from, p_to: w.to }), 'marey_trains'),
         unwrap<Price[]>(deps.select('reference_prices', 'brand,price_eur_ht,seats,price_source,seats_source,as_of'), 'reference_prices'),
+        deps.cached(['marey-gares', 'v1'], 86_400, () => unwrap<StopRow[]>(deps.select('stops', 'stop_id,name,lat,lon'), 'stops')),
       ]);
-      return shapeMarey(p.axe, trains, prices, new Date(w.bucket * 1000)); // lève si invalide : rien n'est mis en cache
+      return shapeMarey(p.axe, trains, prices, stops, new Date(w.bucket * 1000)); // lève si invalide : rien n'est mis en cache
+    }), 200, MAREY_CACHE));
+  };
+}
+
+// Index léger des trains de la fenêtre, tous axes : [axe, numéro, origine, destination, retard au terminus].
+export function createMareyIndexHandler(deps: Deps) {
+  return async (req: Request) => {
+    if (new URL(req.url).search !== '') return json({ error: 'aucun paramètre accepté' }, 400, 'no-store');
+    const w = fetchWindow(deps.now());
+    // Fenêtre affichée (±3 h), pas la marge de la requête des trains : les compteurs d'axe et de branche portent sur la même plage.
+    const at = (s: number) => new Date((w.bucket + s) * 1000).toISOString();
+    return guarded(async () => json(await deps.cached(['marey-index', 'v2', String(w.bucket)], BUCKET_S, async () => {
+      const trains = await unwrap<unknown[]>(deps.rpc('marey_index', { p_from: at(-HALF_WINDOW_S), p_to: at(HALF_WINDOW_S) }), 'marey_index');
+      if (!Array.isArray(trains)) throw new Error('marey_index : réponse invalide');
+      return { generated_at: new Date(w.bucket * 1000).toISOString(), trains };
     }), 200, MAREY_CACHE));
   };
 }

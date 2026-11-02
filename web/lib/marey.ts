@@ -1,10 +1,12 @@
 import { round, toNum } from './num';
 import type { Price } from './stats';
 
-export const MAREY_AXES = ['ATLANTIQUE'] as const;
+// Axes de la vue F3 (branches validées un par un par l'auteur, le 2026-11-03).
+export const MAREY_AXES = ['ATLANTIQUE', 'EST', 'NORD', 'SUD_EST', 'INTERSECTEURS'] as const;
 export const DEFAULT_AXE = 'ATLANTIQUE';
 export const HALF_WINDOW_S = 3 * 3600; // fenêtre de 6 h centrée sur maintenant
-export const FETCH_MARGIN_S = 3600; // marge côté serveur : la réponse peut avoir jusqu'à ~6 min
+export const FETCH_MARGIN_S = 3600; // marge côté serveur : la réponse peut avoir jusqu'à ~11 min
+export const BUCKET_S = 600; // seau du cache serveur : un appel à la base par axe toutes les 10 min au plus
 
 // Clés produites par public.marey_trains() ; les valeurs nulles sont omises.
 // Arrêt = [code UIC, arrivée (epoch s), départ (epoch s), retard (s) ou null, supprimé, stop_sequence].
@@ -14,14 +16,26 @@ export type HistRow = [number, number, number];
 export type MareyTrain = {
   service_date: string; brand: string; train_number: string; origin?: string; dest?: string;
   cancelled: boolean; delay_s?: number; cause?: string; comp_pct: number; last_seen_at?: string; stops: RawStop[];
-  hist?: HistRow[]; comp_eur_per_passenger_ref: number;
+  hist?: HistRow[]; cause_cat?: string; comp_eur_per_passenger_ref: number;
 };
 export type RawTrain = Omit<MareyTrain, 'comp_eur_per_passenger_ref'>;
 
-export function shapeMarey(axe: string, trains: RawTrain[], prices: Price[], now: Date) {
+export type StopRow = { stop_id: string; name: string; lat: number | null; lon: number | null };
+export type MareyGares = Record<string, { nom: string; lat: number; lon: number }>;
+
+// Réponse de /api/marey : trains de l'axe et gares qu'ils desservent (code UIC → nom et coordonnées), pour construire
+// les lignes dans le navigateur. Une gare sans coordonnées est omise (ses arrêts sont alors ignorés).
+export function shapeMarey(axe: string, trains: RawTrain[], prices: Price[], stops: StopRow[], now: Date) {
+  const used = new Set(trains.flatMap((t) => t.stops.map((s) => s[0])));
+  const gares: MareyGares = {};
+  for (const s of stops) {
+    const uic = s.stop_id.slice(-8);
+    if (used.has(uic) && s.lat !== null && s.lon !== null && !gares[uic]) gares[uic] = { nom: s.name, lat: toNum(s.lat, 'lat'), lon: toNum(s.lon, 'lon') };
+  }
   return {
     generated_at: now.toISOString(),
     axe,
+    gares,
     trains: trains.map((t) => {
       const price = prices.find((x) => x.brand === t.brand);
       if (!price) throw new Error(`prix de référence absent pour ${t.brand}`);
@@ -31,9 +45,9 @@ export function shapeMarey(axe: string, trains: RawTrain[], prices: Price[], now
   };
 }
 
-// Fenêtre demandée au serveur : alignée sur le seau de 5 min du cache, élargie d'une marge de chaque côté.
+// Fenêtre demandée au serveur : alignée sur le seau de 10 min du cache, élargie d'une marge de chaque côté.
 export function fetchWindow(now: Date): { bucket: number; from: string; to: string } {
-  const bucket = Math.floor(now.getTime() / 300_000) * 300;
+  const bucket = Math.floor(now.getTime() / 1000 / BUCKET_S) * BUCKET_S;
   return {
     bucket,
     from: new Date((bucket - HALF_WINDOW_S - FETCH_MARGIN_S) * 1000).toISOString(),
@@ -62,7 +76,7 @@ export function parseApiParams(search: URLSearchParams): { ok: true; axe: string
 }
 
 export type Line = { id: string; label: string; gares: { nom: string; km: number; stop_ids: string[] }[] };
-// Une branche = plusieurs lignes, une par terminus, chacune avec le tronc commun répété (scripts/build-marey-axes.ts).
+// Une branche = plusieurs lignes, une par terminus, chacune avec le tronc commun répété (web/lib/marey-lines.ts).
 export type AxesFile = { branches: { id: string; label: string; lignes: Line[] }[] };
 export type Match = { branch: string; line: string };
 
@@ -196,16 +210,3 @@ export function hourTicks(fromS: number, toS: number): number[] {
   return out;
 }
 
-// Gares à étiqueter sur l'axe vertical : de haut en bas, une étiquette tous les `minGapPx` au plus serrés,
-// la première et la dernière toujours présentes.
-export function labelIndices(ys: number[], minGapPx: number): number[] {
-  if (ys.length === 0) return [];
-  const keep = [0];
-  for (let i = 1; i < ys.length - 1; i++) if (ys[i] - ys[keep[keep.length - 1]] >= minGapPx) keep.push(i);
-  const last = ys.length - 1;
-  if (last > 0) {
-    while (keep.length > 1 && ys[last] - ys[keep[keep.length - 1]] < minGapPx) keep.pop();
-    keep.push(last);
-  }
-  return keep;
-}

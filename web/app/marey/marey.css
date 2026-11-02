@@ -6,6 +6,12 @@
 .marey-tabs button { font: inherit; font-size: 12px; text-transform: uppercase; background: transparent; color: var(--t-amber-dim); border: 1px solid var(--t-line); padding: 1px 8px; cursor: pointer; }
 .marey-tabs button.on { background: var(--t-amber); color: #000; border-color: var(--t-amber); }
 .marey-tabs button.on .term-dim { color: #000; }
+.marey-search { margin-left: auto; }
+.marey-search input { font: inherit; font-size: 12px; text-transform: uppercase; background: var(--t-bg); color: var(--t-amber); border: 1px solid var(--t-line); padding: 2px 6px; width: 22ch; }
+.marey-search input::placeholder { color: var(--t-amber-dim); }
+.marey-tabs button.minor:not(.on) { opacity: 0.5; border-style: dashed; }
+.marey-cause-text { display: block; margin-top: 2px; font-size: 11px; color: var(--t-amber-dim); opacity: 0.8; }
+.marey-tabs { flex-wrap: wrap; }
 .marey-legend { font-size: 12px; color: var(--t-amber-dim); margin-left: auto; white-space: nowrap; }
 .marey-chart { position: relative; flex: 1; min-height: 260px; border: 1px solid var(--t-line); background: var(--t-panel); overflow: hidden; }
 .marey-chart svg { display: block; cursor: crosshair; font-family: inherit; }
@@ -13,6 +19,10 @@
 .marey-chart .m-grid-half { stroke: var(--t-line); stroke-width: 1; opacity: 0.25; stroke-dasharray: 2 3; }
 .marey-chart .m-future { fill: #ffffff; opacity: 0.035; }
 .marey-chart .m-num { fill: var(--t-amber-dim); font-size: 10px; pointer-events: none; }
+.marey-chart .m-leader { stroke: var(--t-amber-dim); stroke-width: 1; opacity: 0.6; }
+.marey-chart .m-foreign { fill: #8a8a8a; opacity: 0.08; }
+.marey-chart .m-foreign-lab { fill: #8a8a8a; font-size: 10px; letter-spacing: 0.04em; }
+.marey-chart .m-lab-foreign { fill: #8a8a8a; }
 .marey-chart .m-lab { fill: var(--t-amber-dim); font-size: 11px; }
 .marey-chart .m-plan { fill: none; stroke: var(--t-amber-dim); stroke-dasharray: 3 3; opacity: 0.8; }
 .marey-chart .m-run { fill: none; stroke-linecap: round; stroke-linejoin: round; }
@@ -31,5 +41,11 @@
 @media (max-width: 899px) {
   .marey { display: flex; flex-direction: column; }
   .marey-chart { flex: none; height: 60vh; }
-  .marey-legend { margin-left: 0; white-space: normal; }
+  .marey-search { margin-left: auto; }
+.marey-search input { font: inherit; font-size: 12px; text-transform: uppercase; background: var(--t-bg); color: var(--t-amber); border: 1px solid var(--t-line); padding: 2px 6px; width: 22ch; }
+.marey-search input::placeholder { color: var(--t-amber-dim); }
+.marey-tabs button.minor:not(.on) { opacity: 0.5; border-style: dashed; }
+.marey-cause-text { display: block; margin-top: 2px; font-size: 11px; color: var(--t-amber-dim); opacity: 0.8; }
+.marey-tabs { flex-wrap: wrap; }
+.marey-legend { margin-left: 0; white-space: normal; }
 }
