@@ -1,0 +1,35 @@
+.marey { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 6px; padding: 6px; }
+.marey-main { display: flex; flex-direction: column; min-height: 0; min-width: 0; gap: 4px; }
+.marey-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; }
+.marey-head .term-panel-title { margin: 0; }
+.marey-tabs { display: flex; gap: 4px; }
+.marey-tabs button { font: inherit; font-size: 12px; text-transform: uppercase; background: transparent; color: var(--t-amber-dim); border: 1px solid var(--t-line); padding: 1px 8px; cursor: pointer; }
+.marey-tabs button.on { background: var(--t-amber); color: #000; border-color: var(--t-amber); }
+.marey-tabs button.on .term-dim { color: #000; }
+.marey-legend { font-size: 12px; color: var(--t-amber-dim); margin-left: auto; white-space: nowrap; }
+.marey-chart { position: relative; flex: 1; min-height: 260px; border: 1px solid var(--t-line); background: var(--t-panel); overflow: hidden; }
+.marey-chart svg { display: block; cursor: crosshair; font-family: inherit; }
+.marey-chart .m-grid { stroke: var(--t-line); stroke-width: 1; opacity: 0.55; }
+.marey-chart .m-grid-half { stroke: var(--t-line); stroke-width: 1; opacity: 0.25; stroke-dasharray: 2 3; }
+.marey-chart .m-future { fill: #ffffff; opacity: 0.035; }
+.marey-chart .m-num { fill: var(--t-amber-dim); font-size: 10px; pointer-events: none; }
+.marey-chart .m-lab { fill: var(--t-amber-dim); font-size: 11px; }
+.marey-chart .m-plan { fill: none; stroke: var(--t-amber-dim); stroke-dasharray: 3 3; opacity: 0.8; }
+.marey-chart .m-run { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.marey-chart .m-now { stroke: var(--t-amber); stroke-width: 1; }
+.marey-chart .m-now-lab { fill: var(--t-amber); font-size: 11px; }
+.marey-chart .m-hl { fill: var(--t-amber); font-size: 11px; font-weight: 600; paint-order: stroke; stroke: var(--t-panel); stroke-width: 3px; }
+.marey-chart p { margin: 8px; }
+.marey-stale { position: absolute; top: 0; right: 0; z-index: 1; background: var(--warn); color: var(--t-amber); font-size: 12px; padding: 0 6px; }
+.marey-empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+.marey-note { margin: 0; font-size: 11px; }
+.marey-side { overflow: auto; }
+.marey-info { margin: 0; display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
+.marey-info > div { display: grid; grid-template-columns: 78px minmax(0, 1fr); gap: 6px; }
+.marey-info dt { color: var(--t-amber-dim); }
+.marey-info dd { margin: 0; overflow-wrap: anywhere; }
+@media (max-width: 899px) {
+  .marey { display: flex; flex-direction: column; }
+  .marey-chart { flex: none; height: 60vh; }
+  .marey-legend { margin-left: 0; white-space: normal; }
+}
