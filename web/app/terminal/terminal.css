@@ -31,6 +31,7 @@ a { color: inherit; }
 .period button[aria-pressed="true"], .period select.on { background: var(--t-amber); color: #000; }
 .kpi-list { display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; margin: 0; }
 .kpi-list dt { color: var(--t-amber-dim); }
+.today-line { margin: 6px 0 0; padding-top: 4px; border-top: 1px dashed var(--t-amber-dim); }
 .term-center { display: flex; flex-direction: column; gap: 6px; min-height: 0; min-width: 0; }
 .term-center .carte { flex: 62 1 0; }
 .term-center .carte-map { min-height: 0; }

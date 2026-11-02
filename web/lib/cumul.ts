@@ -1,5 +1,5 @@
 import { round, toNum } from './num';
-import { DEFAULT_OCCUPANCY, type Price } from './stats';
+import { DEFAULT_OCCUPANCY, type Price, type StatRow, type Totals } from './stats';
 
 export type CumulRow = { brand: string; metric: string; n: number | string; days: number; first_day: string; last_day: string };
 export type CumulBrand = {
@@ -17,6 +17,21 @@ export type Cumul = {
   by_brand: CumulBrand[];
   assumptions: { occupancy: number; prices: Price[] };
 };
+
+// Réponse de /api/cumul : le jour en cours à part (ligne AUJOURD'HUI) et l'heure du calcul.
+export type CumulPayload = Cumul & { today: Totals; computed_at: string };
+
+const DAY_MS = 86_400_000;
+export const addDays = (day: string, n: number) => new Date(Date.parse(`${day}T00:00:00Z`) + n * DAY_MS).toISOString().slice(0, 10);
+
+// Ajoute aux jours enregistrés (daily_stats, réécrits chaque nuit) les jours from..to calculés à la volée,
+// dont le jour en cours : seuls les trains déjà terminés y figurent.
+export function withLive(base: CumulRow[], live: StatRow[], from: string, to: string): CumulRow[] {
+  if (live.length === 0 || from > to) return base;
+  const days = (base[0]?.days ?? 0) + (Date.parse(to) - Date.parse(from)) / DAY_MS + 1;
+  const first_day = base[0]?.first_day ?? from;
+  return [...base, ...live].map((r) => ({ brand: r.brand, metric: r.metric, n: r.n, days, first_day, last_day: to }));
+}
 
 const COUNTS = ['planned', 'observed', 'circulated', 'comp_eligible', 'comp_pct_sum', 'aberrant', 'comp_pct_sum_low', 'comp_pct_sum_high'] as const;
 

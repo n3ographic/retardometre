@@ -1,12 +1,12 @@
 import { unwrap, type Result } from './db';
-import { shapeCumul, type CumulRow } from './cumul';
+import { addDays, shapeCumul, withLive, type CumulPayload, type CumulRow } from './cumul';
 import { shapeLive, type LiveTrain } from './live';
 import { shapeProfile, type Profile, type RawProfile } from './train-profile';
 import { BLOCK_S, BUCKET_S, COLLECT_INTERVAL_S, HALF_WINDOW_S, PAST_TTL_S, fetchWindow, parseApiParams, shapeMarey, type RawTrain, type StopRow } from './marey';
 import { loadRules } from './rules';
 import { parseGares, shapeBoard } from './station';
 import type { GareRow } from './command';
-import { parseStatsParams } from './params';
+import { parisDate, parseStatsParams } from './params';
 import { shapeStats, type Price, type Scale, type StatRow } from './stats';
 
 export type Deps = {
@@ -23,7 +23,7 @@ const LIVE_CACHE = 'public, s-maxage=60, stale-while-revalidate=60';
 // Même durée que le live : la fenêtre glisse, le seau de 5 min fait varier la clé du Data Cache.
 const MAREY_CACHE = 'public, s-maxage=60, stale-while-revalidate=60';
 const RULES_CACHE = 'public, s-maxage=3600, stale-while-revalidate=600';
-const CUMUL_CACHE = 'public, s-maxage=3600, stale-while-revalidate=600';
+const CUMUL_CACHE = 'public, s-maxage=300, stale-while-revalidate=60';
 
 const json = (body: unknown, status: number, cache: string) =>
   Response.json(body, { status, headers: { 'Cache-Control': cache } });
@@ -43,13 +43,14 @@ export function createStatsHandler(deps: Deps) {
     const p = parseStatsParams(new URL(req.url).searchParams, deps.now());
     if (!p.ok) return json({ error: p.error }, 400, 'no-store');
     // Clé = fenêtre canonique issue de parseStatsParams, jamais une chaîne brute de l'utilisateur.
-    return guarded(async () => json(await deps.cached(['stats', 'v4', p.from, p.to], 900, async () => {
+    return guarded(async () => json(await deps.cached(['stats', 'v5', p.from, p.to], 900, async () => {
       const [rows, prices, scale] = await Promise.all([
         unwrap<StatRow[]>(deps.rpc('stats_period', { p_from: p.from, p_to: p.to }), 'stats_period'),
         unwrap<Price[]>(deps.select('reference_prices', 'brand,price_eur_ht,seats,price_source,seats_source,as_of'), 'reference_prices'),
         unwrap<Scale[]>(deps.select('compensation_scale', 'brand,from_s,pct,source_url,source_as_of'), 'compensation_scale'),
       ]);
-      return shapeStats(rows, prices, scale, { from: p.from, to: p.to }); // lève si invalide : rien n'est mis en cache
+      // lève si invalide : rien n'est mis en cache
+      return { ...shapeStats(rows, prices, scale, { from: p.from, to: p.to }), computed_at: deps.now().toISOString() };
     }), 200, STATS_CACHE));
   };
 }
@@ -80,12 +81,23 @@ export function createCumulHandler(deps: Deps) {
   return async (req: Request) => {
     // Aucun paramètre : une seule clé de cache, refus avant toute lecture de la base.
     if (new URL(req.url).search !== '') return json({ error: 'aucun paramètre accepté' }, 400, 'no-store');
-    return guarded(async () => json(await deps.cached(['cumul', 'v2'], 3600, async () => {
-      const [rows, prices] = await Promise.all([
-        unwrap<CumulRow[]>(deps.rpc('cumul_totals', {}), 'cumul_totals'),
+    return guarded(async () => json(await deps.cached(['cumul', 'v3'], 300, async (): Promise<CumulPayload> => {
+      const now = deps.now();
+      const day = parisDate.format(now);
+      const rows = await unwrap<CumulRow[]>(deps.rpc('cumul_totals', {}), 'cumul_totals');
+      // Jours pas encore enregistrés par la tâche de nuit (la veille avant 05:30), puis le jour en cours.
+      const from = rows[0] ? addDays(rows[0].last_day, 1) : day;
+      const [gap, today, prices, scale] = await Promise.all([
+        from < day ? unwrap<StatRow[]>(deps.rpc('stats_period', { p_from: from, p_to: addDays(day, -1) }), 'stats_period') : Promise.resolve([]),
+        unwrap<StatRow[]>(deps.rpc('stats_period', { p_from: day, p_to: day }), 'stats_period'),
         unwrap<Price[]>(deps.select('reference_prices', 'brand,price_eur_ht,seats,price_source,seats_source,as_of'), 'reference_prices'),
+        unwrap<Scale[]>(deps.select('compensation_scale', 'brand,from_s,pct,source_url,source_as_of'), 'compensation_scale'),
       ]);
-      return shapeCumul(rows, prices); // lève si invalide : rien n'est mis en cache
+      return { // lève si invalide : rien n'est mis en cache
+        ...shapeCumul(withLive(rows, [...gap, ...today], from, day), prices),
+        today: shapeStats(today, prices, scale, { from: day, to: day }).totals,
+        computed_at: now.toISOString(),
+      };
     }), 200, CUMUL_CACHE));
   };
 }
@@ -146,7 +158,7 @@ export function createGaresHandler(deps: Deps) {
   return async (req: Request) => {
     if (new URL(req.url).search !== '') return json({ error: 'aucun paramètre accepté' }, 400, 'no-store');
     return guarded(async () => {
-      return json({ gares: await loadGares(deps) }, 200, CUMUL_CACHE);
+      return json({ gares: await loadGares(deps) }, 200, RULES_CACHE);
     });
   };
 }

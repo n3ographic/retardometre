@@ -1,6 +1,6 @@
 import { TERMINUS_BUCKETS, bucketShares, isSmallSample, sortGroups, suppressionPct } from '../../lib/dashboard-model';
 import type { StatsPayload } from '../../lib/stats';
-import { RANGE_HINT, bucketBar, eurRange, periodLabel, type Period } from '../../lib/terminal-model';
+import { RANGE_HINT, bucketBar, calcLabel, eurRange, periodLabel, type Period } from '../../lib/terminal-model';
 
 const nf = (n: number) => n.toLocaleString('fr-FR');
 const pct = (n: number | null) => (n === null ? '—' : `${n.toLocaleString('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} %`);
@@ -55,6 +55,7 @@ export default function GroupsPanel({ stats, failed, loading, period, onRetry }:
             {TERMINUS_BUCKETS.map((b, i) => <span key={b}><span className={`seg-c s${i}`} aria-hidden="true">█</span> {b} </span>)}MIN <span className="term-dim">· RETARDS PUBLIÉS PAR PAS DE 5 MIN</span>
             {' · '}DU {day(stats.from)} AU {day(stats.to)} · RÉGULARITÉ APPROCHÉE · PAS DE 5′ · COLLECTE DEPUIS LE 20/10
             {' · '}PRIX HT {stats.assumptions.prices.map((p) => `${p.brand} ${nf(p.price_eur_ht)} €`).join(', ')} · OCCUPATION {nf(stats.assumptions.occupancy)}
+            {calcLabel(stats.computed_at) && ` · ${calcLabel(stats.computed_at)}`}
           </p>
         </>
       )}

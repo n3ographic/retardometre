@@ -111,7 +111,7 @@ test('même fenêtre canonique : la base n’est appelée qu’une fois', async 
   const h = createStatsHandler(deps);
   for (const qs of ['', '?period=7d', '?period=7d', '', '?period=7d']) expect((await h(new Request(`http://x/api/stats${qs}`))).status).toBe(200);
   expect(deps.rpc).toHaveBeenCalledTimes(1); expect(deps.select).toHaveBeenCalledTimes(2);
-  expect([...store.keys()]).toEqual(['stats|v4|2026-10-14|2026-10-20']); // v4 : la forme de la réponse a changé (tranche 0-4), le cache survit aux déploiements
+  expect([...store.keys()]).toEqual(['stats|v5|2026-10-14|2026-10-20']); // v5 : la forme de la réponse a changé (computed_at), le cache survit aux déploiements
   expect(cached.mock.calls[0][1]).toBe(900);
   await h(new Request('http://x/api/stats?period=14d'));
   expect(deps.rpc).toHaveBeenCalledTimes(2);
@@ -196,19 +196,40 @@ const cumulRows = [
   { brand: 'INOUI', metric: 'observed', n: 4, days: 1, first_day: '2026-10-20', last_day: '2026-10-20' },
   { brand: 'INOUI', metric: 'comp_pct_sum', n: 50, days: 1, first_day: '2026-10-20', last_day: '2026-10-20' },
 ];
-const cumulDeps = () => ({ ...okDeps(), rpc: vi.fn(async () => ({ data: cumulRows, error: null })) });
+const liveRows = [
+  { brand: 'INOUI', axis: 'ATLANTIQUE', metric: 'planned', n: 6 },
+  { brand: 'INOUI', axis: 'ATLANTIQUE', metric: 'observed', n: 6 },
+  { brand: 'INOUI', axis: 'ATLANTIQUE', metric: 'circulated', n: 6 },
+  { brand: 'INOUI', axis: 'ATLANTIQUE', metric: 'on_time_official', n: 3 },
+];
+const cumulDeps = (live: unknown[] = []) => ({
+  ...okDeps(),
+  rpc: vi.fn(async (fn: string) => ({ data: fn === 'cumul_totals' ? cumulRows : live, error: null })),
+});
 
 test('cumul : 200, forme, Cache-Control exact, clé et durée du cache', async () => {
   const { cached } = fakeCache();
   const deps = { ...cumulDeps(), cached };
   const res = await createCumulHandler(deps)(new Request('http://x/api/cumul'));
   expect(res.status).toBe(200);
-  expect(res.headers.get('cache-control')).toBe('public, s-maxage=3600, stale-while-revalidate=600');
+  expect(res.headers.get('cache-control')).toBe('public, s-maxage=300, stale-while-revalidate=60');
   const body = await res.json();
   expect(body).toMatchObject({ since: '2026-10-20', through: '2026-10-20', days: 1, planned: 10, observed: 4, coverage_pct: 40 });
   expect(typeof body.cost_eur_ht).toBe('number');
+  expect(body.computed_at).toBe(deps.now().toISOString());
+  expect(body.today.circulated).toBe(0);
   expect(deps.rpc).toHaveBeenCalledWith('cumul_totals', {});
-  expect(cached.mock.calls[0].slice(0, 2)).toEqual([['cumul', 'v2'], 3600]);
+  expect(cached.mock.calls[0].slice(0, 2)).toEqual([['cumul', 'v3'], 300]);
+});
+
+test('cumul : jours manquants puis jour en cours calculés à la volée, ligne AUJOURD\'HUI', async () => {
+  const deps = { ...cumulDeps(liveRows), now: () => new Date('2026-10-23T10:00:00Z') };
+  const body = await (await createCumulHandler(deps)(new Request('http://x/api/cumul'))).json();
+  // daily_stats s'arrête au 20/10 : 21 et 22 en un appel, le 23 à part.
+  expect(deps.rpc).toHaveBeenCalledWith('stats_period', { p_from: '2026-10-21', p_to: '2026-10-22' });
+  expect(deps.rpc).toHaveBeenCalledWith('stats_period', { p_from: '2026-10-23', p_to: '2026-10-23' });
+  expect(body).toMatchObject({ since: '2026-10-20', through: '2026-10-23', days: 4, planned: 22, observed: 16 });
+  expect(body.today).toMatchObject({ circulated: 6, official_regularity_pct: 50 });
 });
 
 test('/api/cumul?x=1 : 400 no-store avant toute lecture', async () => {

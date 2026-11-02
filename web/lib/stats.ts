@@ -36,6 +36,7 @@ export type Group = { brand: string; axis: string } & Totals;
 export type CauseRow = { category: string; trains: number; avg_delay_min: number; cost_eur_ht: number };
 export type StatsPayload = {
   from: string; to: string; groups: Group[]; totals: Totals; cause_breakdown: CauseRow[];
+  computed_at?: string; // posé par le handler, dans l'unité mise en cache
   assumptions: { occupancy: number; prices: Price[]; compensation_scale: Scale[]; range: typeof RANGE };
 };
 
