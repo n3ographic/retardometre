@@ -9,7 +9,7 @@ import {
   type AxesFile, type Match, type MareyGares, type MareyTrain, type Trace,
 } from '../../lib/marey';
 import { LABEL_MAX, isForeign, layoutLabels, pickLabels, shortName } from '../../lib/marey-layout';
-import { MIN_TRAINS, buildAxis, type Branch, type BuiltLine } from '../../lib/marey-lines';
+import { buildAxis, type Branch, type BuiltLine } from '../../lib/marey-lines';
 import { searchTrains } from '../../lib/train-search';
 import { bucketIndex, delayTone } from '../../lib/terminal-model';
 import FootBar from '../terminal/foot-bar';
@@ -21,6 +21,7 @@ const SCROLLBAR_PX = 12; // place de la barre de défilement horizontale
 const CHAR_PX = 6.6; // largeur d'un caractère des étiquettes (monospace 11 px)
 const COL_PX = Math.ceil(LABEL_MAX * CHAR_PX) + 10;
 const LABEL_GAP_PX = 14;
+const MIN_BRANCH_TRAINS = 5; // branche rangée dans le menu AUTRES sous ce nombre de trains
 const NUM_CHAR_PX = 6.1; // numéros de train (monospace 10 px)
 const HIT_PX = 8;
 const HHMM = new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' });
@@ -179,10 +180,11 @@ export default function MareyView() {
   const hlItem = items.find((i) => i.key === highlighted) ?? null;
   const hlMatches = hlItem?.matches ?? [];
 
-  // Branches de moins de 3 trains (surtout des corridors intersecteurs) : rangées dans un menu « AUTRES », triées par trafic.
+  // Branches de moins de 5 trains (surtout des corridors intersecteurs) : rangées dans un menu « AUTRES », triées par trafic.
+  // Seuil distinct de celui des destinations (MIN_TRAINS = 3) : choisi par l'auteur pour alléger la rangée d'onglets.
   const allBranches: Branch[] = built?.branches ?? [];
   const branchTotal = (b: Branch) => [...b.lignes, ...b.autres].reduce((n, l) => n + l.trains, 0);
-  const smallBranches = allBranches.filter((b) => branchTotal(b) < MIN_TRAINS).sort((a, b) => branchTotal(b) - branchTotal(a));
+  const smallBranches = allBranches.filter((b) => branchTotal(b) < MIN_BRANCH_TRAINS).sort((a, b) => branchTotal(b) - branchTotal(a));
   const bigBranches = smallBranches.length === allBranches.length ? allBranches : allBranches.filter((b) => !smallBranches.includes(b));
   const branches: Branch[] = bigBranches === allBranches ? allBranches : [...bigBranches, ...smallBranches];
   const branch = branches.find((b) => b.id === tab) ?? branches.find((b) => hlMatches.some((m) => m.branch === b.id)) ?? branches[0] ?? null;
@@ -380,7 +382,7 @@ export default function MareyView() {
                   </button>
                 </div>
                 {autresOpen && (
-                  <ul className="carte-results" aria-label="Autres corridors, moins de 3 trains">
+                  <ul className="carte-results" aria-label="Autres corridors, moins de 5 trains">
                     {smallBranches.map((b) => (
                       <li key={b.id}>
                         <button type="button" onClick={() => { setTab(b.id); setLineId(null); setAutresOpen(false); }}>
