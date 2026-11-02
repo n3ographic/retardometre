@@ -9,6 +9,7 @@ import {
 import { makeSegment, tracesToLines, type LineCollection, type TraceTable } from '../lib/traces';
 import { estimatePosition, segmentSpeedKmh, type Lngl } from '../lib/position';
 import { searchTrains } from '../lib/train-search';
+import type { GareRow } from '../lib/command';
 import { delayTone, type Tone } from '../lib/terminal-model';
 import { VMAX_BANDS, vmaxColorExpr } from '../lib/vitesses';
 
@@ -18,6 +19,9 @@ const STYLE_URL = 'https://tiles.openfreemap.org/styles/dark';
 const LABEL_MIN_ZOOM = 6;
 // Étiquettes de vitesse des lignes : à l'échelle d'une région, sinon elles couvrent la carte.
 const VMAX_LABEL_MIN_ZOOM = 7;
+// Gares cliquables (panneau gare) : points dès l'échelle d'un grand quart de la France, noms à l'échelle d'un département.
+const GARE_MIN_ZOOM = 6;
+const GARE_LABEL_MIN_ZOOM = 8;
 const TONE_COLORS: Record<Tone, string> = { ontime: '#3ad13a', late: '#ffd24d', strong: '#ff8c00', severe: '#ff4d4d', cancelled: '#8a8a8a' };
 const TONE_LABELS: Record<Tone, string> = { ontime: 'À L’HEURE', late: 'RETARD', strong: 'FORT RETARD', severe: 'TRÈS FORT RETARD', cancelled: 'ANNULÉ' };
 type MapLibre = typeof import('maplibre-gl');
@@ -42,10 +46,10 @@ export type Focus = { trip_id: string; at: number } | null;
 // Panneau gare ouvert : la gare (ses points) est marquée, les trains qui ne la desservent pas sont estompés.
 export type Highlight = { trips: string[]; points: [number, number][] } | null;
 
-export default function CarteView({ trains, failed, lastOk, focus, selected, onSelect, onSpeed, overlay, highlight = null }: {
+export default function CarteView({ trains, failed, lastOk, focus, selected, onSelect, onSpeed, overlay, highlight = null, gares = [], onGare }: {
   trains: LiveItem[]; failed: boolean; lastOk: number | null; focus: Focus;
   selected: string | null; onSelect: (trip_id: string | null) => void; onSpeed: (kmh: number | null) => void; overlay: ReactNode;
-  highlight?: Highlight;
+  highlight?: Highlight; gares?: GareRow[]; onGare?: (uic: string) => void;
 }) {
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MlMap | null>(null);
@@ -72,6 +76,10 @@ export default function CarteView({ trains, failed, lastOk, focus, selected, onS
   const focusRef = useRef(focus);
   const highlightRef = useRef(highlight);
   const applyGareRef = useRef<() => void>(() => {});
+  const garesRef = useRef<unknown>(null);
+  const applyGaresRef = useRef<() => void>(() => {});
+  const onGareRef = useRef(onGare);
+  onGareRef.current = onGare;
   trainsRef.current = trains;
   focusRef.current = focus;
   highlightRef.current = highlight;
@@ -103,6 +111,10 @@ export default function CarteView({ trains, failed, lastOk, focus, selected, onS
     applyTracksRef.current = () => {
       const src = map?.getSource('voies') as { setData(d: unknown): void } | undefined;
       if (src && tracksRef.current) src.setData(tracksRef.current);
+    };
+    applyGaresRef.current = () => {
+      const src = map?.getSource('gares') as { setData(d: unknown): void } | undefined;
+      if (src && garesRef.current) src.setData(garesRef.current);
     };
     applyVmaxRef.current = () => {
       const src = map?.getSource('vmax') as { setData(d: unknown): void } | undefined;
@@ -180,6 +192,25 @@ export default function CarteView({ trains, failed, lastOk, focus, selected, onS
           paint: { 'text-color': '#ffb000', 'text-halo-color': '#0a0a0a', 'text-halo-width': 2 },
         });
         applyVmaxRef.current();
+        m.addSource('gares', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+        m.addLayer({
+          id: 'gares', type: 'circle', source: 'gares', minzoom: GARE_MIN_ZOOM,
+          paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 6, 2.5, 10, 4.5], 'circle-color': '#0a0a0a', 'circle-stroke-width': 1.2, 'circle-stroke-color': '#b07c00' },
+        });
+        m.addLayer({
+          id: 'gares-labels', type: 'symbol', source: 'gares', minzoom: GARE_LABEL_MIN_ZOOM,
+          layout: { 'text-field': ['get', 'nom'], 'text-font': ['Noto Sans Regular'], 'text-size': 10, 'text-anchor': 'top', 'text-offset': [0, 0.7], 'text-transform': 'uppercase' },
+          paint: { 'text-color': '#b07c00', 'text-halo-color': '#0a0a0a', 'text-halo-width': 1.5 },
+        });
+        applyGaresRef.current();
+        // Clic sur une gare : son panneau ; un train au même endroit garde la priorité (son propre clic l'ouvre).
+        m.on('click', 'gares', (e) => {
+          if (m.queryRenderedFeatures(e.point, { layers: ['trains'] }).length > 0) return;
+          const uic = e.features?.[0]?.properties?.uic;
+          if (typeof uic === 'string') onGareRef.current?.(uic);
+        });
+        m.on('mouseenter', 'gares', () => { m.getCanvas().style.cursor = 'pointer'; });
+        m.on('mouseleave', 'gares', () => { m.getCanvas().style.cursor = ''; });
         m.addSource('gare', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
         m.addLayer({
           id: 'gare', type: 'circle', source: 'gare',
@@ -285,6 +316,16 @@ export default function CarteView({ trains, failed, lastOk, focus, selected, onS
     })();
   }, [showVmax]);
 
+  // Gares de la carte (chargées par l'accueil, même liste que la barre de commande) ; sans elles, la carte marche sans.
+  useEffect(() => {
+    garesRef.current = {
+      type: 'FeatureCollection',
+      features: gares.filter((g) => g[2] !== undefined && g[3] !== undefined)
+        .map(([uic, nom, lat, lon]) => ({ type: 'Feature', geometry: { type: 'Point', coordinates: [lon, lat] }, properties: { uic, nom } })),
+    };
+    applyGaresRef.current();
+  }, [gares]);
+
   // Tracés des voies : chargés une fois ; sans eux (échec, contenu invalide) les trains avancent en ligne droite.
   useEffect(() => {
     let alive = true;
@@ -356,7 +397,16 @@ export default function CarteView({ trains, failed, lastOk, focus, selected, onS
           </label>
         </div>
       </div>
+      {/* Carte et volets posés dessus : les volets se calent sur la carte, pas sur la hauteur variable des filtres. */}
+      <div className="carte-stage">
       <div ref={container} className="carte-map" />
+      {overlay}
+      {failed && (
+        <p className="carte-banner" role="status">
+          {staleMin === null ? 'DONNÉES INDISPONIBLES' : `DONNÉES NON ACTUALISÉES DEPUIS ${staleMin} MIN`}
+        </p>
+      )}
+      </div>
       {showVmax && (
         <div className="carte-vmax-legend" aria-label="Légende des vitesses maximales nominales">
           <ul>
@@ -365,12 +415,6 @@ export default function CarteView({ trains, failed, lastOk, focus, selected, onS
           </ul>
           <p className="term-dim">SNCF RÉSEAU{vmaxDate ? `, DONNÉES DU ${vmaxDate.split('-').reverse().join('/')}` : ''}</p>
         </div>
-      )}
-      {overlay}
-      {failed && (
-        <p className="carte-banner" role="status">
-          {staleMin === null ? 'DONNÉES INDISPONIBLES' : `DONNÉES NON ACTUALISÉES DEPUIS ${staleMin} MIN`}
-        </p>
       )}
       <p className="carte-count" aria-live="polite">
         {failed && trains.length === 0 ? 'AUCUNE DONNÉE' : <>{shown.length} TRAINS · {moving} EN ROUTE · <span className="tone-strong">{lateCount(shown)} EN RETARD</span></>}

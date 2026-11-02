@@ -448,14 +448,17 @@ export default function MareyView() {
             {!data && !failed && <p className="term-dim marey-empty">CHARGEMENT…</p>}
             {line && nowS !== null && (
               <>
-                <svg className="marey-labels" width={left} height={H} aria-hidden="true">
+                {/* Nom d'une gare = lien vers son panneau sur l'accueil (départs et arrivées). */}
+                <svg className="marey-labels" width={left} height={H}>
                   {line.gares.map((g, i) => {
                     const on = gare !== null && g.stop_ids.includes(gare);
                     const gy = y(g.km), ly = labelYs[i] ?? gy, lx = left - LEADER_PX - 4;
                     return (
                       <g key={g.nom}>
-                        <polyline points={`${lx + 2},${ly} ${left - LEADER_PX / 2},${ly} ${left},${gy}`} className={on ? 'm-leader m-leader-on' : 'm-leader'} />
-                        <text x={lx} y={ly + 4} textAnchor="end" className={on ? 'm-lab m-lab-on' : isForeign(g.stop_ids) ? 'm-lab m-lab-foreign' : 'm-lab'}><title>{g.nom}</title>{on ? '▸ ' : ''}{shortName(g.nom)}</text>
+                        <polyline points={`${lx + 2},${ly} ${left - LEADER_PX / 2},${ly} ${left},${gy}`} className={on ? 'm-leader m-leader-on' : 'm-leader'} aria-hidden="true" />
+                        <a href={`/?gare=${g.stop_ids.slice(0, 8).join(',')}`} className="m-lab-link" aria-label={`Gare ${g.nom} : départs et arrivées`}>
+                          <text x={lx} y={ly + 4} textAnchor="end" className={on ? 'm-lab m-lab-on' : isForeign(g.stop_ids) ? 'm-lab m-lab-foreign' : 'm-lab'}><title>{g.nom}</title>{on ? '▸ ' : ''}{shortName(g.nom)}</text>
+                        </a>
                       </g>
                     );
                   })}

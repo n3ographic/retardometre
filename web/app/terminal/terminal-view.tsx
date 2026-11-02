@@ -8,6 +8,7 @@ import type { LiveItem } from '../../lib/map-model';
 import type { StatsPayload } from '../../lib/stats';
 import { collectHealth } from '../../lib/marey';
 import { parseGares, readBoard, type Board, type Tab } from '../../lib/station';
+import type { GareRow } from '../../lib/command';
 import { periodQuery, tickerItems, type Period } from '../../lib/terminal-model';
 import FootBar from './foot-bar';
 import CausesPanel from './causes-panel';
@@ -45,6 +46,12 @@ export default function TerminalView() {
   const [board, setBoard] = useState<Board | null>(null);
   const [boardFailed, setBoardFailed] = useState(false);
   const [tab, setTab] = useState<Tab>('DEP');
+  // Toutes les gares (/api/gares) : points cliquables de la carte, origine et destination cliquables dans la fiche.
+  const [gares, setGares] = useState<GareRow[]>([]);
+  useEffect(() => {
+    fetch('/api/gares').then((r) => (r.ok ? r.json() : null)).then((d: { gares?: GareRow[] } | null) => { if (Array.isArray(d?.gares)) setGares(d.gares); }).catch(() => {});
+  }, []);
+  const uicByName = useMemo(() => new Map(gares.map((g) => [g[1], g[0]])), [gares]);
   // Train sélectionné gardé dans l'URL (?sel=) : un retour depuis le Marey le retrouve.
   const initialSel = useRef<string | null>(null);
 
@@ -111,6 +118,7 @@ export default function TerminalView() {
   const reloadStats = useCallback(() => loadStats(period), [period, loadStats]);
 
   const select = useCallback((id: string | null) => { setSelected(id); setMissing(null); setSpeed(null); setGare(null); }, []);
+  const openGare = useCallback((uic: string) => { select(null); setGare([uic]); }, [select]);
   useEffect(() => {
     if (initialSel.current) return; // pas avant d'avoir relu ?sel=
     const n = trains.find((t) => t.trip_id === selected)?.train_number ?? missing;
@@ -171,9 +179,9 @@ export default function TerminalView() {
         <LeftPanel trains={trains} liveFailed={liveFailed} stats={stats} statsFailed={statsFailed} statsLoading={statsLoading} period={period} onFocus={onFocus} />
         <div className="term-center">
           <CarteView trains={trains} failed={liveFailed} lastOk={lastOk} focus={focus} selected={selected} onSelect={select} onSpeed={setSpeed}
-            highlight={highlight}
+            highlight={highlight} gares={gares} onGare={openGare}
             overlay={gare ? <StationPanel uics={gare} board={board} failed={boardFailed} tab={tab} onTab={setTab} onPick={onPick} onClose={() => setGare(null)} />
-              : selected || missing ? <TrainPanel train={trains.find((t) => t.trip_id === selected) ?? null} missing={missing} rules={rules} speed={speed} onClose={() => select(null)} /> : null} />
+              : selected || missing ? <TrainPanel train={trains.find((t) => t.trip_id === selected) ?? null} missing={missing} gareOf={(nom) => uicByName.get(nom) ?? null} onGare={openGare} rules={rules} speed={speed} onClose={() => select(null)} /> : null} />
           <div className="term-bottom">
             <GroupsPanel stats={stats} failed={statsFailed} loading={statsLoading} period={period} onRetry={reloadStats} />
             <CausesPanel stats={stats} failed={statsFailed} loading={statsLoading} period={period} />

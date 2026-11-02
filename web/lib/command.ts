@@ -13,7 +13,9 @@ export type Kind = 'TRAIN' | 'AXE' | 'GARE' | 'PAGE' | 'CMD';
 export type Action = { label: string; href: string };
 export type Suggestion = { kind: Kind; label: string; href: string | null; go?: string; alt?: Action[]; delay_s?: number; cancelled?: boolean; group?: string };
 type CommandTrain = Pick<LiveItem, 'train_number' | 'brand' | 'origin' | 'dest' | 'delay_s' | 'cancelled' | 'axis'> & { stops?: LiveItem['stops'] };
-export type CommandData = { trains: CommandTrain[]; gares: [string, string][] };
+// Gare de /api/gares : code UIC, nom, et coordonnées quand elles sont connues.
+export type GareRow = [uic: string, nom: string, lat?: number, lon?: number];
+export type CommandData = { trains: CommandTrain[]; gares: GareRow[] };
 
 export const MAX_SUGGESTIONS = 6;
 export const UNKNOWN = 'COMMANDE INCONNUE · TAPEZ HELP';

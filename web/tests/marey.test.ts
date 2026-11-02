@@ -160,7 +160,7 @@ test('gares : une par code UIC (8 derniers caractères), triées par nom, aucun 
   const r = await createGaresHandler(d)(new Request('http://x/api/gares'));
   expect(r.status).toBe(200);
   expect(r.headers.get('cache-control')).toBe('public, s-maxage=3600, stale-while-revalidate=600');
-  expect((await r.json()).gares).toEqual([['87471003', 'Angers St-Laud'], ['87581009', 'Bordeaux St-Jean'], ['87391003', 'Paris Montparnasse']]);
+  expect((await r.json()).gares).toEqual([['87471003', 'Angers St-Laud', 47.4, -0.5], ['87581009', 'Bordeaux St-Jean', 44.8, -0.6], ['87391003', 'Paris Montparnasse']]);
   expect((await createGaresHandler(deps())(new Request('http://x/api/gares?q=a'))).status).toBe(400);
 });
 
