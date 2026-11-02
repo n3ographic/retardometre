@@ -104,7 +104,8 @@ export function createMareyHandler(deps: Deps) {
         unwrap<Price[]>(deps.select('reference_prices', 'brand,price_eur_ht,seats,price_source,seats_source,as_of'), 'reference_prices'),
         deps.cached(['marey-gares', 'v1'], 86_400, () => unwrap<StopRow[]>(deps.select('stops', 'stop_id,name,lat,lon'), 'stops')),
       ]);
-      return shapeMarey(p.axe, trains, prices, stops, new Date(w.bucket * 1000)); // lève si invalide : rien n'est mis en cache
+      // generated_at = heure réelle de la requête (pas le début du seau) : le bandeau en déduit le retard de la collecte.
+      return shapeMarey(p.axe, trains, prices, stops, deps.now()); // lève si invalide : rien n'est mis en cache
     }), 200, MAREY_CACHE));
   };
 }

@@ -2,10 +2,11 @@
 
 import { useEffect, useState, type ReactNode } from 'react';
 
-type Status = { status: 'ok' | 'late' | 'unknown'; ageMin: number | null };
+type Status = { status: 'ok' | 'slow' | 'late' | 'unknown'; ageMin: number | null };
 
 const COLLECT = {
   ok: (age: number | null) => <span className="ok">COLLECTE OK{age !== null ? ` · ${age} MIN` : ''}</span>,
+  slow: (age: number | null) => <span className="tone-strong">COLLECTE RALENTIE{age !== null ? ` · ${age} MIN` : ''}</span>,
   late: (age: number | null) => <span className="bad">COLLECTE EN RETARD{age !== null ? ` · ${age} MIN` : ''}</span>,
   unknown: () => <span className="term-dim">COLLECTE INCONNUE</span>,
 };

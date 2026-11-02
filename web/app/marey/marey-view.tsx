@@ -4,12 +4,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CAUSE_LABELS } from '../../lib/causes';
 import { TERMINUS_BUCKETS } from '../../lib/dashboard-model';
 import {
-  BLOCK_S, DAY_SPAN_H, HALF_WINDOW_S, MAREY_AXES, PAST_TTL_S, blockOf, findTrain, hourTicks, inWindow, matchLines, parseMareyParams,
-  serviceDay, span, trainSpan, trainTrace,
+  BLOCK_S, COLLECT_INTERVAL_S, DAY_SPAN_H, HALF_WINDOW_S, MAREY_AXES, PAST_TTL_S, blockOf, findTrain, hourTicks, inWindow, matchLines, parseMareyParams,
+  collectHealth, serviceDay, span, trainSpan, trainTrace,
   type AxesFile, type Match, type MareyGares, type MareyTrain, type Trace,
 } from '../../lib/marey';
 import { LABEL_MAX, isForeign, layoutLabels, pickLabels, shortName } from '../../lib/marey-layout';
-import { buildAxis, type Branch, type BuiltLine } from '../../lib/marey-lines';
+import { MIN_TRAINS, buildAxis, type Branch, type BuiltLine } from '../../lib/marey-lines';
 import { searchTrains } from '../../lib/train-search';
 import { bucketIndex, delayTone } from '../../lib/terminal-model';
 import FootBar from '../terminal/foot-bar';
@@ -71,6 +71,7 @@ export default function MareyView() {
   const [hover, setHover] = useState<string | null>(null);
   const [wanted, setWanted] = useState<{ axe: string; train: string | null; axeGiven: boolean } | null>(null);
   const [query, setQuery] = useState('');
+  const [autresOpen, setAutresOpen] = useState(false);
   const [viewFrom, setViewFrom] = useState<number | null>(null); // heure du bord gauche du graphique (défilement)
   const [box, size] = useSize<HTMLDivElement>();
   const scroller = useRef<HTMLDivElement>(null);
@@ -178,7 +179,12 @@ export default function MareyView() {
   const hlItem = items.find((i) => i.key === highlighted) ?? null;
   const hlMatches = hlItem?.matches ?? [];
 
-  const branches: Branch[] = built?.branches ?? [];
+  // Branches de moins de 3 trains (surtout des corridors intersecteurs) : rangées dans un menu « AUTRES », triées par trafic.
+  const allBranches: Branch[] = built?.branches ?? [];
+  const branchTotal = (b: Branch) => [...b.lignes, ...b.autres].reduce((n, l) => n + l.trains, 0);
+  const smallBranches = allBranches.filter((b) => branchTotal(b) < MIN_TRAINS).sort((a, b) => branchTotal(b) - branchTotal(a));
+  const bigBranches = smallBranches.length === allBranches.length ? allBranches : allBranches.filter((b) => !smallBranches.includes(b));
+  const branches: Branch[] = bigBranches === allBranches ? allBranches : [...bigBranches, ...smallBranches];
   const branch = branches.find((b) => b.id === tab) ?? branches.find((b) => hlMatches.some((m) => m.branch === b.id)) ?? branches[0] ?? null;
   const allLines: BuiltLine[] = branch ? [...branch.lignes, ...branch.autres] : [];
   const line = allLines.find((l) => l.id === lineId)
@@ -311,7 +317,11 @@ export default function MareyView() {
   const halfTicks = ticks.map((t) => t + 1800).filter((t) => t < dayEnd);
   const hourStep = pxPerS * 3600 < 44 ? 2 : 1;
   const focused = items.find((i) => i.key === (hover ?? highlighted)) ?? null;
-  const status = data ? { status: 'ok' as const, ageMin: Math.round((Date.now() - Date.parse(data.generated_at)) / 60000) } : { status: 'unknown' as const, ageMin: null };
+  // Bandeau : retard de la collecte d'après la tranche la plus récente (celle qui contient maintenant).
+  const health = useMemo(() => {
+    const cur = nowS === null ? undefined : blocks[`${axe}:${blockOf(nowS)}`];
+    return cur ? collectHealth(cur.generated_at, cur.trains) : { status: 'unknown' as const, ageMin: null };
+  }, [blocks, axe, nowS]);
   const axisCount = (a: string) => (index ? index.filter((r) => r[0] === a).length : null);
   // Recherche : mêmes règles et même liste que celle de la carte, sur l'index de tous les axes.
   const entries = useMemo(() => (index ?? []).map((r) => ({ axe: r[0], train_number: r[1], origin: r[2] ?? undefined, dest: r[3] ?? undefined, delay_s: r[4] ?? undefined })), [index]);
@@ -322,7 +332,7 @@ export default function MareyView() {
 
   return (
     <div className="term">
-      <StatusBar status={status} />
+      <StatusBar status={health} />
       <main className="marey">
         <h1 className="sr-only">Diagramme de Marey : horaires théoriques et retards reconstitués des TGV, par axe</h1>
         <div className="marey-main">
@@ -355,12 +365,34 @@ export default function MareyView() {
           </div>
           <div className="marey-head">
             <div role="tablist" aria-label="Branches" className="marey-tabs">
-              {branches.map((b) => (
+              {bigBranches.map((b) => (
                 <button key={b.id} role="tab" aria-selected={b.id === branch?.id} className={b.id === branch?.id ? 'on' : ''} onClick={() => { setTab(b.id); setLineId(null); }}>
-                  {b.label} <span className="term-dim">{[...b.lignes, ...b.autres].reduce((n, l) => n + l.trains, 0)}</span>
+                  {b.label} <span className="term-dim">{branchTotal(b)}</span>
                 </button>
               ))}
             </div>
+            {bigBranches !== allBranches && (
+              <div className="marey-autres" onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setAutresOpen(false); }}
+                onKeyDown={(e) => { if (e.key === 'Escape') setAutresOpen(false); }}>
+                <div className="marey-tabs">
+                  <button type="button" aria-haspopup="true" aria-expanded={autresOpen} className={smallBranches.includes(branch!) ? 'on' : ''} onClick={() => setAutresOpen((o) => !o)}>
+                    AUTRES{smallBranches.includes(branch!) ? ` · ${branch!.label}` : ''} <span className="term-dim">{smallBranches.length}</span> ▾
+                  </button>
+                </div>
+                {autresOpen && (
+                  <ul className="carte-results" aria-label="Autres corridors, moins de 3 trains">
+                    {smallBranches.map((b) => (
+                      <li key={b.id}>
+                        <button type="button" onClick={() => { setTab(b.id); setLineId(null); setAutresOpen(false); }}>
+                          <span className="carte-res-route">{b.label}</span>
+                          <span className="term-dim">{branchTotal(b)} TRAIN{branchTotal(b) > 1 ? 'S' : ''}</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
             <span className="marey-legend" aria-label="Légende des retards">
               {TERMINUS_BUCKETS.map((b, i) => <span key={b}><span className={`seg-c s${i}`} aria-hidden="true">█</span> {b} </span>)}MIN
             </span>
@@ -445,7 +477,7 @@ export default function MareyView() {
             )}
             {line && shown.length === 0 && data && !failed && <p className="term-dim marey-empty">AUCUN TRAIN SUR CETTE LIGNE DANS LES HEURES CHARGÉES</p>}
           </div>
-          <p className="marey-note term-dim">POINTILLÉ = HORAIRE THÉORIQUE · PLEIN = RETARD PUBLIÉ RECONSTITUÉ À CHAQUE COLLECTE (≈ TOUTES LES 2 MIN) · APPROXIMATIF · ESTOMPÉ = PROLONGATION APRÈS MAINTENANT · FAITES DÉFILER POUR VOIR LA JOURNÉE (4 H → 2 H) · TOUCHES 1-5 : AXE, ← → : BRANCHE</p>
+          <p className="marey-note term-dim">POINTILLÉ = HORAIRE THÉORIQUE · PLEIN = RETARD PUBLIÉ RECONSTITUÉ À CHAQUE COLLECTE (≈ TOUTES LES {COLLECT_INTERVAL_S / 60} MIN) · APPROXIMATIF · ESTOMPÉ = PROLONGATION APRÈS MAINTENANT · FAITES DÉFILER POUR VOIR LA JOURNÉE (4 H → 2 H) · TOUCHES 1-5 : AXE, ← → : BRANCHE</p>
         </div>
         <aside className="term-panel marey-side" aria-live="polite">
           <h2 className="term-panel-title">TRAIN</h2>

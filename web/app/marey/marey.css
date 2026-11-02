@@ -10,6 +10,8 @@
    par son conteneur .carte-ctrl ; ici, sans ce conteneur, champ et résultats prendraient la taille de la page (16 px). */
 .marey-search { margin-left: auto; z-index: 6; font-size: 12px; }
 .marey-search .carte-results { left: auto; right: 0; }
+.marey-autres { position: relative; font-size: 12px; z-index: 6; }
+.marey-autres .carte-results { width: max-content; min-width: 240px; }
 .marey-tabs button.minor:not(.on) { opacity: 0.5; border-style: dashed; }
 .marey-cause-text { display: block; margin-top: 2px; font-size: 11px; color: var(--t-amber-dim); opacity: 0.8; }
 .marey-tabs { flex-wrap: wrap; }
@@ -50,6 +52,8 @@
   .marey-search { margin-left: auto; }
 .marey-search input { font: inherit; font-size: 12px; text-transform: uppercase; background: var(--t-bg); color: var(--t-amber); border: 1px solid var(--t-line); padding: 2px 6px; width: 22ch; }
 .marey-search input::placeholder { color: var(--t-amber-dim); }
+.marey-autres { position: relative; font-size: 12px; z-index: 6; }
+.marey-autres .carte-results { width: max-content; min-width: 240px; }
 .marey-tabs button.minor:not(.on) { opacity: 0.5; border-style: dashed; }
 .marey-cause-text { display: block; margin-top: 2px; font-size: 11px; color: var(--t-amber-dim); opacity: 0.8; }
 .marey-tabs { flex-wrap: wrap; }
