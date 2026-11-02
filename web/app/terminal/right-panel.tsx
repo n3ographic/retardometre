@@ -1,6 +1,7 @@
 import { isSmallSample, suppressionPct } from '../../lib/dashboard-model';
 import { COUNT_KEYS, COUNT_LABELS, breakdownText } from '../../lib/counts';
 import type { CumulPayload } from '../../lib/cumul';
+import { lastCompleteWeek } from '../../lib/weekly';
 import type { StatsPayload } from '../../lib/stats';
 import { RANGE_HINT, axisRegularity, brandSplit, calcLabel, charBar, eurRange, periodLabel, windowLabel, type Period } from '../../lib/terminal-model';
 
@@ -47,6 +48,7 @@ export default function RightPanel({ cumul, cumulFailed, stats, statsFailed, sta
           </p>
         )}
         {statsCalc && <p className="term-dim">{statsCalc}</p>}
+        <p><a href="/semaine" className="to-marey">BILAN SEMAINE {lastCompleteWeek(new Date())} →</a></p>
       </section>
       <section className={cumul && isSmallSample(cumul) ? 'term-panel term-small' : 'term-panel'}>
         <h2 className="term-panel-title">Indemn. cumul</h2>

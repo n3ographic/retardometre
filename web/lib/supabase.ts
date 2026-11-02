@@ -12,7 +12,10 @@ function client() {
 
 export const supabaseDeps: Deps = {
   rpc: async (fn, args) => await client().rpc(fn, args),
-  select: async (table, columns) => await client().from(table).select(columns),
+  select: async (table, columns, match) => {
+    const q = client().from(table).select(columns);
+    return await (match ? q.match(match) : q);
+  },
   now: () => new Date(),
   // Data Cache de Next (partagé entre instances sur Vercel) : protège Supabase quelle que soit l'URL brute.
   cached: (keyParts, revalidateS, fn) => unstable_cache(fn, keyParts, { revalidate: revalidateS })(),

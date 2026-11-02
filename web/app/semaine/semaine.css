@@ -1,0 +1,22 @@
+/* Bilan hebdomadaire (/semaine/AAAA-Wnn) : colonne de la fiche train (.tp), chiffres clés en gros. */
+.wk-nav { display: flex; justify-content: space-between; margin-bottom: 6px; }
+.wk-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 760px) { .wk-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.wk-big { font-size: 34px; line-height: 1.1; letter-spacing: 0.01em; margin: 4px 0 2px !important; }
+.wk-small { font-size: 11px; }
+.wk-route { font-size: 16px; text-transform: uppercase; }
+.wk-bar { color: var(--t-amber); white-space: nowrap; }
+.wk-table { border-collapse: collapse; width: 100%; }
+.wk-table th, .wk-table td { padding: 1px 10px 1px 0; text-align: left; white-space: nowrap; border-bottom: 1px dotted var(--t-line); font-weight: 400; }
+.wk-table thead th { color: var(--t-amber-dim); text-transform: uppercase; }
+.wk-causes { margin: 0; padding-left: 2ch; }
+.wk-causes li { margin-bottom: 6px; }
+.wk-scroll { overflow-x: auto; }
+.wk-heat { border-collapse: separate; border-spacing: 2px; font-size: 11px; }
+.wk-heat th { color: var(--t-amber-dim); font-weight: 400; padding: 0 4px 0 0; text-align: left; }
+.wk-heat thead th { text-align: center; padding: 0; }
+.wk-heat td { width: 18px; height: 16px; }
+.wk-empty { background: transparent; outline: 1px solid var(--t-line); outline-offset: -1px; }
+.wk-faint { opacity: 0.35; }
+.wk-keys { margin: 0; padding-left: 2ch; }
+.wk-keys li { margin-bottom: 4px; }

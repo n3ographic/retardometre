@@ -5,13 +5,14 @@ import { shapeProfile, type Profile, type RawProfile } from './train-profile';
 import { BLOCK_S, BUCKET_S, COLLECT_INTERVAL_S, HALF_WINDOW_S, PAST_TTL_S, fetchWindow, parseApiParams, shapeMarey, type RawTrain, type StopRow } from './marey';
 import { loadRules } from './rules';
 import { parseGares, shapeBoard } from './station';
+import { WEEK_RE, type WeekRow } from './weekly';
 import type { GareRow } from './command';
 import { parisDate, parseStatsParams } from './params';
 import { shapeStats, type Price, type Scale, type StatRow } from './stats';
 
 export type Deps = {
   rpc: (fn: string, args: Record<string, unknown>) => Result;
-  select: (table: string, columns: string) => Result;
+  select: (table: string, columns: string, match?: Record<string, string>) => Result; // match : égalités colonne = valeur
   now: () => Date;
   // Cache de données serveur : ne mémorise que ce que fn renvoie ; une exception n'est jamais mise en cache.
   cached: <T>(keyParts: string[], revalidateS: number, fn: () => Promise<T>) => Promise<T>;
@@ -152,6 +153,22 @@ export async function loadGares(deps: Deps): Promise<GareRow[]> {
     if (!byUic.has(uic) || (has && byUic.get(uic)!.length === 2)) byUic.set(uic, has ? [uic, s.name, Number(s.lat), Number(s.lon)] : [uic, s.name]);
   }
   return [...byUic.values()].sort((a, b) => a[1].localeCompare(b[1], 'fr'));
+}
+
+// Semaines déjà calculées (weekly_reports), dans l'ordre ; une nouvelle semaine apparaît en 10 min au plus.
+export const loadWeeks = (deps: Deps) => deps.cached(['weeks', 'v1'], 600, async () =>
+  (await unwrap<{ week: string }[]>(deps.select('weekly_reports', 'week'), 'weekly_reports')).map((r) => r.week).sort());
+
+// Bilan figé d'une semaine et de la précédente (variations) ; null si la semaine n'est pas calculée (jamais mis en cache).
+export async function loadWeek(deps: Deps, week: string): Promise<{ row: WeekRow; prev: WeekRow | null; weeks: string[] } | null> {
+  if (!WEEK_RE.test(week)) return null;
+  const weeks = await loadWeeks(deps);
+  const i = weeks.indexOf(week);
+  if (i < 0) return null;
+  const read = async (w: string) => (await unwrap<WeekRow[]>(deps.select('weekly_reports', 'week,monday,payload,computed_at', { week: w }), 'weekly_reports'))[0] ?? null;
+  // Une correction manuelle (snapshot_week) apparaît en 1 h au plus.
+  const [row, prev] = await deps.cached(['week', 'v1', week], 3600, () => Promise.all([read(week), i > 0 ? read(weeks[i - 1]) : Promise.resolve(null)]));
+  return row ? { row, prev, weeks } : null;
 }
 
 export function createGaresHandler(deps: Deps) {
