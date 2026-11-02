@@ -58,8 +58,12 @@ a { color: inherit; }
 .big { font-size: 22px; font-weight: 600; margin: 2px 0 !important; }
 .top-list { list-style: none; margin: 0; padding: 0; }
 .top-list li { display: flex; align-items: stretch; }
-.top-list .top-num { padding: 2px 0; border-bottom: 1px dotted var(--t-line); white-space: nowrap; text-decoration: underline dotted; text-underline-offset: 3px; }
+.top-list .top-num { padding: 2px 0; border-bottom: 1px dotted var(--t-line); white-space: nowrap; }
 .top-list .top-num:hover { background: #1a1200; }
+.arrivals .top-num { padding-right: 6px; }
+/* Liens vers le Marey : pointillé au repos, trait fin plein au survol. */
+a.to-marey { color: inherit; cursor: pointer; text-decoration: underline dotted 1px; text-underline-offset: 3px; }
+a.to-marey:hover, a.to-marey:focus-visible { text-decoration-style: solid; }
 .top-list button { all: unset; flex: 1; box-sizing: border-box; width: 100%; display: flex; justify-content: space-between; padding: 2px 0; cursor: pointer; border-bottom: 1px dotted var(--t-line); }
 .top-list button:hover { background: #1a1200; }
 .top-list button:focus-visible { outline: 1px solid var(--t-amber); }
@@ -69,7 +73,6 @@ a { color: inherit; }
 .ticker { overflow: hidden; white-space: nowrap; border-bottom: 1px solid var(--t-line); padding: 4px 0; font-size: 12px; }
 .ticker-track { display: inline-flex; animation: ticker 80s linear infinite; }
 .ticker:hover .ticker-track, .ticker:focus .ticker-track, .ticker:focus-within .ticker-track { animation-play-state: paused; }
-.ticker-list a { text-decoration: underline dotted; text-underline-offset: 3px; }
 .ticker-list { display: inline-flex; list-style: none; margin: 0; padding: 0 0 0 8px; gap: 28px; }
 @keyframes ticker { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 @media (prefers-reduced-motion: reduce) {

@@ -34,9 +34,12 @@ export default function TerminalView() {
   const [focus, setFocus] = useState<Focus>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [speed, setSpeed] = useState<number | null>(null);
+  // Train sélectionné gardé dans l'URL (?sel=) : un retour depuis le Marey le retrouve.
+  const initialSel = useRef<string | null>(null);
 
   useEffect(() => {
     let alive = true;
+    initialSel.current = new URLSearchParams(window.location.search).get('sel');
     const load = async () => {
       try {
         const r = await fetch('/api/live');
@@ -44,6 +47,10 @@ export default function TerminalView() {
         const d = (await r.json()) as { trains: LiveItem[] };
         if (!alive) return;
         setTrains(d.trains);
+        const sel = initialSel.current;
+        initialSel.current = null;
+        const hit = sel ? d.trains.find((t) => t.train_number === sel) : undefined;
+        if (hit) { setFocus({ trip_id: hit.trip_id, at: Date.now() }); setSelected(hit.trip_id); }
         setLastOk(Date.now());
         setLiveFailed(false);
       } catch {
@@ -90,6 +97,13 @@ export default function TerminalView() {
   const reloadStats = useCallback(() => loadStats(period), [period, loadStats]);
 
   const select = useCallback((id: string | null) => { setSelected(id); setSpeed(null); }, []);
+  useEffect(() => {
+    if (initialSel.current) return; // pas avant d'avoir relu ?sel=
+    const n = trains.find((t) => t.trip_id === selected)?.train_number;
+    const u = new URL(window.location.href);
+    if (n) u.searchParams.set('sel', n); else u.searchParams.delete('sel');
+    window.history.replaceState(null, '', u);
+  }, [selected]); // seule la sélection réécrit l'URL, pas chaque rafraîchissement des trains
   const rules = useMemo(() => (stats ? { compensation_scale: stats.assumptions.compensation_scale, prices: stats.assumptions.prices } : null), [stats]);
   const onFocus = useCallback((trip_id: string) => { setFocus({ trip_id, at: Date.now() }); setSelected(trip_id); }, []);
   const items = useMemo(() => tickerItems(trains, 15), [trains]);
