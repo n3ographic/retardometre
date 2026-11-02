@@ -14,6 +14,7 @@ import { searchTrains } from '../../lib/train-search';
 import { bucketIndex, delayTone } from '../../lib/terminal-model';
 import FootBar from '../terminal/foot-bar';
 import StatusBar from '../terminal/status-bar';
+import TrainActions from '../terminal/train-actions';
 
 const REFRESH_MS = 60_000;
 const MARGIN = { top: 22, right: 12, bottom: 16 };
@@ -536,13 +537,18 @@ function TrainInfo({ item, nowS }: { item: Item; nowS: number }) {
   const state = t.cancelled ? 'SUPPRIMÉ' : first !== undefined && nowS < first ? `PART À ${hhmm(first)}` : last !== undefined && nowS > last + Math.max(delay, 0) ? 'ARRIVÉ' : 'EN ROUTE';
   const cat = t.cause_cat ? CAUSE_LABELS[t.cause_cat]?.short : undefined;
   return (
+    <>
     <dl className="marey-info">
-      <div><dt>N°</dt><dd>{t.train_number} · {t.brand} · <a className="to-marey" href={`/train/${t.train_number}`}>FICHE →</a></dd></div>
+      <div><dt>N°</dt><dd>{t.train_number} · {t.brand}</dd></div>
       <div><dt>TRAJET</dt><dd>{[t.origin, t.dest].filter(Boolean).map((n) => shortName(n!, 40)).join(' → ') || '—'}</dd></div>
+    </dl>
+    <TrainActions number={t.train_number} current="MAREY" onMap={state === 'EN ROUTE'} />
+    <dl className="marey-info">
       <div><dt>ÉTAT</dt><dd>{state}</dd></div>
       <div><dt>RETARD</dt><dd className={`tone-${tone}`}>{t.cancelled ? 'SUPPRIMÉ' : t.delay_s === undefined ? 'INCONNU' : `${delay >= 60 ? '+' : ''}${Math.round(delay / 60)} MIN`}</dd></div>
       <div><dt>CAUSE</dt><dd>{cat ?? (t.cause ? '' : 'NON DÉCLARÉE')}{t.cause && <span className="marey-cause-text">{t.cause}</span>}</dd></div>
       <div><dt>INDEMNITÉ</dt><dd>{t.comp_pct > 0 ? `≈ ${t.comp_eur_per_passenger_ref.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} € HT PAR VOYAGEUR (${t.comp_pct} %)` : 'AUCUNE À CE RETARD'}</dd></div>
     </dl>
+    </>
   );
 }

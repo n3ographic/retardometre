@@ -1,8 +1,8 @@
 import { TERMINUS_BUCKETS } from '../../lib/dashboard-model';
 import { isStale, type LiveItem } from '../../lib/map-model';
-import { mareyHref } from '../../lib/marey';
+import TrainActions from './train-actions';
 import { bucketIndex, delayTone } from '../../lib/terminal-model';
-import { segmentProgress } from '../../lib/position';
+import { estimatePosition, segmentProgress } from '../../lib/position';
 import { compensationView, delayBounds, observedAgo, speedView, thresholdProgress, type Rules } from '../../lib/train-card';
 
 const at = (stop?: string) => (!stop ? '' : /^[AEIOUYÂÉÈÊÎÔ]/i.test(stop) ? ` D’${stop.toUpperCase()}` : ` DE ${stop.toUpperCase()}`);
@@ -13,8 +13,8 @@ const meter = (ratio: number) => { const n = Math.round(Math.min(Math.max(ratio,
 const TONE_LABELS = { ontime: 'À L’HEURE', late: 'RETARD', strong: 'FORT RETARD', severe: 'TRÈS FORT RETARD', cancelled: 'ANNULÉ' } as const;
 
 // Fiche du train sélectionné : volet posé sur le côté de la carte (la carte reste visible et cliquable à gauche).
-export default function TrainPanel({ train: t, rules, speed, onClose }: {
-  train: LiveItem | null; rules: Rules | null; speed: number | null; onClose: () => void;
+export default function TrainPanel({ train: t, missing, rules, speed, onClose }: {
+  train: LiveItem | null; missing: string | null; rules: Rules | null; speed: number | null; onClose: () => void;
 }) {
   const now = new Date();
   const shell = (title: string, body: React.ReactNode) => (
@@ -23,6 +23,12 @@ export default function TrainPanel({ train: t, rules, speed, onClose }: {
       {body}
     </aside>
   );
+  if (!t && missing) return shell(`TRAIN ${missing}`, (
+    <>
+      <TrainActions number={missing} current="CARTE" onMap={false} />
+      <p className="tone-late">PAS EN CIRCULATION</p>
+    </>
+  ));
   if (!t) return shell('TRAIN', <p className="term-dim">TRAIN TERMINÉ OU HORS DU FLUX</p>);
 
   const tone = delayTone(t.delay_s, t.cancelled);
@@ -33,10 +39,12 @@ export default function TrainPanel({ train: t, rules, speed, onClose }: {
   const prog = !t.cancelled && rules ? thresholdProgress(t.brand, t.delay_s, rules) : null;
   const ago = observedAgo(t.last_seen_at, now);
   const sv = speedView(speed, segmentProgress(t, now));
+  const onMap = estimatePosition(t, now) !== null;
   return shell(`${t.brand} ${t.train_number}`, (
     <>
       {t.origin && t.dest && <p>{t.origin} → {t.dest}</p>}
-      <p><a className="to-marey" href={`/train/${t.train_number}`}>FICHE →</a>{mareyHref(t) && <> · <a className="to-marey" href={mareyHref(t)!}>VOIR DANS MAREY →</a></>}</p>
+      <TrainActions number={t.train_number} current="CARTE" onMap={onMap} />
+      {!onMap && <p className="tone-late">PAS EN CIRCULATION</p>}
       <section className="train-block">
         <h3>Retard</h3>
         <p className={`train-big tone-${tone}`}>{tone === 'cancelled' ? 'ANNULÉ' : tone === 'ontime' ? 'À L’HEURE' : `+${Math.round(delay / 60)}′`}</p>

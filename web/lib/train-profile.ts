@@ -68,13 +68,13 @@ export function shapeProfile(number: string, raw: RawProfile, prices: Price[]): 
 }
 
 // État du jour pour l'en-tête : supprimé, pas encore parti, en route, arrivé (à l'heure ou +X′), non prévu aujourd'hui.
-export function todayLabel(p: Pick<Profile, 'today' | 'info'>, now: Date): { text: string; delay_s: number | null } {
+export function todayLabel(p: Pick<Profile, 'today' | 'info'>, now: Date): { text: string; delay_s: number | null; en_route: boolean } {
   const t = p.today;
-  if (!t) return { text: 'PAS PRÉVU AUJOURD’HUI', delay_s: null };
-  if (t.cancelled) return { text: 'SUPPRIMÉ AUJOURD’HUI', delay_s: null };
+  if (!t) return { text: 'PAS PRÉVU AUJOURD’HUI', delay_s: null, en_route: false };
+  if (t.cancelled) return { text: 'SUPPRIMÉ AUJOURD’HUI', delay_s: null, en_route: false };
   const d = Math.max(t.delay_s ?? 0, 0), late = d >= ON_TIME_S ? `+${Math.round(d / 60)}′` : 'À L’HEURE';
   const dep = Date.parse(p.info.dep_planned), arr = Date.parse(p.info.arr_planned) + d * 1000, n = now.getTime();
-  if (n < dep) return { text: 'PAS ENCORE PARTI', delay_s: t.delay_s };
-  if (n < arr) return { text: `EN ROUTE · ${late}`, delay_s: t.delay_s };
-  return { text: `ARRIVÉ · ${late}`, delay_s: t.delay_s };
+  if (n < dep) return { text: 'PAS ENCORE PARTI', delay_s: t.delay_s, en_route: false };
+  if (n < arr) return { text: `EN ROUTE · ${late}`, delay_s: t.delay_s, en_route: true };
+  return { text: `ARRIVÉ · ${late}`, delay_s: t.delay_s, en_route: false };
 }
