@@ -1,5 +1,6 @@
 import { TERMINUS_BUCKETS } from '../../lib/dashboard-model';
 import { isStale, type LiveItem } from '../../lib/map-model';
+import { mareyHref } from '../../lib/marey';
 import { bucketIndex, delayTone } from '../../lib/terminal-model';
 import { segmentProgress } from '../../lib/position';
 import { compensationView, delayBounds, observedAgo, speedView, thresholdProgress, type Rules } from '../../lib/train-card';
@@ -35,6 +36,7 @@ export default function TrainPanel({ train: t, rules, speed, onClose }: {
   return shell(`${t.brand} ${t.train_number}`, (
     <>
       {t.origin && t.dest && <p>{t.origin} → {t.dest}</p>}
+      {mareyHref(t) && <p><a className="to-marey" href={mareyHref(t)!}>VOIR DANS MAREY →</a></p>}
       <section className="train-block">
         <h3>Retard</h3>
         <p className={`train-big tone-${tone}`}>{tone === 'cancelled' ? 'ANNULÉ' : tone === 'ontime' ? 'À L’HEURE' : `+${Math.round(delay / 60)}′`}</p>

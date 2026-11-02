@@ -14,7 +14,6 @@
 .maplibregl-popup-close-button:focus-visible { outline-offset: 0; }
 .popup p { margin: 0 0 4px; font-size: 12px; }
 .popup .popup-title { color: #000; background: var(--t-amber); display: inline-block; padding: 0 4px; font-weight: 600; }
-.popup .popup-marey { display: inline-block; margin-top: 2px; font-size: 11px; }
 .popup .popup-cause, .popup .popup-note { color: var(--t-amber-dim); font-size: 11px; }
 .maplibregl-ctrl-attrib { background: rgba(10, 10, 10, 0.85) !important; color: var(--t-amber-dim) !important; }
 .maplibregl-ctrl-attrib a { color: var(--t-amber-dim); }

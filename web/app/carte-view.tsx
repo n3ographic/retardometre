@@ -8,7 +8,6 @@ import {
 } from '../lib/map-model';
 import { makeSegment, tracesToLines, type LineCollection, type TraceTable } from '../lib/traces';
 import { estimatePosition, segmentSpeedKmh, type Lngl } from '../lib/position';
-import { mareyHref } from '../lib/marey';
 import { searchTrains } from '../lib/train-search';
 import { delayTone, type Tone } from '../lib/terminal-model';
 import { VMAX_BANDS, vmaxColorExpr } from '../lib/vitesses';
@@ -36,14 +35,6 @@ function popupContent(t: LiveItem): HTMLElement {
   delay.className = `tone-${tone}`;
   delay.textContent = tone === 'cancelled' ? 'ANNULÉ' : `${tone === 'ontime' ? 'À L’HEURE' : `+${Math.round((t.delay_s ?? 0) / 60)}′`}`;
   root.append(title, delay);
-  const href = mareyHref(t);
-  if (href) {
-    const a = document.createElement('a');
-    a.className = 'to-marey popup-marey';
-    a.href = href;
-    a.textContent = 'VOIR DANS MAREY';
-    root.append(a);
-  }
   return root;
 }
 
