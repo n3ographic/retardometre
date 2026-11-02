@@ -39,10 +39,13 @@ function popupContent(t: LiveItem): HTMLElement {
 }
 
 export type Focus = { trip_id: string; at: number } | null;
+// Panneau gare ouvert : la gare (ses points) est marquée, les trains qui ne la desservent pas sont estompés.
+export type Highlight = { trips: string[]; points: [number, number][] } | null;
 
-export default function CarteView({ trains, failed, lastOk, focus, selected, onSelect, onSpeed, overlay }: {
+export default function CarteView({ trains, failed, lastOk, focus, selected, onSelect, onSpeed, overlay, highlight = null }: {
   trains: LiveItem[]; failed: boolean; lastOk: number | null; focus: Focus;
   selected: string | null; onSelect: (trip_id: string | null) => void; onSpeed: (kmh: number | null) => void; overlay: ReactNode;
+  highlight?: Highlight;
 }) {
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MlMap | null>(null);
@@ -67,8 +70,11 @@ export default function CarteView({ trains, failed, lastOk, focus, selected, onS
   const onSelectRef = useRef(onSelect);
   const onSpeedRef = useRef(onSpeed);
   const focusRef = useRef(focus);
+  const highlightRef = useRef(highlight);
+  const applyGareRef = useRef<() => void>(() => {});
   trainsRef.current = trains;
   focusRef.current = focus;
+  highlightRef.current = highlight;
   onSelectRef.current = onSelect;
   onSpeedRef.current = onSpeed;
   filtersRef.current = filters;
@@ -106,10 +112,12 @@ export default function CarteView({ trains, failed, lastOk, focus, selected, onS
       const src = map?.getSource('trains') as { setData(d: unknown): void } | undefined;
       if (src) {
         const byId = new Map(trainsRef.current.map((t) => [t.trip_id, t]));
+        const hl = highlightRef.current ? new Set(highlightRef.current.trips) : null;
         const fc = toFeatureCollection(applyFilters(trainsRef.current, filtersRef.current), new Date(), pathRef.current);
         for (const f of fc.features) {
-          const t = byId.get(f.properties.trip_id);
-          (f.properties as typeof f.properties & { tone: Tone }).tone = t ? delayTone(t.delay_s, t.cancelled) : 'ontime';
+          const t = byId.get(f.properties.trip_id), props = f.properties as typeof f.properties & { tone: Tone; dim: boolean };
+          props.tone = t ? delayTone(t.delay_s, t.cancelled) : 'ontime';
+          props.dim = hl !== null && !hl.has(f.properties.trip_id);
         }
         src.setData(fc);
       }
@@ -129,6 +137,12 @@ export default function CarteView({ trains, failed, lastOk, focus, selected, onS
         }
       }
       setNow(Date.now());
+    };
+    applyGareRef.current = () => {
+      const src = map?.getSource('gare') as { setData(d: unknown): void } | undefined;
+      const points = highlightRef.current?.points ?? [];
+      src?.setData({ type: 'FeatureCollection', features: points.map((c) => ({ type: 'Feature', geometry: { type: 'Point', coordinates: c }, properties: {} })) });
+      refresh();
     };
     const timer = setInterval(refresh, 1000);
     (async () => {
@@ -166,6 +180,11 @@ export default function CarteView({ trains, failed, lastOk, focus, selected, onS
           paint: { 'text-color': '#ffb000', 'text-halo-color': '#0a0a0a', 'text-halo-width': 2 },
         });
         applyVmaxRef.current();
+        m.addSource('gare', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+        m.addLayer({
+          id: 'gare', type: 'circle', source: 'gare',
+          paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 4, 7, 9, 14], 'circle-opacity': 0, 'circle-stroke-width': 2, 'circle-stroke-color': '#ffb000' },
+        });
         m.addSource('trains', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
         m.addLayer({
           id: 'trains', type: 'circle', source: 'trains',
@@ -173,14 +192,15 @@ export default function CarteView({ trains, failed, lastOk, focus, selected, onS
             'circle-radius': ['interpolate', ['linear'], ['zoom'], 4, 3.5, 9, 7],
             'circle-color': ['match', ['get', 'tone'],
               'late', TONE_COLORS.late, 'strong', TONE_COLORS.strong, 'severe', TONE_COLORS.severe, 'cancelled', TONE_COLORS.cancelled, TONE_COLORS.ontime],
-            'circle-opacity': ['case', ['get', 'stale'], 0.4, 1],
+            'circle-opacity': ['case', ['get', 'dim'], 0.15, ['get', 'stale'], 0.4, 1],
+            'circle-stroke-opacity': ['case', ['get', 'dim'], 0.15, 1],
             'circle-stroke-width': 1, 'circle-stroke-color': '#0a0a0a',
           },
         });
         m.addLayer({
           id: 'train-numbers', type: 'symbol', source: 'trains', minzoom: LABEL_MIN_ZOOM,
           layout: { 'text-field': ['get', 'label'], 'text-font': ['Noto Sans Regular'], 'text-size': 11, 'text-anchor': 'left', 'text-offset': [0.9, 0] },
-          paint: { 'text-color': '#ffb000', 'text-halo-color': '#0a0a0a', 'text-halo-width': 1.5, 'text-opacity': ['case', ['get', 'stale'], 0.5, 1] },
+          paint: { 'text-color': '#ffb000', 'text-halo-color': '#0a0a0a', 'text-halo-width': 1.5, 'text-opacity': ['case', ['get', 'dim'], 0.15, ['get', 'stale'], 0.5, 1] },
         });
         m.on('click', 'trains', (e) => {
           const id = e.features?.[0]?.properties?.trip_id;
@@ -190,6 +210,8 @@ export default function CarteView({ trains, failed, lastOk, focus, selected, onS
         m.on('mouseenter', 'trains', () => { m.getCanvas().style.cursor = 'pointer'; });
         m.on('mouseleave', 'trains', () => { m.getCanvas().style.cursor = ''; });
         refresh();
+        applyGareRef.current();
+        fitGare();
         // Centrage demandé avant que la carte soit prête (?sel= à l'ouverture) : on le rejoue maintenant.
         const f = focusRef.current, t = f && trainsRef.current.find((x) => x.trip_id === f.trip_id);
         if (t) focusTrain(t);
@@ -206,12 +228,26 @@ export default function CarteView({ trains, failed, lastOk, focus, selected, onS
     openPopup(t, [e.lon, e.lat]);
   };
 
+  // Cadre la carte sur la gare (ou les gares d'une ville) du panneau gare.
+  const fitGare = () => {
+    const m = mapRef.current, pts = highlightRef.current?.points ?? [];
+    if (!m || pts.length === 0) return;
+    if (pts.length === 1) { m.flyTo({ center: pts[0], zoom: Math.max(9, m.getZoom()) }); return; }
+    const lons = pts.map((p) => p[0]), lats = pts.map((p) => p[1]);
+    m.fitBounds([[Math.min(...lons), Math.min(...lats)], [Math.max(...lons), Math.max(...lats)]], { padding: 80, maxZoom: 11 });
+  };
+
   // Centrage demandé depuis les listes de la colonne de gauche.
   useEffect(() => {
     if (!focus) return;
     const t = trainsRef.current.find((x) => x.trip_id === focus.trip_id);
     if (t) focusTrain(t);
   }, [focus]);
+
+  // Panneau gare : marque et estompage à chaque nouvelle liste de trains ; cadrage seulement quand la gare change.
+  useEffect(() => { applyGareRef.current(); }, [highlight]);
+  const garesKey = highlight?.points.map((p) => p.join(':')).join('|') ?? '';
+  useEffect(() => { fitGare(); }, [garesKey]);
 
   // Fiche fermée depuis la colonne de droite : l'étiquette disparaît (sans redésélectionner).
   useEffect(() => {
