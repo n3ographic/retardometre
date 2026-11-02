@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { HELP, UNKNOWN, emptySuggestions, pushRecent, suggest, topSuggestions, type CommandData, type Suggestion } from '../../lib/command';
+import { HELP, UNKNOWN, actionsOf, emptySuggestions, pushRecent, suggest, topSuggestions, type CommandData, type Suggestion } from '../../lib/command';
 import type { LiveItem } from '../../lib/map-model';
 import { bucketIndex } from '../../lib/terminal-model';
 
@@ -12,7 +12,7 @@ const RECENTS_KEY = 'cmd-recents';
 const readRecents = (): Suggestion[] => { try { const v = JSON.parse(localStorage.getItem(RECENTS_KEY) ?? '[]'); return Array.isArray(v) ? v : []; } catch { return []; } };
 const saveRecents = (r: Suggestion[]) => { try { localStorage.setItem(RECENTS_KEY, JSON.stringify(r)); } catch { /* stockage indisponible */ } };
 
-const typing = (el: EventTarget | null) =>
+export const typing = (el: EventTarget | null) =>
   el instanceof HTMLElement && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable);
 
 // Barre de commande façon terminal : « / » (hors champ texte) ou Ctrl+K / Cmd+K, sur toutes les pages (montée dans le pied).
@@ -21,6 +21,7 @@ export default function CommandBar() {
   const [open, setOpen] = useState(false);
   const [value, setValue] = useState('');
   const [sel, setSel] = useState(0);
+  const [act, setAct] = useState(0); // action choisie dans la suggestion sélectionnée (0 = par défaut)
   const [mode, setMode] = useState<Mode>('suggest');
   const [msg, setMsg] = useState<string | null>(null);
   const [trains, setTrains] = useState<LiveItem[]>([]);
@@ -53,23 +54,33 @@ export default function CommandBar() {
 
   const data = useMemo<CommandData>(() => ({ trains, gares }), [trains, gares]);
   const list: Suggestion[] = mode === 'top' ? topSuggestions(trains) : mode === 'help' ? [] : value.trim() === '' ? emptySuggestions(trains, recents) : suggest(value, data);
-  const close = () => { setOpen(false); setValue(''); setSel(0); setMode('suggest'); setMsg(null); };
-  const run = (s: Suggestion | undefined) => {
+  const choose = (i: number) => { setSel(i); setAct(0); };
+  const close = () => { setOpen(false); setValue(''); choose(0); setMode('suggest'); setMsg(null); };
+  const run = (s: Suggestion | undefined, a = 0) => {
     if (!s) { setMsg(value.trim() === '' ? null : UNKNOWN); return; }
-    if (s.kind === 'CMD') { setMode(s.label === 'TOP' ? 'top' : 'help'); setValue(''); setSel(0); setMsg(null); return; }
-    if (!s.href) return;
+    if (s.kind === 'CMD') { setMode(s.label === 'TOP' ? 'top' : 'help'); setValue(''); choose(0); setMsg(null); return; }
+    const acts = actionsOf(s);
+    const href = (acts[a] ?? acts[0])?.href;
+    if (!href) return;
     saveRecents(pushRecent(recents, s));
-    window.location.assign(s.href);
+    window.location.assign(href);
   };
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); return; }
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       e.preventDefault();
-      if (list.length) setSel((i) => (i + (e.key === 'ArrowDown' ? 1 : list.length - 1)) % list.length);
+      if (list.length) choose((sel + (e.key === 'ArrowDown' ? 1 : list.length - 1)) % list.length);
       return;
     }
-    if (e.key === 'Enter') { e.preventDefault(); run(list[sel] ?? list[0]); }
+    // → / Tab : action suivante de la suggestion ; ← / Maj+Tab : précédente. Tab reste dans la barre (fenêtre modale).
+    if (e.key === 'ArrowRight' || e.key === 'ArrowLeft' || e.key === 'Tab') {
+      e.preventDefault();
+      const n = list[sel] ? actionsOf(list[sel]).length : 0;
+      if (n > 1) setAct((a) => (a + (e.key === 'ArrowLeft' || (e.key === 'Tab' && e.shiftKey) ? n - 1 : 1)) % n);
+      return;
+    }
+    if (e.key === 'Enter') { e.preventDefault(); run(list[sel] ?? list[0], list[sel] ? act : 0); }
   };
 
   if (!open) return <button type="button" className="cmd-hint" onClick={() => setOpen(true)} title="Barre de commande (/ ou Ctrl+K)">/ COMMANDE</button>;
@@ -84,7 +95,7 @@ export default function CommandBar() {
         <input ref={input} className="cmd-input" value={value} spellCheck={false} autoComplete="off"
           role="combobox" aria-expanded={list.length > 0} aria-controls="cmd-list" aria-activedescendant={list.length ? `cmd-opt-${sel}` : undefined}
           aria-label="Commande : numéro de train, axe, gare, page, TOP ou HELP"
-          onChange={(e) => { setValue(e.target.value); setSel(0); setMode('suggest'); setMsg(null); }} onKeyDown={onKeyDown} />
+          onChange={(e) => { setValue(e.target.value); choose(0); setMode('suggest'); setMsg(null); }} onKeyDown={onKeyDown} />
       </div>
       {title && <p className="cmd-title">{title}</p>}
       {msg && <p className="cmd-msg bad" role="status">{msg}</p>}
@@ -93,20 +104,31 @@ export default function CommandBar() {
       )}
       {list.length > 0 && (
         <ul id="cmd-list" className="cmd-list" role="listbox">
-          {list.map((s, i) => [
+          {list.map((s, i) => { const acts = actionsOf(s); return [
             s.group && s.group !== list[i - 1]?.group && <li key={`g${s.group}`} role="presentation" className="cmd-group">{s.group}</li>,
             <li key={`${s.group ?? ''}${s.kind}${s.label}`} id={`cmd-opt-${i}`} role="option" aria-selected={i === sel} className={i === sel ? 'on' : undefined}
-              onMouseDown={(e) => { e.preventDefault(); run(s); }} onMouseEnter={() => setSel(i)}>
+              aria-label={i === sel && acts[act] ? `${s.label} · ${act === 0 ? 'ENTRÉE' : 'ACTION'} ${acts[act].label}` : undefined}
+              onMouseDown={(e) => { e.preventDefault(); run(s); }} onMouseEnter={() => { if (i !== sel) choose(i); }}>
               <span className="cmd-label">{s.label}</span>
               {s.kind === 'TRAIN' && s.delay_s !== undefined && (s.cancelled
                 ? <span className="tone-cancelled">ANNULÉ</span>
                 : <span className={`seg-c s${bucketIndex(s.delay_s)}`}>+{Math.round(Math.max(s.delay_s, 0) / 60)}′</span>)}
-              <span className="cmd-kind">{s.kind === 'CMD' ? 'COMMANDE' : s.kind === 'TRAIN' ? 'MAREY' : s.kind}</span>
+              <span className="cmd-kind">{s.kind === 'CMD' ? 'COMMANDE' : s.kind}</span>
+              {acts.length > 0 && acts[0].label && (
+                <span className="cmd-acts">
+                  {acts.map((a, j) => (
+                    <span key={a.label} className={i === sel && j === act ? 'cmd-act on' : 'cmd-act'}
+                      onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); run(s, j); }}>
+                      {j === 0 ? `↵ ${a.label}` : a.label}
+                    </span>
+                  ))}
+                </span>
+              )}
             </li>,
-          ])}
+          ]; })}
         </ul>
       )}
-      <p className="cmd-keys">↑ ↓ CHOISIR · ENTRÉE VALIDER · ÉCHAP FERMER · HELP : COMMANDES</p>
+      <p className="cmd-keys">↑ ↓ CHOISIR · → ACTION · ENTRÉE VALIDER · ÉCHAP FERMER · HELP : COMMANDES</p>
     </div>
     </div>
   );
