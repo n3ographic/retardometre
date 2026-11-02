@@ -1,12 +1,10 @@
 'use client';
 
 import { useEffect } from 'react';
+import { viewHref, type View } from '../../lib/command';
 import { typing } from './command-bar';
 
-export type View = 'CARTE' | 'MAREY' | 'FICHE';
 const VIEWS: View[] = ['CARTE', 'MAREY', 'FICHE'];
-
-export const viewHref = (v: View, n: string) => (v === 'CARTE' ? `/?sel=${n}` : v === 'MAREY' ? `/marey?train=${n}` : `/train/${n}`);
 
 // Barre d'actions d'un train, la même sur la carte, le Marey et la fiche : la vue en cours est marquée et inerte,
 // CARTE est grisé quand le train n'a pas de position. Touches C, M, F hors saisie.
