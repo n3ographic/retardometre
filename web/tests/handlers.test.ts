@@ -111,7 +111,7 @@ test('même fenêtre canonique : la base n’est appelée qu’une fois', async 
   const h = createStatsHandler(deps);
   for (const qs of ['', '?period=7d', '?period=7d', '', '?period=7d']) expect((await h(new Request(`http://x/api/stats${qs}`))).status).toBe(200);
   expect(deps.rpc).toHaveBeenCalledTimes(1); expect(deps.select).toHaveBeenCalledTimes(2);
-  expect([...store.keys()]).toEqual(['stats|v3|2026-10-14|2026-10-20']); // v3 : la forme de la réponse a changé (causes), le cache survit aux déploiements
+  expect([...store.keys()]).toEqual(['stats|v4|2026-10-14|2026-10-20']); // v4 : la forme de la réponse a changé (tranche 0-4), le cache survit aux déploiements
   expect(cached.mock.calls[0][1]).toBe(900);
   await h(new Request('http://x/api/stats?period=14d'));
   expect(deps.rpc).toHaveBeenCalledTimes(2);

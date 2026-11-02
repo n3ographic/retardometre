@@ -3,7 +3,8 @@ import type { Group } from './stats';
 // En dessous, un effectif est trop petit pour que le pourcentage dise quelque chose : affiché, mais estompé.
 export const SAMPLE_MIN = 30;
 
-export const TERMINUS_BUCKETS = ['0', '1-4', '5-14', '15-29', '30-59', '60-119', '120-179', '180+'];
+// Tranches de retard affichées (minutes) : 0-4 réunit 0 et 1-4, les retards étant publiés par pas de 5 min.
+export const TERMINUS_BUCKETS = ['0-4', '5-14', '15-29', '30-59', '60-119', '120-179', '180+'];
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
 

@@ -6,7 +6,8 @@ import type { Cumul } from '../../lib/cumul';
 import { latest } from '../../lib/latest';
 import type { LiveItem } from '../../lib/map-model';
 import type { StatsPayload } from '../../lib/stats';
-import { collectStatus, periodQuery, tickerItems, type Period } from '../../lib/terminal-model';
+import { collectHealth } from '../../lib/marey';
+import { periodQuery, tickerItems, type Period } from '../../lib/terminal-model';
 import FootBar from './foot-bar';
 import CausesPanel from './causes-panel';
 import GroupsPanel from './groups-panel';
@@ -24,6 +25,7 @@ export default function TerminalView() {
   const [trains, setTrains] = useState<LiveItem[]>([]);
   const [liveFailed, setLiveFailed] = useState(false);
   const [lastOk, setLastOk] = useState<number | null>(null);
+  const [generatedAt, setGeneratedAt] = useState<string | null>(null);
   const [cumul, setCumul] = useState<Cumul | null>(null);
   const [cumulFailed, setCumulFailed] = useState(false);
   const [stats, setStats] = useState<StatsPayload | null>(null);
@@ -44,9 +46,10 @@ export default function TerminalView() {
       try {
         const r = await fetch('/api/live');
         if (!r.ok) throw new Error(String(r.status));
-        const d = (await r.json()) as { trains: LiveItem[] };
+        const d = (await r.json()) as { trains: LiveItem[]; generated_at: string };
         if (!alive) return;
         setTrains(d.trains);
+        setGeneratedAt(d.generated_at);
         const sel = initialSel.current;
         initialSel.current = null;
         const hit = sel ? d.trains.find((t) => t.train_number === sel) : undefined;
@@ -107,7 +110,8 @@ export default function TerminalView() {
   const rules = useMemo(() => (stats ? { compensation_scale: stats.assumptions.compensation_scale, prices: stats.assumptions.prices } : null), [stats]);
   const onFocus = useCallback((trip_id: string) => { setFocus({ trip_id, at: Date.now() }); setSelected(trip_id); }, []);
   const items = useMemo(() => tickerItems(trains, 15), [trains]);
-  const status = liveFailed && trains.length === 0 ? { status: 'unknown' as const, ageMin: null } : collectStatus(trains, new Date());
+  // Retard du collecteur mesuré à la production de la réponse (comme sur /marey), pas l'âge du cache de /api/live (jusqu'à ~6 min).
+  const status = (liveFailed && trains.length === 0) || !generatedAt ? { status: 'unknown' as const, ageMin: null } : collectHealth(generatedAt, trains);
 
   return (
     <div className="term">

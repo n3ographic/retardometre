@@ -52,7 +52,7 @@ export default function GroupsPanel({ stats, failed, loading, period, onRetry }:
             </table>
           </div>
           <p className="groups-foot term-dim">
-            {TERMINUS_BUCKETS.map((b, i) => <span key={b}><span className={`seg-c s${i}`} aria-hidden="true">█</span> {b} </span>)}MIN
+            {TERMINUS_BUCKETS.map((b, i) => <span key={b}><span className={`seg-c s${i}`} aria-hidden="true">█</span> {b} </span>)}MIN <span className="term-dim">· RETARDS PUBLIÉS PAR PAS DE 5 MIN</span>
             {' · '}DU {day(stats.from)} AU {day(stats.to)} · RÉGULARITÉ APPROCHÉE · PAS DE 5′ · COLLECTE DEPUIS LE 20/10
             {' · '}PRIX HT {stats.assumptions.prices.map((p) => `${p.brand} ${nf(p.price_eur_ht)} €`).join(', ')} · OCCUPATION {nf(stats.assumptions.occupancy)}
           </p>

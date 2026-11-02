@@ -47,11 +47,14 @@ test('période vide : zéros, null, pas de NaN', () => {
 
 test('les tranches absentes valent 0 et toutes les clés sont présentes', () => {
   const p = shapeStats([r('INOUI', 'EST', 'stop:cancelled', 4), r('INOUI', 'EST', 'terminus:180+', 1)], prices, scale, params);
-  const keys = ['0', '1-4', '5-14', '15-29', '30-59', '60-119', '120-179', '180+'];
+  const keys = ['0-4', '5-14', '15-29', '30-59', '60-119', '120-179', '180+'];
   expect(Object.keys(p.groups[0].terminus_buckets)).toEqual(keys);
   expect(Object.keys(p.groups[0].stop_buckets)).toEqual([...keys, 'cancelled']);
   expect(p.groups[0].terminus_buckets['180+']).toBe(1);
-  expect(p.groups[0].terminus_buckets['0']).toBe(0);
+  expect(p.groups[0].terminus_buckets['0-4']).toBe(0);
+  const m = shapeStats([r('INOUI', 'EST', 'terminus:0', 3), r('INOUI', 'EST', 'terminus:1-4', 1), r('INOUI', 'EST', 'stop:1-4', 2)], prices, scale, params);
+  expect(m.groups[0].terminus_buckets['0-4']).toBe(4); // 0 et 1-4 de la base réunies
+  expect(m.totals.stop_buckets['0-4']).toBe(2);
   expect(p.totals.stop_buckets.cancelled).toBe(4);
 });
 

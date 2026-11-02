@@ -17,13 +17,13 @@ test('suppressionPct : arrondi à 0,1, null sans train', () => {
 });
 
 test('bucketShares : ordre des tranches, pourcentages, total nul, tranche absente', () => {
-  const s = bucketShares({ '0': 31, '1-4': 0, '5-14': 9, '15-29': 10, '30-59': 7, '60-119': 12, '120-179': 1, '180+': 1 });
+  const s = bucketShares({ '0-4': 31, '5-14': 9, '15-29': 10, '30-59': 7, '60-119': 12, '120-179': 1, '180+': 1 });
   expect(s.map((x) => x.bucket)).toEqual(TERMINUS_BUCKETS);
-  expect(s[0]).toEqual({ bucket: '0', n: 31, pct: 43.7 });
+  expect(s[0]).toEqual({ bucket: '0-4', n: 31, pct: 43.7 });
   const zero = bucketShares({});
-  expect(zero).toHaveLength(8);
+  expect(zero).toHaveLength(7);
   expect(zero.every((x) => x.n === 0 && x.pct === 0)).toBe(true);
-  expect(bucketShares({ '0': 2, '5-14': 2 }).find((x) => x.bucket === '5-14')).toEqual({ bucket: '5-14', n: 2, pct: 50 });
+  expect(bucketShares({ '0-4': 2, '5-14': 2 }).find((x) => x.bucket === '5-14')).toEqual({ bucket: '5-14', n: 2, pct: 50 });
 });
 
 test('monthOptions : du plus récent au plus ancien, heure de Paris, changement d’année', () => {

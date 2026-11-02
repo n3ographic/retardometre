@@ -101,7 +101,7 @@ export default async function Page() {
           </div>
         ) : <Unavailable />}
         <h3>Mesure brute</h3>
-        <p>Les suppressions comptent comme des échecs. Le retard est réparti en huit tranches (0, 1-4, 5-14, 15-29, 30-59, 60-119, 120-179, 180 min et plus), au terminus et à chaque arrêt ; les arrêts supprimés sont comptés à part.
+        <p>Les suppressions comptent comme des échecs. Le retard est réparti en sept tranches (0-4, 5-14, 15-29, 30-59, 60-119, 120-179, 180 min et plus ; le flux publiant les retards par pas de 5 minutes, 0 et 1-4 sont réunies), au terminus et à chaque arrêt ; les arrêts supprimés sont comptés à part.
           Les tranches s’alignent sur les seuils d’indemnisation.</p>
       </section>
 
@@ -109,6 +109,8 @@ export default async function Page() {
         <h2>Indemnités théoriques</h2>
         <p>Pourcentage du billet dû selon le retard à l’arrivée, appliqué à un prix de référence et à un nombre de voyageurs estimé :
           coût = pourcentage × prix de référence × places × occupation.</p>
+        <p>Les deux marques n’ont <strong>pas le même barème</strong>, c’est voulu : un TGV INOUI indemnise dès 30 minutes de retard (garantie G30), un OUIGO seulement à partir d’une heure.
+          La fiche d’un train l’indique (« RÈGLE INOUI » ou « RÈGLE OUIGO ») avec le prochain seuil de sa marque.</p>
         {rules ? (
           <>
             {brands.map((b) => (
@@ -213,6 +215,7 @@ export default async function Page() {
           <li>Les retards du flux vont par pas de 5 minutes (aucun retard publié entre 1 et 4 minutes). « À l’heure » équivaut à un retard publié de 0 ; la régularité calculée est une approximation de la régularité officielle, à calibrer avant toute comparaison. Les indemnités en dépendent aux seuils de 30 minutes et de 3 heures : d’où la fourchette.</li>
           <li>Les trains absents du plan du jour ne sont pas collectés.</li>
           <li>Les chiffres reposant sur moins de 30 trains ayant circulé sont estompés : ils ne permettent pas de conclure.</li>
+          <li>Le barème INOUI est appliqué à tous les TGV INOUI : pour un trajet international, l’indemnité au-delà de 3 heures est de 50 % et non de 75 %, ce que l’observatoire ne distingue pas encore.</li>
           <li>Le retard est celui du terminus du train : un voyageur qui descend avant a pu arriver avec un autre retard, et son indemnité aussi.</li>
           <li>Quelques gares n’ont pas de tracé (hors réseau du jeu de formes) : les trains y avancent en ligne droite.</li>
         </ul>

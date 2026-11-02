@@ -509,7 +509,7 @@ export default function MareyView() {
           <dl className="marey-foot">
             <dt>RETARD</dt>
             <dd className="marey-legend" aria-label="Légende des retards">
-              {TERMINUS_BUCKETS.map((b, i) => <span key={b}><span className={`seg-c s${i}`} aria-hidden="true">█</span> {b} </span>)}MIN
+              {TERMINUS_BUCKETS.map((b, i) => <span key={b}><span className={`seg-c s${i}`} aria-hidden="true">█</span> {b} </span>)}MIN <span className="term-dim">· RETARDS PUBLIÉS PAR PAS DE 5 MIN</span>
             </dd>
             <dt>TRAIT</dt>
             <dd>POINTILLÉ = HORAIRE THÉORIQUE · PLEIN = RETARD PUBLIÉ, RECONSTITUÉ À CHAQUE COLLECTE (≈ TOUTES LES {COLLECT_INTERVAL_S / 60} MIN) · ESTOMPÉ = APRÈS MAINTENANT · APPROXIMATIF</dd>

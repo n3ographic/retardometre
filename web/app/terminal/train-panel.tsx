@@ -51,7 +51,7 @@ export default function TrainPanel({ train: t, rules, speed, onClose }: {
       </section>
       {(cv || prog) && (
         <section className="train-block">
-          <h3>Indemnité théorique</h3>
+          <h3>Indemnité théorique <span className="term-dim" title={t.brand === 'OUIGO' ? 'OUIGO : 25 % dès 1 h, 50 % dès 2 h' : 'INOUI : 25 % dès 30 min, 50 % dès 2 h, 75 % au-delà de 3 h'}>· RÈGLE {t.brand}</span></h3>
           {cv && (cv.pct_high > 0
             ? <p><span className="train-big">{range(cv.pct_low, cv.pct_high, (n) => `${n} %`)}</span> · {range(cv.eur_low, cv.eur_high, eur)} € / VOYAGEUR HT</p>
             : <p className="term-dim">AUCUNE AU RETARD ACTUEL</p>)}

@@ -15,7 +15,9 @@ export const RANGE = { delay_tolerance_s: 299, aberrant_delay_s: 43200 };
 const COUNTS = ['planned', 'observed', 'removed_late', 'never_observed', 'cancelled', 'no_terminus',
   'circulated', 'on_time_official', 'comp_eligible', 'comp_pct_sum', 'aberrant', 'skipped_stop',
   'comp_pct_sum_low', 'comp_pct_sum_high'] as const;
-const BUCKETS = ['0', '1-4', '5-14', '15-29', '30-59', '60-119', '120-179', '180+'];
+// Retards publiés par pas de 5 min : la tranche 1-4 de la base (quasi vide, ~0,1 %) est fondue avec 0 en « 0-4 ».
+const BUCKETS = ['0-4', '5-14', '15-29', '30-59', '60-119', '120-179', '180+'];
+const MERGED: Record<string, string> = { '0': '0-4', '1-4': '0-4' };
 const STOP_BUCKETS = [...BUCKETS, 'cancelled'];
 
 type Counts = Record<(typeof COUNTS)[number], number>;
@@ -73,7 +75,8 @@ export function shapeStats(rows: StatRow[], rawPrices: Price[], rawScale: Scale[
       else if (kind === 'cause_comp') { const pr = priceOf(row.brand); c.cost += (n / 100) * pr.price_eur_ht * pr.seats * DEFAULT_OCCUPANCY; }
     } else if (bucket !== undefined) {
       const target = kind === 'terminus' ? g.terminus_buckets : kind === 'stop' ? g.stop_buckets : undefined;
-      if (target && bucket in target) target[bucket] += n;
+      const b = MERGED[bucket] ?? bucket;
+      if (target && b in target) target[b] += n;
     } else if ((COUNTS as readonly string[]).includes(row.metric)) {
       g[row.metric as keyof Counts] += n;
     } // métrique inconnue : ignorée
