@@ -61,6 +61,7 @@ export default function LeftPanel({ trains, liveFailed, stats, statsFailed, stat
             ))}
           </ul>
         )}
+        <p className="term-dim live-note">RETARDS PUBLIÉS PAR PAS DE 5′ : 0-4′ = À L’HEURE</p>
       </section>
       <section className="term-panel">
         <h2 className="term-panel-title">Prochaines arrivées</h2>

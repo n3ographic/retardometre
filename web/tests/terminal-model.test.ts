@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { axisRegularity, bucketBar, bucketIndex, brandSplit, charBar, collectStatus, delayTone, eurRange, liveBuckets, nextArrivals, periodLabel, periodQuery, tickerItems, topDelays } from '../lib/terminal-model';
+import { axisRegularity, bucketBar, bucketIndex, brandSplit, charBar, delayTone, eurRange, liveBuckets, nextArrivals, periodLabel, periodQuery, tickerItems, topDelays } from '../lib/terminal-model';
 import type { LiveItem } from '../lib/map-model';
 import type { Group } from '../lib/stats';
 
@@ -39,12 +39,6 @@ test('tickerItems : libellé, minutes arrondies, destination absente omise', () 
   expect(tickerItems([item({ axis: 'ATLANTIQUE', train_number: '8537', delay_s: 2400 })], 1)[0].href).toBe('/marey?axe=ATLANTIQUE&train=8537');
 });
 
-test('collectStatus : moins de 10 minutes OK, au-delà en retard, rien : inconnu', () => {
-  expect(collectStatus([item({ last_seen_at: '2026-10-22T14:51:00Z' }), item({ last_seen_at: '2026-10-22T14:40:00Z' })], NOW)).toEqual({ status: 'ok', ageMin: 9 });
-  expect(collectStatus([item({ last_seen_at: '2026-10-22T14:49:00Z' })], NOW)).toEqual({ status: 'late', ageMin: 11 });
-  expect(collectStatus([], NOW)).toEqual({ status: 'unknown', ageMin: null });
-});
-
 test('axisRegularity : somme des marques par axe, pourcentage, petit échantillon', () => {
   const g = (brand: string, axis: string, circulated: number, on_time_official: number) => ({ brand, axis, circulated, on_time_official }) as Group;
   const r = axisRegularity([g('OUIGO', 'ATLANTIQUE', 4, 3), g('INOUI', 'ATLANTIQUE', 19, 14), g('INOUI', 'EST', 0, 0), g('INOUI', 'SUD_EST', 40, 20)]);
@@ -78,12 +72,12 @@ test('periodLabel : 7J, 14J, 31J, mois abrégé en majuscules', () => {
 test('bucketBar : largeur exacte, plus forts restes, vide sans train', () => {
   const sum = (s: { len: number }[]) => s.reduce((a, x) => a + x.len, 0);
   expect(bucketBar({}, 12)).toEqual([]);
-  const even = bucketBar({ '0': 1, '5-14': 1, '60-119': 1 }, 12);
-  expect(even.map((s) => [s.i, s.len])).toEqual([[0, 4], [2, 4], [5, 4]]);
-  const skew = bucketBar({ '0': 99, '180+': 1 }, 12);
+  const even = bucketBar({ '0-4': 1, '5-14': 1, '60-119': 1 }, 12);
+  expect(even.map((s) => [s.i, s.len])).toEqual([[0, 4], [1, 4], [4, 4]]);
+  const skew = bucketBar({ '0-4': 99, '180+': 1 }, 12);
   expect(sum(skew)).toBe(12);
   expect(skew.every((s) => s.len > 0)).toBe(true);
-  expect(sum(bucketBar({ '0': 1, '1-4': 1, '5-14': 1 }, 10))).toBe(10);
+  expect(sum(bucketBar({ '0-4': 1, '5-14': 1, '15-29': 1 }, 10))).toBe(10);
 });
 
 test('eurRange : millions à deux décimales, milliers entiers, euros entiers', () => {
@@ -104,9 +98,9 @@ test('liveBuckets : tranches des retards en minutes, supprimés et trains pas en
   const ds = [0, 60, 299, 300, 899, 900, 1800, 3600, 7200, 10800, undefined, -120];
   const l = [...ds.map((d, i) => item({ train_number: String(i), delay_s: d })), item({ train_number: 'x', delay_s: 5000, cancelled: true }), item({ train_number: 'f', delay_s: 5000, dep_planned: '2026-10-22T16:00:00Z' })];
   const r = liveBuckets(l, NOW);
-  expect(r.map((b) => b.bucket)).toEqual(['0', '1-4', '5-14', '15-29', '30-59', '60-119', '120-179', '180+']);
-  expect(r.map((b) => b.n)).toEqual([3, 2, 2, 1, 1, 1, 1, 1]);
-  expect(liveBuckets([], NOW).map((b) => b.n)).toEqual([0, 0, 0, 0, 0, 0, 0, 0]);
+  expect(r.map((b) => b.bucket)).toEqual(['0-4', '5-14', '15-29', '30-59', '60-119', '120-179', '180+']);
+  expect(r.map((b) => b.n)).toEqual([5, 2, 1, 1, 1, 1, 1]);
+  expect(liveBuckets([], NOW).map((b) => b.n)).toEqual([0, 0, 0, 0, 0, 0, 0]);
 });
 
 test('nextArrivals : tri par heure estimée puis numéro, supprimés et trains pas encore partis écartés, coupe à n', () => {
@@ -122,6 +116,9 @@ test('nextArrivals : tri par heure estimée puis numéro, supprimés et trains p
   expect(r.map((t) => t.eta)).toEqual(['19:30', '19:30', '20:00']);
   expect(nextArrivals(l, 2, NOW)).toHaveLength(2);
   expect(nextArrivals([], 8, NOW)).toEqual([]);
+  // Arrivée estimée déjà passée : écartée ; un retard la repousse après maintenant : gardée.
+  const past = [item({ train_number: 'gone', arr_planned: '2026-10-22T14:50:00Z' }), item({ train_number: 'held', arr_planned: '2026-10-22T14:50:00Z', delay_s: 900 })];
+  expect(nextArrivals(past, 8, NOW).map((t) => t.train_number)).toEqual(['held']);
 });
 
 test('brandSplit : régularité, indemnités et parts par marque ; marque absente omise', () => {
@@ -140,5 +137,5 @@ test('brandSplit : régularité, indemnités et parts par marque ; marque absent
 
 test('bucketIndex : indice de la tranche de TERMINUS_BUCKETS pour un retard en secondes', () => {
   expect([undefined, -5, 0, 59, 60, 299, 300, 899, 900, 1800, 3600, 7200, 10800, 99999].map(bucketIndex))
-    .toEqual([0, 0, 0, 0, 1, 1, 2, 2, 3, 4, 5, 6, 7, 7]);
+    .toEqual([0, 0, 0, 0, 0, 0, 1, 1, 2, 3, 4, 5, 6, 6]);
 });

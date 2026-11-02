@@ -5,7 +5,6 @@ import type { Group } from './stats';
 
 export type Tone = 'ontime' | 'late' | 'strong' | 'severe' | 'cancelled';
 
-const FRESH_S = 600;
 
 // Quatre tons d'affichage (les classes de la carte, delayClass, gardent leurs propres seuils).
 export function delayTone(delay_s: number | undefined, cancelled: boolean): Tone {
@@ -29,14 +28,6 @@ export function tickerItems(trains: LiveItem[], n: number): { trip_id: string; l
     tone: delayTone(t.delay_s, t.cancelled),
     href: mareyHref(t),
   }));
-}
-
-// Fraîcheur de la collecte : âge du passage le plus récent du collecteur.
-export function collectStatus(trains: LiveItem[], now: Date): { status: 'ok' | 'late' | 'unknown'; ageMin: number | null } {
-  const seen = trains.map((t) => (t.last_seen_at ? Date.parse(t.last_seen_at) : NaN)).filter(Number.isFinite);
-  if (seen.length === 0) return { status: 'unknown', ageMin: null };
-  const ageS = (now.getTime() - Math.max(...seen)) / 1000;
-  return { status: ageS < FRESH_S ? 'ok' : 'late', ageMin: Math.round(ageS / 60) };
 }
 
 // Régularité par axe, toutes marques confondues.
@@ -103,7 +94,7 @@ export function eurRange(low: number | null, high: number | null): string | null
 }
 
 // Trains en route (partis, non supprimés) par tranche de retard (minutes) ; retard absent ou négatif = tranche 0.
-const BUCKET_FROM_MIN = [0, 1, 5, 15, 30, 60, 120, 180];
+const BUCKET_FROM_MIN = [0, 5, 15, 30, 60, 120, 180];
 // Indice dans TERMINUS_BUCKETS du retard (secondes) ; absent ou négatif = tranche 0.
 export function bucketIndex(delay_s: number | undefined): number {
   const min = Math.floor(Math.max(delay_s ?? 0, 0) / 60);
@@ -125,7 +116,7 @@ const HHMM = new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digi
 export function nextArrivals(trains: LiveItem[], n: number, now: Date): (LiveItem & { eta: string })[] {
   const at = (t: LiveItem) => Date.parse(t.arr_planned) + (t.delay_s ?? 0) * 1000;
   return trains
-    .filter((t) => departed(t, now))
+    .filter((t) => departed(t, now) && at(t) > now.getTime()) // arrivée estimée (prévue + retard publié) encore à venir
     .sort((a, b) => at(a) - at(b) || a.train_number.localeCompare(b.train_number))
     .slice(0, n)
     .map((t) => ({ ...t, eta: HHMM.format(at(t)) }));
