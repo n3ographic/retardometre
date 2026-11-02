@@ -10,7 +10,7 @@ export default function Ticker({ items, failed }: { items: Item[]; failed: boole
       {items.map((i) => (
         <li key={i.trip_id}>
           <span className={`tone-${i.tone}`}>▼ +{i.minutes}′</span>{' '}
-          {i.href ? <a href={i.href} tabIndex={hidden ? -1 : undefined} title="Voir sur le diagramme de Marey" aria-label={`${i.label} sur le diagramme de Marey`}>{i.label}</a> : i.label}
+          {i.href ? <a href={i.href} className="to-marey" tabIndex={hidden ? -1 : undefined} title="Voir sur le diagramme de Marey" aria-label={`${i.label} sur le diagramme de Marey`}>{i.label}</a> : i.label}
         </li>
       ))}
     </ul>

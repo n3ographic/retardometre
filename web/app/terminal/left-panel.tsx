@@ -29,7 +29,7 @@ export default function LeftPanel({ trains, liveFailed, stats, statsFailed, stat
               return (
                 <li key={t.trip_id}>
                   {/* Numéro = lien vers le Marey (axe couvert) ; le reste de la ligne centre la carte sur le train. */}
-                  {href ? <a href={href} className="top-num" title="Voir sur le diagramme de Marey" aria-label={`Train ${t.train_number} sur le diagramme de Marey`}>{t.brand === 'OUIGO' ? 'OG' : 'IN'} {t.train_number}</a> : null}
+                  {href ? <a href={href} className="top-num to-marey" title="Voir sur le diagramme de Marey" aria-label={`Train ${t.train_number} sur le diagramme de Marey`}>{t.brand === 'OUIGO' ? 'OG' : 'IN'} {t.train_number}</a> : null}
                   <button type="button" onClick={() => onFocus(t.trip_id)} title={[t.origin, t.dest].filter(Boolean).join(' → ')}>
                     {href ? <span /> : <span>{t.brand === 'OUIGO' ? 'OG' : 'IN'} {t.train_number}</span>}
                     <span className={`tone-${tone}`}>+{Math.round((t.delay_s ?? 0) / 60)}′</span>
@@ -67,11 +67,12 @@ export default function LeftPanel({ trains, liveFailed, stats, statsFailed, stat
         {down ? <p className="term-dim">INDISPONIBLE</p> : arrivals.length === 0 ? <p className="term-dim">AUCUN TRAIN EN ROUTE</p> : (
           <ol className="top-list arrivals">
             {arrivals.map((t) => {
-              const min = Math.round((t.delay_s ?? 0) / 60);
+              const min = Math.round((t.delay_s ?? 0) / 60), href = mareyHref(t);
               return (
                 <li key={t.trip_id}>
+                  {href ? <a href={href} className="top-num to-marey" title="Voir sur le diagramme de Marey" aria-label={`Train ${t.train_number} sur le diagramme de Marey`}>{t.eta} {t.brand === 'OUIGO' ? 'OG' : 'IN'} {t.train_number}</a> : null}
                   <button type="button" onClick={() => onFocus(t.trip_id)} title={[t.origin, t.dest].filter(Boolean).join(' → ')}>
-                    <span>{t.eta} {t.brand === 'OUIGO' ? 'OG' : 'IN'} {t.train_number}</span>
+                    {!href && <span>{t.eta} {t.brand === 'OUIGO' ? 'OG' : 'IN'} {t.train_number}</span>}
                     <span className="arr-dest">{t.dest ?? ''}</span>
                     {min > 0 && <span className={`tone-${delayTone(t.delay_s, false)}`}>+{min}′</span>}
                   </button>

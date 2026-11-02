@@ -62,6 +62,12 @@ function writeUrl(axe: string, train: string | null) {
   window.history.replaceState(null, '', u);
 }
 
+// Retour à la page d'où l'on vient (l'accueil retrouve son train sélectionné par son URL), sinon à l'accueil.
+function goBack() {
+  const fromSite = document.referrer !== '' && new URL(document.referrer).origin === window.location.origin;
+  if (fromSite && window.history.length > 1) window.history.back(); else window.location.assign('/');
+}
+
 export default function MareyView() {
   const [blocks, setBlocks] = useState<Record<string, Payload>>({});
   const [failed, setFailed] = useState(false);
@@ -251,11 +257,12 @@ export default function MareyView() {
     setWanted({ axe: axeId, train: null, axeGiven: true });
     writeUrl(axeId, null);
   };
-  // Clavier : 1 à 5 change d'axe, ← → change de branche (sauf pendant une saisie).
+  // Clavier : 1 à 5 change d'axe, ← → change de branche, Échap revient à la page précédente (sauf pendant une saisie).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement | null;
-      if (el && (el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA') || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA') || e.ctrlKey || e.metaKey || e.altKey || e.defaultPrevented) return;
+      if (e.key === 'Escape' && !autresOpen) { e.preventDefault(); goBack(); return; }
       const n = Number(e.key);
       if (n >= 1 && n <= MAREY_AXES.length) { e.preventDefault(); selectAxe(MAREY_AXES[n - 1]); return; }
       if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && branches.length > 1 && branch) {
@@ -484,7 +491,7 @@ export default function MareyView() {
             <dt>TRAIT</dt>
             <dd>POINTILLÉ = HORAIRE THÉORIQUE · PLEIN = RETARD PUBLIÉ, RECONSTITUÉ À CHAQUE COLLECTE (≈ TOUTES LES {COLLECT_INTERVAL_S / 60} MIN) · ESTOMPÉ = APRÈS MAINTENANT · APPROXIMATIF</dd>
             <dt>COMMANDES</dt>
-            <dd>FAITES DÉFILER POUR VOIR LA JOURNÉE (4 H → 2 H) · TOUCHES 1-5 : AXE · ← → : BRANCHE</dd>
+            <dd>FAITES DÉFILER POUR VOIR LA JOURNÉE (4 H → 2 H) · TOUCHES 1-5 : AXE · ← → : BRANCHE · ÉCHAP : RETOUR</dd>
           </dl>
         </div>
         <aside className="term-panel marey-side" aria-live="polite">
