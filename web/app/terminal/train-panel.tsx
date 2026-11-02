@@ -13,10 +13,16 @@ const meter = (ratio: number) => { const n = Math.round(Math.min(Math.max(ratio,
 const TONE_LABELS = { ontime: 'À L’HEURE', late: 'RETARD', strong: 'FORT RETARD', severe: 'TRÈS FORT RETARD', cancelled: 'ANNULÉ' } as const;
 
 // Fiche du train sélectionné : volet posé sur le côté de la carte (la carte reste visible et cliquable à gauche).
-export default function TrainPanel({ train: t, missing, rules, speed, onClose }: {
-  train: LiveItem | null; missing: string | null; rules: Rules | null; speed: number | null; onClose: () => void;
+export default function TrainPanel({ train: t, missing, gareOf, onGare, rules, speed, onClose }: {
+  train: LiveItem | null; missing: string | null; gareOf: (nom: string) => string | null; onGare: (uic: string) => void;
+  rules: Rules | null; speed: number | null; onClose: () => void;
 }) {
   const now = new Date();
+  // Origine ou destination connue de la liste des gares : un clic ouvre son panneau gare.
+  const station = (nom: string) => {
+    const uic = gareOf(nom);
+    return uic ? <button type="button" className="to-gare" onClick={() => onGare(uic)} title={`Départs et arrivées : ${nom}`}>{nom}</button> : nom;
+  };
   const shell = (title: string, body: React.ReactNode) => (
     <aside className="train-modal" role="dialog" aria-label={`Fiche du train ${title}`}>
       <header><h2 className="term-panel-title">{title}</h2><button type="button" className="term-btn" onClick={onClose} aria-label="Fermer la fiche">×</button></header>
@@ -42,7 +48,7 @@ export default function TrainPanel({ train: t, missing, rules, speed, onClose }:
   const onMap = estimatePosition(t, now) !== null;
   return shell(`${t.brand} ${t.train_number}`, (
     <>
-      {t.origin && t.dest && <p>{t.origin} → {t.dest}</p>}
+      {t.origin && t.dest && <p>{station(t.origin)} → {station(t.dest)}</p>}
       <TrainActions number={t.train_number} current="CARTE" onMap={onMap} />
       {!onMap && <p className="tone-late">PAS EN CIRCULATION</p>}
       <section className="train-block">

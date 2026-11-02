@@ -46,10 +46,10 @@ export type Focus = { trip_id: string; at: number } | null;
 // Panneau gare ouvert : la gare (ses points) est marquée, les trains qui ne la desservent pas sont estompés.
 export type Highlight = { trips: string[]; points: [number, number][] } | null;
 
-export default function CarteView({ trains, failed, lastOk, focus, selected, onSelect, onSpeed, overlay, highlight = null, onGare }: {
+export default function CarteView({ trains, failed, lastOk, focus, selected, onSelect, onSpeed, overlay, highlight = null, gares = [], onGare }: {
   trains: LiveItem[]; failed: boolean; lastOk: number | null; focus: Focus;
   selected: string | null; onSelect: (trip_id: string | null) => void; onSpeed: (kmh: number | null) => void; overlay: ReactNode;
-  highlight?: Highlight; onGare?: (uic: string) => void;
+  highlight?: Highlight; gares?: GareRow[]; onGare?: (uic: string) => void;
 }) {
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MlMap | null>(null);
@@ -316,26 +316,15 @@ export default function CarteView({ trains, failed, lastOk, focus, selected, onS
     })();
   }, [showVmax]);
 
-  // Gares de la carte : chargées une fois (même liste que la barre de commande) ; sans elles, la carte marche sans.
+  // Gares de la carte (chargées par l'accueil, même liste que la barre de commande) ; sans elles, la carte marche sans.
   useEffect(() => {
-    let alive = true;
-    (async () => {
-      try {
-        const r = await fetch('/api/gares');
-        const d = (await r.json()) as { gares?: GareRow[] };
-        if (!alive || !r.ok || !Array.isArray(d.gares)) return;
-        garesRef.current = {
-          type: 'FeatureCollection',
-          features: d.gares.filter((g) => g[2] !== undefined && g[3] !== undefined)
-            .map(([uic, nom, lat, lon]) => ({ type: 'Feature', geometry: { type: 'Point', coordinates: [lon, lat] }, properties: { uic, nom } })),
-        };
-        applyGaresRef.current();
-      } catch {
-        /* pas de gares cliquables */
-      }
-    })();
-    return () => { alive = false; };
-  }, []);
+    garesRef.current = {
+      type: 'FeatureCollection',
+      features: gares.filter((g) => g[2] !== undefined && g[3] !== undefined)
+        .map(([uic, nom, lat, lon]) => ({ type: 'Feature', geometry: { type: 'Point', coordinates: [lon, lat] }, properties: { uic, nom } })),
+    };
+    applyGaresRef.current();
+  }, [gares]);
 
   // Tracés des voies : chargés une fois ; sans eux (échec, contenu invalide) les trains avancent en ligne droite.
   useEffect(() => {
