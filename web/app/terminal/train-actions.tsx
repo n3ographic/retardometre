@@ -1,28 +1,31 @@
 'use client';
 
 import { useEffect } from 'react';
+import { viewHref, type View } from '../../lib/command';
 import { typing } from './command-bar';
 
-export type View = 'CARTE' | 'MAREY' | 'FICHE';
 const VIEWS: View[] = ['CARTE', 'MAREY', 'FICHE'];
 
-export const viewHref = (v: View, n: string) => (v === 'CARTE' ? `/?sel=${n}` : v === 'MAREY' ? `/marey?train=${n}` : `/train/${n}`);
+// Raccourcis lettre → lien (C, M, F…), hors saisie et sans touche de modification.
+export function useShortcuts(links: Record<string, string>) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey || e.altKey || e.defaultPrevented || typing(e.target)) return;
+      const href = links[e.key.toUpperCase()];
+      if (!href) return;
+      e.preventDefault();
+      window.location.assign(href);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
+}
 
 // Barre d'actions d'un train, la même sur la carte, le Marey et la fiche : la vue en cours est marquée et inerte,
 // CARTE est grisé quand le train n'a pas de position. Touches C, M, F hors saisie.
 export default function TrainActions({ number, current, onMap }: { number: string; current: View; onMap: boolean }) {
   const enabled = (v: View) => v !== current && (v !== 'CARTE' || onMap);
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.ctrlKey || e.metaKey || e.altKey || e.defaultPrevented || typing(e.target)) return;
-      const v = VIEWS.find((x) => x[0] === e.key.toUpperCase());
-      if (!v || !enabled(v)) return;
-      e.preventDefault();
-      window.location.assign(viewHref(v, number));
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  });
+  useShortcuts(Object.fromEntries(VIEWS.filter(enabled).map((v) => [v[0], viewHref(v, number)])));
   return (
     <nav className="train-actions" aria-label={`Voir le train ${number}`}>
       {VIEWS.map((v) => {
