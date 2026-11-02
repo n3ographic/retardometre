@@ -20,7 +20,7 @@ export type CommandData = { trains: CommandTrain[]; gares: GareRow[] };
 export const MAX_SUGGESTIONS = 6;
 export const UNKNOWN = 'COMMANDE INCONNUE · TAPEZ HELP';
 
-const PAGES: [string, string, string][] = [['CARTE', '/', 'F1 CARTE'], ['METHODO', '/methodologie', 'F2 MÉTHODO'], ['MAREY', '/marey', 'F3 MAREY']];
+const PAGES: [string, string, string][] = [['CARTE', '/', 'F1 CARTE'], ['METHODO', '/methodologie', 'F2 MÉTHODO'], ['MAREY', '/marey', 'F3 MAREY'], ['SEMAINE', '/semaine', 'BILAN SEMAINE']];
 const AXES: [string, string][] = [['ATL', 'ATLANTIQUE'], ['EST', 'EST'], ['NORD', 'NORD'], ['SE', 'SUD_EST'], ['INTER', 'INTERSECTEURS']];
 const CMDS = ['TOP', 'HELP'];
 
@@ -29,6 +29,7 @@ export const HELP: [string, string][] = [
   ['ATL · EST · NORD · SE · INTER', 'AXE DU MAREY'],
   ['MONTP', 'GARE OU VILLE (NOM PARTIEL) · → MAREY'],
   ['CARTE · MAREY · METHODO', 'PAGES F1 · F3 · F2'],
+  ['SEMAINE', 'BILAN DE LA DERNIÈRE SEMAINE COMPLÈTE'],
   ['TOP', '10 PLUS GROS RETARDS'],
   ['HELP', 'CETTE AIDE'],
 ];
@@ -65,8 +66,9 @@ export function suggest(query: string, data: CommandData, now = new Date()): Sug
   if (q === '') return [];
   const out: Suggestion[] = [];
   for (const c of CMDS) if (c.startsWith(q)) out.push({ kind: 'CMD', label: c, href: null });
-  for (const [key, href, label] of PAGES) if (key.startsWith(q)) out.push({ kind: 'PAGE', label, href });
+  // Axes avant pages : « SE » reste l'axe Sud-Est et non la page SEMAINE.
   for (const [alias, axe] of AXES) if (alias.startsWith(q) || axe.startsWith(q.replace(/[ -]/g, '_'))) out.push({ kind: 'AXE', label: axe.replace('_', '-'), href: `/marey?axe=${axe}`, go: 'MAREY' });
+  for (const [key, href, label] of PAGES) if (key.startsWith(q)) out.push({ kind: 'PAGE', label, href });
   if (/^\d{1,5}$/.test(q)) {
     const hits = data.trains.filter((t) => t.train_number.startsWith(q))
       .sort((a, b) => Number(b.train_number === q) - Number(a.train_number === q) || a.train_number.localeCompare(b.train_number));

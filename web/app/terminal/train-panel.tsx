@@ -1,6 +1,7 @@
 import { TERMINUS_BUCKETS } from '../../lib/dashboard-model';
 import { isStale, type LiveItem } from '../../lib/map-model';
 import TrainActions from './train-actions';
+import CauseText from './cause-text';
 import { bucketIndex, delayTone } from '../../lib/terminal-model';
 import { estimatePosition, segmentProgress } from '../../lib/position';
 import { compensationView, delayBounds, observedAgo, speedView, thresholdProgress, type Rules } from '../../lib/train-card';
@@ -86,7 +87,7 @@ export default function TrainPanel({ train: t, missing, gareOf, onGare, rules, s
       {t.cause && (
         <section className="train-block">
           <h3>Cause</h3>
-          <p className="train-cause">{t.cause}</p>
+          <p className="train-cause"><CauseText text={t.cause} /></p>
         </section>
       )}
     </>

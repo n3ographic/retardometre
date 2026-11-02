@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { CAUSE_LABELS } from '../../../lib/causes';
+import { COUNT_LABELS } from '../../../lib/counts';
 import { TERMINUS_BUCKETS } from '../../../lib/dashboard-model';
 import { loadGares, loadTrainProfile } from '../../../lib/handlers';
 import { supabaseDeps } from '../../../lib/supabase';
@@ -42,7 +43,8 @@ function dayTitle(d: Day): string {
   const date = DAY.format(new Date(`${d.date}T12:00:00Z`));
   if (d.state === 'unobserved') return `${date} · non observé`;
   if (d.state === 'cancelled') return `${date} · supprimé`;
-  if (d.delay_s === null) return `${date} · retard illisible (écarté)`;
+  // train_profile écarte aussi les retards aberrants (≥ 12 h) : les deux cas arrivent ici sans retard.
+  if (d.delay_s === null) return `${date} · ${COUNT_LABELS.no_terminus.short.toLowerCase()} ou ${COUNT_LABELS.aberrant.short.toLowerCase()} (écarté)`;
   const cause = d.cause && d.delay_s >= 300 ? ` · ${CAUSE_LABELS[d.cause]?.long ?? d.cause}` : '';
   return `${date} · ${d.delay_s < 300 ? 'à l’heure' : `+${Math.round(d.delay_s / 60)} min`}${cause}`;
 }
@@ -99,13 +101,14 @@ export default async function Page({ params }: Props) {
             {p.days.map((d) => (
               <li key={d.date} title={dayTitle(d)} aria-label={dayTitle(d)}
                 className={d.state === 'unobserved' ? 'tp-unobs' : d.state === 'cancelled' ? 'tp-cancel' : d.delay_s === null ? 'tp-unobs' : `tp-s${bucketIndex(d.delay_s)}`}>
-                {d.state === 'cancelled' ? '×' : ''}
+                {d.state === 'cancelled' ? '×' : d.state === 'ran' && d.delay_s === null ? '–' : ''}
               </li>
             ))}
           </ol>
           <p className="term-dim tp-legend">
             {TERMINUS_BUCKETS.map((b, i) => <span key={b}><span className={`seg-c s${i}`} aria-hidden="true">█</span> {b} </span>)}MIN
-            · <span className="tp-key tp-unobs" aria-hidden="true" /> NON OBSERVÉ · <span className="tp-key tp-cancel" aria-hidden="true">×</span> SUPPRIMÉ · DEPUIS LE 20/10
+            · <span className="tp-key tp-unobs" aria-hidden="true" /> NON OBSERVÉ · <span className="tp-key tp-cancel" aria-hidden="true">×</span> SUPPRIMÉ
+            · <span className="tp-key tp-unobs" aria-hidden="true">–</span> <span title={COUNT_LABELS.no_terminus.long}>{COUNT_LABELS.no_terminus.short}</span> · DEPUIS LE 20/10
           </p>
         </section>
 

@@ -32,6 +32,7 @@ test('axes, pages et commandes : alias, insensibles à la casse', () => {
   expect(labels('Inter')).toEqual(['AXE INTERSECTEURS /marey?axe=INTERSECTEURS']);
   expect(labels('carte')).toEqual(['PAGE F1 CARTE /']);
   expect(labels('méthodo')).toEqual(['PAGE F2 MÉTHODO /methodologie']);
+  expect(labels('semaine')).toEqual(['PAGE BILAN SEMAINE /semaine']);
   expect(labels('top')).toEqual(['CMD TOP null']);
   expect(labels('help')).toEqual(['CMD HELP null']);
 });

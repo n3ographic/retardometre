@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CAUSE_LABELS } from '../../lib/causes';
+import CauseText from '../terminal/cause-text';
 import { TERMINUS_BUCKETS } from '../../lib/dashboard-model';
 import {
   BLOCK_S, COLLECT_INTERVAL_S, DAY_SPAN_H, HALF_WINDOW_S, MAREY_AXES, PAST_TTL_S, blockOf, findTrain, hourTicks, inWindow, matchLines, parseMareyParams,
@@ -554,7 +555,7 @@ function TrainInfo({ item, nowS, gareUic }: { item: Item; nowS: number; gareUic:
     <dl className="marey-info">
       <div><dt>ÉTAT</dt><dd>{state}</dd></div>
       <div><dt>RETARD</dt><dd className={`tone-${tone}`}>{t.cancelled ? 'SUPPRIMÉ' : t.delay_s === undefined ? 'INCONNU' : `${delay >= 60 ? '+' : ''}${Math.round(delay / 60)} MIN`}</dd></div>
-      <div><dt>CAUSE</dt><dd>{cat ?? (t.cause ? '' : 'NON DÉCLARÉE')}{t.cause && <span className="marey-cause-text">{t.cause}</span>}</dd></div>
+      <div><dt>CAUSE</dt><dd>{cat ?? (t.cause ? '' : 'NON DÉCLARÉE')}{t.cause && <CauseText className="marey-cause-text" text={t.cause} />}</dd></div>
       <div><dt>INDEMNITÉ</dt><dd>{t.comp_pct > 0 ? `≈ ${t.comp_eur_per_passenger_ref.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} € HT PAR VOYAGEUR (${t.comp_pct} %)` : 'AUCUNE À CE RETARD'}</dd></div>
     </dl>
     </>
