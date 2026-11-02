@@ -10,8 +10,7 @@
     "inspect": "tsx scripts/inspect-feed.ts",
     "import:static": "tsx scripts/import-static.ts",
     "build:traces": "tsx --env-file=web/.env.local scripts/build-traces.ts",
-    "build:vitesses": "tsx scripts/build-vitesses.ts",
-    "build:marey": "tsx --env-file=web/.env.local scripts/build-marey-axes.ts"
+    "build:vitesses": "tsx scripts/build-vitesses.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.45.4",
