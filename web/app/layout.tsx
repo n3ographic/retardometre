@@ -4,6 +4,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import './carte.css';
 import './methodologie/methodologie.css';
 import './terminal/terminal.css';
+import './marey/marey.css';
 
 const mono = IBM_Plex_Mono({ subsets: ['latin'], weight: ['400', '600'], variable: '--font-term', display: 'swap' });
 

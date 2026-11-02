@@ -197,6 +197,16 @@ export default async function Page() {
       </section>
 
       <section>
+        <h2>Diagramme espace-temps (F3 MAREY)</h2>
+        <p>La vue F3 trace, pour l’axe Atlantique, la distance depuis Paris selon l’heure, sur une fenêtre de 6 heures centrée sur maintenant. Chaque ligne va de Paris à un terminus
+          et ne contient que les gares desservies sur ce parcours ; leur espacement suit la distance le long des voies, en ligne droite lorsque le tracé n’est pas connu ou fait un détour.</p>
+        <p>Le pointillé est l’horaire prévu. Le trait plein est <strong>reconstitué</strong> : le collecteur passe toutes les 2 minutes et enregistre chaque changement du retard publié ;
+          à chaque instant, le train est placé à la position prévue décalée du retard alors publié pour sa prochaine gare. Une hausse du retard apparaît comme un palier (le temps perdu),
+          une baisse comme un rattrapage. Aucune heure de passage n’est constatée dans les données ouvertes : c’est une approximation, qui suit l’annonce du retard et non le train lui-même.
+          Après maintenant, le dernier retard connu est prolongé (trait estompé).</p>
+      </section>
+
+      <section>
         <h2>Limites connues</h2>
         <ul>
           <li>La collecte a commencé le 20 octobre 2026 : les premières périodes sont incomplètes (beaucoup de trains « jamais observés »).</li>

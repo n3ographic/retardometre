@@ -1,6 +1,7 @@
 import { unwrap, type Result } from './db';
 import { shapeCumul, type CumulRow } from './cumul';
 import { shapeLive, type LiveTrain } from './live';
+import { fetchWindow, parseApiParams, shapeMarey, type RawTrain } from './marey';
 import { loadRules } from './rules';
 import { parseStatsParams } from './params';
 import { shapeStats, type Price, type Scale, type StatRow } from './stats';
@@ -16,6 +17,8 @@ export type Deps = {
 const STATS_CACHE = 'public, s-maxage=900, stale-while-revalidate=300';
 // CDN court : le Data Cache (300 s) protège déjà Supabase ; deux caches de 5 min empilés vieillissaient les données jusqu'à ~14 min.
 const LIVE_CACHE = 'public, s-maxage=60, stale-while-revalidate=60';
+// Même durée que le live : la fenêtre glisse, le seau de 5 min fait varier la clé du Data Cache.
+const MAREY_CACHE = 'public, s-maxage=60, stale-while-revalidate=60';
 const RULES_CACHE = 'public, s-maxage=3600, stale-while-revalidate=600';
 const CUMUL_CACHE = 'public, s-maxage=3600, stale-while-revalidate=600';
 
@@ -81,5 +84,21 @@ export function createCumulHandler(deps: Deps) {
       ]);
       return shapeCumul(rows, prices); // lève si invalide : rien n'est mis en cache
     }), 200, CUMUL_CACHE));
+  };
+}
+
+export function createMareyHandler(deps: Deps) {
+  return async (req: Request) => {
+    const p = parseApiParams(new URL(req.url).searchParams);
+    if (!p.ok) return json({ error: p.error }, 400, 'no-store');
+    const w = fetchWindow(deps.now());
+    // Clé = axe validé + seau de 5 min, jamais une chaîne brute de l'utilisateur.
+    return guarded(async () => json(await deps.cached(['marey', 'v1', p.axe, String(w.bucket)], 300, async () => {
+      const [trains, prices] = await Promise.all([
+        unwrap<RawTrain[]>(deps.rpc('marey_trains', { p_axis: p.axe, p_from: w.from, p_to: w.to }), 'marey_trains'),
+        unwrap<Price[]>(deps.select('reference_prices', 'brand,price_eur_ht,seats,price_source,seats_source,as_of'), 'reference_prices'),
+      ]);
+      return shapeMarey(p.axe, trains, prices, new Date(w.bucket * 1000)); // lève si invalide : rien n'est mis en cache
+    }), 200, MAREY_CACHE));
   };
 }

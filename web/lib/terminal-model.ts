@@ -1,4 +1,5 @@
 import { SAMPLE_MIN, TERMINUS_BUCKETS, isSmallSample } from './dashboard-model';
+import { mareyHref } from './marey';
 import type { LiveItem } from './map-model';
 import type { Group } from './stats';
 
@@ -20,12 +21,13 @@ export function topDelays(trains: LiveItem[], n: number): LiveItem[] {
     .slice(0, n);
 }
 
-export function tickerItems(trains: LiveItem[], n: number): { trip_id: string; label: string; minutes: number; tone: Tone }[] {
+export function tickerItems(trains: LiveItem[], n: number): { trip_id: string; label: string; minutes: number; tone: Tone; href: string | null }[] {
   return topDelays(trains, n).map((t) => ({
     trip_id: t.trip_id,
     label: [`${t.brand} ${t.train_number}`, [t.origin, t.dest].filter(Boolean).join(' → ')].filter(Boolean).join(' '),
     minutes: Math.round((t.delay_s ?? 0) / 60),
     tone: delayTone(t.delay_s, t.cancelled),
+    href: mareyHref(t),
   }));
 }
 
