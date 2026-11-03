@@ -11,5 +11,5 @@ site Next.js (`web/`) déployé sur Vercel.
 ## Conventions
 - Commits en français, `type(portée): ...`, une PR par sujet.
 - Ne jamais afficher le contenu de `.env.local` ni de `web/.env.local`.
-- État et règles de prod : note `[[sncf-tracking]]` du coffre.
+- Notes du projet (contexte, état, règles de prod, décisions) : `~/vault/projects/sncf-tracking.md`.
 - Question d'architecture : interroger `graphify-out/` avant de lire des fichiers.
