@@ -4,7 +4,7 @@ import { shapeLive, type LiveTrain } from './live';
 import { shapeProfile, type Profile, type RawProfile } from './train-profile';
 import { BLOCK_S, BUCKET_S, COLLECT_INTERVAL_S, HALF_WINDOW_S, PAST_TTL_S, fetchWindow, parseApiParams, shapeMarey, type RawTrain, type StopRow } from './marey';
 import { loadRules } from './rules';
-import { parseGares, shapeBoard } from './station';
+import { knownArea, parseGares, shapeBoard } from './station';
 import { WEEK_RE, type WeekExtra, type WeekRow } from './weekly';
 import type { GareRow } from './command';
 import { parisDate, parseStatsParams } from './params';
@@ -195,12 +195,16 @@ export function createStationHandler(deps: Deps) {
     const uics = parseGares(new URL(req.url).searchParams.get('uic'));
     if (!uics) return json({ error: 'paramètre uic : codes UIC de 8 chiffres séparés par des virgules' }, 400, 'no-store');
     const cycle = Math.floor(deps.now().getTime() / 1000 / COLLECT_INTERVAL_S);
-    // Clé = codes validés et triés + cycle, jamais une chaîne brute de l'utilisateur.
-    return guarded(async () => json(await deps.cached(['gare', 'v1', [...uics].sort().join(','), String(cycle)], COLLECT_INTERVAL_S, async () => {
-      const { data, error } = await deps.rpc('station_board', { p_uics: uics });
-      if (error) throw new Error('lecture de station_board impossible');
-      return { generated_at: deps.now().toISOString(), ...shapeBoard(data) }; // lève si invalide : rien n'est mis en cache
-    }), 200, LIVE_CACHE));
+    return guarded(async () => {
+      // Gares connues et voisines seulement (liste relue une fois par jour) : sinon 404, sans lecture de station_board.
+      if (!knownArea(uics, await loadGares(deps))) return json({ error: 'gares inconnues ou trop éloignées les unes des autres' }, 404, 'no-store');
+      // Clé = codes validés et triés + cycle, jamais une chaîne brute de l'utilisateur.
+      return json(await deps.cached(['gare', 'v1', [...uics].sort().join(','), String(cycle)], COLLECT_INTERVAL_S, async () => {
+        const { data, error } = await deps.rpc('station_board', { p_uics: uics });
+        if (error) throw new Error('lecture de station_board impossible');
+        return { generated_at: deps.now().toISOString(), ...shapeBoard(data) }; // lève si invalide : rien n'est mis en cache
+      }), 200, LIVE_CACHE);
+    });
   };
 }
 
