@@ -2,7 +2,19 @@ import { round, toNum } from './num';
 
 export type StatRow = { brand: string; axis: string; metric: string; n: number };
 export type Price = { brand: string; price_eur_ht: number; seats: number; price_source: string; seats_source: string; as_of: string };
-export type Scale = { brand: string; from_s: number; pct: number; source_url: string; source_as_of: string };
+// scope et form absents des bilans figés avant le 04/11/2026 : barème national, forme inconnue.
+export type Scale = {
+  brand: string; from_s: number; pct: number; source_url: string; source_as_of: string;
+  scope?: 'national' | 'international'; form?: 'bon' | 'argent';
+};
+export const SCALE_COLUMNS = 'brand,scope,from_s,pct,form,source_url,source_as_of';
+
+// Paliers d'une marque pour un train : barème international de la marque s'il existe, sinon national (comme en base).
+export function scaleFor(scale: Scale[], brand: string, intl = false): Scale[] {
+  const of = (scope: string) => scale.filter((s) => s.brand === brand && (s.scope ?? 'national') === scope);
+  const own = intl ? of('international') : [];
+  return (own.length ? own : of('national')).sort((a, b) => a.from_s - b.from_s);
+}
 
 // Occupation de référence (ART 2023 : 76-77 % tous TGV, pas par marque). Le coût est linéaire :
 // coût = cost_eur_ht_at_full_occupancy × occupation.

@@ -111,7 +111,7 @@ test('même fenêtre canonique : la base n’est appelée qu’une fois', async 
   const h = createStatsHandler(deps);
   for (const qs of ['', '?period=7d', '?period=7d', '', '?period=7d']) expect((await h(new Request(`http://x/api/stats${qs}`))).status).toBe(200);
   expect(deps.rpc).toHaveBeenCalledTimes(1); expect(deps.select).toHaveBeenCalledTimes(2);
-  expect([...store.keys()]).toEqual(['stats|v5|2026-10-14|2026-10-20']); // v5 : la forme de la réponse a changé (computed_at), le cache survit aux déploiements
+  expect([...store.keys()]).toEqual(['stats|v6|2026-10-14|2026-10-20']); // v5 : la forme de la réponse a changé (computed_at), le cache survit aux déploiements
   expect(cached.mock.calls[0][1]).toBe(900);
   await h(new Request('http://x/api/stats?period=14d'));
   expect(deps.rpc).toHaveBeenCalledTimes(2);
@@ -169,7 +169,7 @@ test('rules : 200, quatre clés, nombres, Cache-Control exact, clé et durée du
   expect(Object.keys(body).sort()).toEqual(['compensation_scale', 'generated_at', 'reference_prices', 'regularity_rule']);
   expect(typeof body.reference_prices[0].price_eur_ht).toBe('number');
   expect(body.regularity_rule[0]).toMatchObject({ duration_from_s: 0, max_delay_exclusive_s: 300 });
-  expect(cached.mock.calls[0].slice(0, 2)).toEqual([['rules', 'v1'], 3600]);
+  expect(cached.mock.calls[0].slice(0, 2)).toEqual([['rules', 'v3'], 3600]);
 });
 
 test('/api/rules?x=1 : 400 no-store, avant toute lecture', async () => {
@@ -219,7 +219,7 @@ test('cumul : 200, forme, Cache-Control exact, clé et durée du cache', async (
   expect(body.computed_at).toBe(deps.now().toISOString());
   expect(body.today.circulated).toBe(0);
   expect(deps.rpc).toHaveBeenCalledWith('cumul_totals', {});
-  expect(cached.mock.calls[0].slice(0, 2)).toEqual([['cumul', 'v4'], 300]);
+  expect(cached.mock.calls[0].slice(0, 2)).toEqual([['cumul', 'v5'], 300]);
 });
 
 test('cumul : jours manquants puis jour en cours calculés à la volée, ligne AUJOURD\'HUI', async () => {

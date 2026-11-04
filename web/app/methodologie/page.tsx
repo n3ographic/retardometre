@@ -12,6 +12,7 @@ export const metadata = { title: 'Méthodologie · Observatoire TGV' };
 export const dynamic = 'force-dynamic';
 
 const nf = (n: number) => n.toLocaleString('fr-FR');
+const fmtDate = (iso: string) => iso.split('-').reverse().join('/');
 const fmtMin = (m: number) => (m >= 60 && m % 60 === 0 ? `${m / 60} h` : `${nf(m)} min`);
 // 5 400 s = 1 h 30 ; 10 801 s = « plus de 3 h » (la base stocke un seuil exclusif à la seconde près).
 function fmtDuration(s: number): string {
@@ -44,7 +45,9 @@ export default async function Page() {
   } catch (e) {
     console.error(e);
   }
-  const brands = rules ? [...new Set(rules.compensation_scale.map((s) => s.brand))] : [];
+  const scales = rules
+    ? [...new Map(rules.compensation_scale.map((s) => [`${s.brand}-${s.scope ?? 'national'}`, { brand: s.brand, scope: s.scope ?? 'national' }])).values()]
+    : [];
 
   return (
     <>
@@ -117,21 +120,42 @@ export default async function Page() {
         <h2>Indemnités théoriques</h2>
         <p>Pourcentage du billet dû selon le retard à l’arrivée, appliqué à un prix de référence et à un nombre de voyageurs estimé :
           coût = pourcentage × prix de référence × places × occupation.</p>
-        <p>Les deux marques n’ont <strong>pas le même barème</strong>, c’est voulu : un TGV INOUI indemnise dès 30 minutes de retard (garantie G30), un OUIGO seulement à partir d’une heure.
-          La fiche d’un train l’indique (« RÈGLE INOUI » ou « RÈGLE OUIGO ») avec le prochain seuil de sa marque.</p>
+        <p>Les deux marques n’ont <strong>pas le même barème</strong>, c’est voulu. Trois règles s’appliquent, selon le train :</p>
+        <ul>
+          <li><strong>G30 national</strong> (TGV INOUI) : 25 % au-delà de 30 minutes, 50 % de 2 à 3 heures, 75 % au-delà de 3 heures, quel que soit le motif du retard.</li>
+          <li><strong>G30 international</strong> (TGV INOUI dont la gare d’origine ou de destination est hors de France) : 25 % au-delà de 30 minutes, 50 % à partir de 2 heures, <strong>plafonné à 50 %</strong>.</li>
+          <li><strong>OUIGO</strong> : 25 % de 60 à 119 minutes, 50 % à partir de 120 minutes.</li>
+        </ul>
+        <p><strong>Bons ou argent.</strong> En TGV INOUI, l’indemnité est un bon d’achat de 30 minutes à 1 heure de retard, puis de l’argent au-delà d’une heure.
+          En OUIGO, c’est un bon d’achat, convertible en virement sur demande (CGV OUIGO, article 3.3.2) : nous le comptons « en bons ».
+          Les montants sont séparés en conséquence : part en bons, part en argent.</p>
+        <p><strong>Train international.</strong> Un train est international si sa gare d’origine ou de destination a un code UIC qui ne commence pas par 87 (code des gares françaises).
+          Le raisonnement se fait par train : un voyageur qui fait Lyon → Montpellier dans un Bruxelles → Montpellier relève en réalité du barème national, ce que l’observatoire ne distingue pas.</p>
+        <p><strong>OUIGO et circonstances exceptionnelles.</strong> Le règlement européen permet à un transporteur de ne pas indemniser un retard causé par des circonstances exceptionnelles
+          (météo extrême, catastrophe naturelle, personnes sur la voie, vol de câbles, etc. : article 19, paragraphe 10). OUIGO pourrait en théorie l’invoquer, mais ses conditions
+          générales ne le font pas : elles n’excluent l’indemnisation que si le voyageur connaissait le retard avant l’achat ou si le retard reste inférieur à 60 minutes (article 3.3.5).
+          Les indemnités OUIGO sont donc comptées quel que soit le motif, comme celles des TGV INOUI.</p>
+        <p>Sources, lues le 4 novembre 2026 :{' '}
+          <Link href="https://www.sncf-connect.com/aide/retard-de-votre-train-et-remboursement">SNCF Connect, retard et remboursement</Link> ;{' '}
+          <Link href="https://eur-lex.europa.eu/eli/reg/2021/782/oj">règlement (UE) 2021/782</Link>, articles 19 (indemnisation) et 20 (assistance) ;{' '}
+          <Link href="https://cdn-fr.ouigo.com/edito-v3/2026-10/06-10-2026_CGTV-V74-OUIGO.pdf">conditions générales OUIGO n° 74</Link>, en vigueur depuis le 6 octobre 2026.</p>
+        <p><strong>Limites.</strong> La garantie G30 ne vaut que pour les trajets sans correspondance : nos montants supposent des trajets directs, de bout en bout du train.
+          Aucune indemnité n’est due si le voyageur connaissait le retard avant l’achat, ou s’il a choisi le remboursement de son billet.
+          Les montants restent théoriques : prix moyen HT, occupation de 0,75.</p>
         {rules ? (
           <>
-            {brands.map((b) => (
-              <div className="mt-scroll" key={b}>
+            {scales.map(({ brand: b, scope }) => (
+              <div className="mt-scroll" key={`${b}-${scope}`}>
                 <table>
-                  <caption>Barème {b} (lu dans la base)</caption>
-                  <thead><tr><th scope="col">Retard à l’arrivée</th><th scope="col">Part du billet</th><th scope="col">Source</th></tr></thead>
+                  <caption>Barème {b} · {scope} (lu dans la base)</caption>
+                  <thead><tr><th scope="col">Retard à l’arrivée</th><th scope="col">Part du billet</th><th scope="col">Forme</th><th scope="col">Source</th></tr></thead>
                   <tbody>
-                    {rules.compensation_scale.filter((s) => s.brand === b).map((s) => (
+                    {rules.compensation_scale.filter((s) => s.brand === b && (s.scope ?? 'national') === scope).map((s) => (
                       <tr key={s.from_s}>
                         <th scope="row">dès {fmtDuration(s.from_s)} ({nf(s.from_s)} s)</th>
                         <td>{s.pct} %</td>
-                        <td><Link href={s.source_url}>source</Link> (mise à jour le {s.source_as_of})</td>
+                        <td>{s.form === 'bon' ? (b === 'OUIGO' ? 'bon (convertible en virement)' : 'bon d’achat') : s.form === 'argent' ? 'argent' : '–'}</td>
+                        <td><Link href={s.source_url}>source</Link> (lue le {fmtDate(s.source_as_of)})</td>
                       </tr>
                     ))}
                   </tbody>
@@ -225,7 +249,8 @@ export default async function Page() {
           <li>Les retards du flux vont par pas de 5 minutes (aucun retard publié entre 1 et 4 minutes). « À l’heure » équivaut à un retard publié de 0 ; la régularité calculée est une approximation de la régularité officielle, à calibrer avant toute comparaison. Les indemnités en dépendent aux seuils de 30 minutes et de 3 heures : d’où la fourchette.</li>
           <li>Les trains absents du plan du jour ne sont pas collectés.</li>
           <li>Les chiffres reposant sur moins de 30 trains ayant circulé sont estompés : ils ne permettent pas de conclure.</li>
-          <li>Le barème INOUI est appliqué à tous les TGV INOUI : pour un trajet international, l’indemnité au-delà de 3 heures est de 50 % et non de 75 %, ce que l’observatoire ne distingue pas encore.</li>
+          <li>Le barème international (plafonné à 50 %) s’applique à un train dont l’origine ou la destination est hors de France, quel que soit le trajet du voyageur à bord.</li>
+          <li>Les indemnités supposent un trajet direct, sans correspondance, de bout en bout du train ; elles ne tiennent pas compte des voyageurs qui connaissaient le retard avant l’achat ou ont choisi le remboursement.</li>
           <li>Le retard est celui du terminus du train : un voyageur qui descend avant a pu arriver avec un autre retard, et son indemnité aussi.</li>
           <li>Quelques gares n’ont pas de tracé (hors réseau du jeu de formes) : les trains y avancent en ligne droite.</li>
         </ul>
