@@ -229,6 +229,7 @@ export default async function Page() {
         <h2>Positions sur la carte</h2>
         <p>Les positions sont <strong>estimées</strong>, pas mesurées : chaque arrêt a son horaire prévu corrigé de son retard (publié, ou repris de l’arrêt précédent) ; le train reste à quai jusqu’à son départ corrigé puis avance jusqu’à l’arrivée corrigée de l’arrêt suivant,
           le long du tracé des voies lorsqu’il est connu et en ligne droite sinon. Un train dont le dernier passage du collecteur date de plus de 10 minutes est estompé (« donnée périmée »).</p>
+        <p><strong>Se localiser.</strong> Le bouton de localisation de la carte demande la position à ton navigateur, avec ton accord. Elle reste dans le navigateur : elle n’est ni envoyée ni enregistrée par le site.</p>
         <p><strong>Calque VMAX.</strong> La vitesse maximale nominale est celle que la voie autorise, publiée par SNCF Réseau : ce n’est ni la vitesse d’un train ni une vitesse mesurée,
           et elle ignore les limitations temporaires. Le calque montre seulement les lignes que longent les tracés des TGV observés (au moins 2 km à moins de 150 m).
           Les données datent du 24 mars 2022 ; une vitesse relevée depuis n’y figure pas. Les lignes étrangères et Perpignan–Figueras n’y sont pas, et la position des sections,

@@ -167,6 +167,8 @@ export default function CarteView({ trains, failed, lastOk, focus, selected, onS
       map = m;
       mapRef.current = m;
       m.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right');
+      // Position de l'utilisateur : lue par le navigateur, jamais envoyée au serveur.
+      m.addControl(new maplibregl.GeolocateControl({ positionOptions: { enableHighAccuracy: false }, trackUserLocation: true }), 'bottom-right');
       m.on('load', () => {
         m.addSource('voies', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
         m.addLayer({
