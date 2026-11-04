@@ -6,7 +6,7 @@ import {
   applyFilters, axes, isStale, lateCount, toFeatureCollection, trainPosition,
   type Filters, type LiveItem,
 } from '../lib/map-model';
-import { makeSegment, tracesToLines, type LineCollection, type TraceTable } from '../lib/traces';
+import { makeSegment, straightLines, tracesToLines, type LineCollection, type TraceTable } from '../lib/traces';
 import { estimatePosition, segmentSpeedKmh, type Lngl } from '../lib/position';
 import { searchTrains } from '../lib/train-search';
 import type { GareRow } from '../lib/command';
@@ -60,7 +60,9 @@ export default function CarteView({ trains, failed, lastOk, focus, selected, onS
   const filtersRef = useRef(filters);
   const showTracksRef = useRef(true);
   const tracksRef = useRef<LineCollection | null>(null);
+  const tableRef = useRef<TraceTable | null>(null);
   const applyTracksRef = useRef<() => void>(() => {});
+  const applyStraightRef = useRef<() => void>(() => {});
   const [hasTracks, setHasTracks] = useState(false);
   const [showTracks, setShowTracks] = useState(true);
   // Calque des vitesses maximales : désactivé par défaut, fichier chargé seulement au premier affichage.
@@ -72,6 +74,7 @@ export default function CarteView({ trains, failed, lastOk, focus, selected, onS
   const [query, setQuery] = useState('');
   const pathRef = useRef<((a: Lngl, b: Lngl) => Lngl[]) | undefined>(undefined);
   const onSelectRef = useRef(onSelect);
+  const selectedRef = useRef(selected);
   const onSpeedRef = useRef(onSpeed);
   const focusRef = useRef(focus);
   const highlightRef = useRef(highlight);
@@ -84,6 +87,7 @@ export default function CarteView({ trains, failed, lastOk, focus, selected, onS
   focusRef.current = focus;
   highlightRef.current = highlight;
   onSelectRef.current = onSelect;
+  selectedRef.current = selected;
   onSpeedRef.current = onSpeed;
   filtersRef.current = filters;
 
@@ -111,6 +115,13 @@ export default function CarteView({ trains, failed, lastOk, focus, selected, onS
     applyTracksRef.current = () => {
       const src = map?.getSource('voies') as { setData(d: unknown): void } | undefined;
       if (src && tracksRef.current) src.setData(tracksRef.current);
+      applyStraightRef.current();
+    };
+    applyStraightRef.current = () => {
+      // Paires du train sélectionné sans tracé connu : ligne droite en pointillé.
+      const straight = map?.getSource('voies-droites') as { setData(d: unknown): void } | undefined;
+      const sel = trainsRef.current.filter((t) => t.trip_id === selectedRef.current);
+      if (straight && tableRef.current) straight.setData(straightLines(tableRef.current, sel));
     };
     applyGaresRef.current = () => {
       const src = map?.getSource('gares') as { setData(d: unknown): void } | undefined;
@@ -173,6 +184,12 @@ export default function CarteView({ trains, failed, lastOk, focus, selected, onS
           id: 'voies', type: 'line', source: 'voies',
           layout: { visibility: showTracksRef.current ? 'visible' : 'none', 'line-cap': 'round', 'line-join': 'round' },
           paint: { 'line-color': '#7a5200', 'line-width': ['interpolate', ['linear'], ['zoom'], 4, 0.8, 9, 2], 'line-opacity': 0.9 },
+        });
+        m.addSource('voies-droites', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+        m.addLayer({
+          id: 'voies-droites', type: 'line', source: 'voies-droites',
+          layout: { visibility: showTracksRef.current ? 'visible' : 'none', 'line-join': 'round' },
+          paint: { 'line-color': '#7a5200', 'line-width': ['interpolate', ['linear'], ['zoom'], 4, 0.8, 9, 2], 'line-opacity': 0.9, 'line-dasharray': [2, 2] },
         });
         applyTracksRef.current();
         const vmaxVisibility = showVmaxRef.current ? 'visible' : 'none';
@@ -287,11 +304,14 @@ export default function CarteView({ trains, failed, lastOk, focus, selected, onS
     if (f) { followRef.current = null; f.popup.remove(); }
   }, [selected]);
 
-  // Case « Afficher les voies » : bascule la visibilité de la couche une fois la carte prête.
+  // Segments sans tracé du train sélectionné : ils suivent la sélection et ses données.
+  useEffect(() => { applyStraightRef.current(); }, [trains, selected]);
+
+  // Case « Afficher les voies » : bascule la visibilité des couches une fois la carte prête.
   useEffect(() => {
     showTracksRef.current = showTracks;
     const m = mapRef.current;
-    if (m?.getLayer('voies')) m.setLayoutProperty('voies', 'visibility', showTracks ? 'visible' : 'none');
+    for (const id of ['voies', 'voies-droites']) if (m?.getLayer(id)) m.setLayoutProperty(id, 'visibility', showTracks ? 'visible' : 'none');
   }, [showTracks]);
 
   // Case « VMAX » : visibilité des deux couches ; le fichier n'est demandé qu'au premier affichage.
@@ -335,6 +355,7 @@ export default function CarteView({ trains, failed, lastOk, focus, selected, onS
         const table = (await r.json()) as TraceTable;
         if (alive && r.ok && table.pairs && typeof table.pairs === 'object') {
           pathRef.current = makeSegment(table);
+          tableRef.current = table;
           tracksRef.current = tracesToLines(table);
           setHasTracks(tracksRef.current.features.length > 0);
           applyTracksRef.current();
