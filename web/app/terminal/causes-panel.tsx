@@ -1,6 +1,6 @@
 import { CAUSE_LABELS } from '../../lib/causes';
 import type { StatsPayload } from '../../lib/stats';
-import { calcLabel, charBar, periodLabel, type Period } from '../../lib/terminal-model';
+import { STATS_MAX_AGE_MIN, calcLabel, charBar, periodLabel, type Period } from '../../lib/terminal-model';
 
 const nf = (n: number) => n.toLocaleString('fr-FR');
 
@@ -36,7 +36,7 @@ export default function CausesPanel({ stats, failed, loading, period }: {
           </table>
         </div>
       )}
-      <p className="term-dim groups-foot">CAUSE DÉCLARÉE PAR SNCF · CLASSÉE PAR NOS RÈGLES · TRAINS ≥ 5′{stats && !failed && calcLabel(stats.computed_at) ? ` · ${calcLabel(stats.computed_at)}` : ''}</p>
+      <p className="term-dim groups-foot">CAUSE DÉCLARÉE PAR SNCF · CLASSÉE PAR NOS RÈGLES · TRAINS ≥ 5′{stats && !failed && calcLabel(stats.computed_at, STATS_MAX_AGE_MIN) ? ` · ${calcLabel(stats.computed_at, STATS_MAX_AGE_MIN)}` : ''}</p>
     </section>
   );
 }

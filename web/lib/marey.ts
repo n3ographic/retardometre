@@ -1,5 +1,5 @@
 import { round, toNum } from './num';
-import type { Price } from './stats';
+import { formLabel, stepAt, type Price, type Scale } from './stats';
 
 // Axes de la vue F3 (branches validées un par un par l'auteur, le 2026-11-03).
 export const MAREY_AXES = ['ATLANTIQUE', 'EST', 'NORD', 'SUD_EST', 'INTERSECTEURS'] as const;
@@ -48,16 +48,17 @@ export type HistRow = [number, number, number];
 export type MareyTrain = {
   service_date: string; brand: string; train_number: string; origin?: string; dest?: string;
   cancelled: boolean; delay_s?: number; cause?: string; comp_pct: number; last_seen_at?: string; stops: RawStop[];
-  hist?: HistRow[]; cause_cat?: string; comp_eur_per_passenger_ref: number;
+  hist?: HistRow[]; cause_cat?: string; intl?: boolean; comp_eur_per_passenger_ref: number;
+  comp_form?: string | null; // « EN BON D’ACHAT », « BON (CONVERTIBLE EN VIREMENT) » ou « EN ARGENT »
 };
-export type RawTrain = Omit<MareyTrain, 'comp_eur_per_passenger_ref'>;
+export type RawTrain = Omit<MareyTrain, 'comp_eur_per_passenger_ref' | 'comp_form'>;
 
 export type StopRow = { stop_id: string; name: string; lat: number | null; lon: number | null };
 export type MareyGares = Record<string, { nom: string; lat: number; lon: number }>;
 
 // Réponse de /api/marey : trains de l'axe et gares qu'ils desservent (code UIC → nom et coordonnées), pour construire
 // les lignes dans le navigateur. Une gare sans coordonnées est omise (ses arrêts sont alors ignorés).
-export function shapeMarey(axe: string, trains: RawTrain[], prices: Price[], stops: StopRow[], now: Date) {
+export function shapeMarey(axe: string, trains: RawTrain[], prices: Price[], stops: StopRow[], now: Date, scale: Scale[] = []) {
   const used = new Set(trains.flatMap((t) => t.stops.map((s) => s[0])));
   const gares: MareyGares = {};
   for (const s of stops) {
@@ -72,7 +73,8 @@ export function shapeMarey(axe: string, trains: RawTrain[], prices: Price[], sto
       const price = prices.find((x) => x.brand === t.brand);
       if (!price) throw new Error(`prix de référence absent pour ${t.brand}`);
       for (const s of t.stops) { toNum(s[1], 'arr'); toNum(s[2], 'dep'); }
-      return { ...t, comp_eur_per_passenger_ref: round((toNum(t.comp_pct, 'comp_pct') / 100) * toNum(price.price_eur_ht, 'price_eur_ht'), 2) };
+      const comp_form = t.comp_pct > 0 && t.delay_s !== undefined ? formLabel(t.brand, stepAt(scale, t.brand, t.delay_s, t.intl)?.form) : null;
+      return { ...t, comp_eur_per_passenger_ref: round((toNum(t.comp_pct, 'comp_pct') / 100) * toNum(price.price_eur_ht, 'price_eur_ht'), 2), comp_form };
     }),
   };
 }

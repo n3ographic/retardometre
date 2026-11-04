@@ -12,6 +12,10 @@ export default function FootBar() {
       </nav>
       <FKeys />
       <span>POSITIONS ESTIMÉES · NON AFFILIÉ SNCF/OUIGO</span>
+      {/* Limites des indemnités, détaillées sur /methodologie. */}
+      <a href="/methodologie#indemnites" className="foot-limits">
+        INDEMNITÉS THÉORIQUES : TRAJET DIRECT SANS CORRESPONDANCE · HORS RETARD CONNU À L’ACHAT OU REMBOURSEMENT CHOISI · PRIX MOYEN HT, OCCUPATION 0,75
+      </a>
     </footer>
   );
 }

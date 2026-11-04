@@ -116,7 +116,7 @@ export default async function Page() {
           Les tranches s’alignent sur les seuils d’indemnisation.</p>
       </section>
 
-      <section>
+      <section id="indemnites">
         <h2>Indemnités théoriques</h2>
         <p>Pourcentage du billet dû selon le retard à l’arrivée, appliqué à un prix de référence et à un nombre de voyageurs estimé :
           coût = pourcentage × prix de référence × places × occupation.</p>
@@ -206,7 +206,10 @@ export default async function Page() {
           La borne <strong>basse</strong> retire 4 min 59 s et exclut aussi les trains qui sautent un arrêt intermédiaire, dont le retard au terminus reste compté au centre et en haut.
           L’occupation reste à 0,75 dans les trois cas : la fourchette traduit l’incertitude de mesure, pas celle du prix, des places et de l’occupation.</p>
         <h3>Retards aberrants</h3>
-        <p>Un retard au terminus d’au moins 12 heures est écarté des mesures (régularité, tranches de retard, indemnités) et compté à part (métrique <code>aberrant</code>) : un TGV n’a pas 12 heures de retard, il s’agit d’une erreur de donnée.</p>
+        <p>Un retard au terminus d’au moins 12 heures est écarté des mesures (régularité, tranches de retard, indemnités) et compté à part (métrique <code>aberrant</code>, « ABERRANT » dans la décomposition des trains observés) :
+          un tel chiffre ne mesure plus un retard, c’est une erreur de donnée ou un train reporté à un autre jour, que le flux ne permet pas de distinguer.</p>
+        <p>Seul cas depuis le 20 octobre 2026 : le TGV INOUI <a href="/train/9243">9243</a> Paris Gare de Lyon → Milan du 21 octobre, publié avec 18 h 20 de retard (66 000 secondes) sur tous ses arrêts
+          après la panne d’un train de travaux entre Paris et Le Creusot. Compté, il aurait ajouté une indemnité au barème maximal.</p>
       </section>
 
       <section>

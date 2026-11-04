@@ -27,7 +27,7 @@ test('score : à l’heure < 5 min, suppression = échec, non observé et illisi
 test('causes des retards ≥ 5 min, indemnités au barème de la marque, rang dans l’axe, gares', () => {
   const p = shapeProfile('8537', raw(), prices);
   expect(p.causes).toEqual([{ category: 'materiel', days: 2 }]);
-  expect(p.comp).toEqual({ days: 1, eur: Math.round(0.25 * 46.6 * 556 * 0.75) });
+  expect(p.comp).toEqual({ days: 1, eur: Math.round(0.25 * 46.6 * 556 * 0.75), eur_bon: null });
   expect(p.rank).toEqual({ better_than_pct: 67, of: 3 }); // 2/5 = 40 % bat 10 % et 0 %, pas 90 % ; le train à 0 jour ignoré
   expect(p.stops).toEqual([{ uic: '87391003', nom: 'Paris', avg_min: 11.5, n: 13 }, { uic: '87677005', nom: '87677005', avg_min: null, n: 0 }]);
   expect(shapeProfile('8537', raw({ axis: [['8537', 5, 2]] }), prices).rank).toBeNull();

@@ -4,6 +4,7 @@ import { CAUSE_LABELS } from '../../../lib/causes';
 import { COUNT_LABELS } from '../../../lib/counts';
 import { TERMINUS_BUCKETS } from '../../../lib/dashboard-model';
 import { loadGares, loadTrainProfile } from '../../../lib/handlers';
+import { ruleLabel, splitLabel } from '../../../lib/stats';
 import { supabaseDeps } from '../../../lib/supabase';
 import { bucketIndex, delayTone } from '../../../lib/terminal-model';
 import { SMALL_DAYS, todayLabel, type Day, type Profile } from '../../../lib/train-profile';
@@ -154,7 +155,8 @@ export default async function Page({ params }: Props) {
           <section className="term-panel" aria-labelledby="tp-comp">
             <h2 className="term-panel-title" id="tp-comp">Indemnités</h2>
             <p className="tp-big"><strong>{nf(p.comp.eur)} €</strong> <span className="term-dim">HT</span></p>
-            <p>{p.comp.days} JOUR{p.comp.days > 1 ? 'S' : ''} AVEC INDEMNITÉ · RÈGLE {p.info.brand}</p>
+            {splitLabel(p.comp.eur, p.comp.eur_bon) && <p className="term-dim">{splitLabel(p.comp.eur, p.comp.eur_bon)}</p>}
+            <p>{p.comp.days} JOUR{p.comp.days > 1 ? 'S' : ''} AVEC INDEMNITÉ · {ruleLabel(p.info.brand, p.info.intl)}</p>
             <p className="term-dim">THÉORIQUE : % DU BARÈME × PRIX DE RÉFÉRENCE × PLACES × OCCUPATION 0,75 · <a href="/methodologie">MÉTHODE</a></p>
           </section>
         </div>

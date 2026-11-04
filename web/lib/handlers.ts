@@ -5,7 +5,7 @@ import { shapeProfile, type Profile, type RawProfile } from './train-profile';
 import { BLOCK_S, BUCKET_S, COLLECT_INTERVAL_S, HALF_WINDOW_S, PAST_TTL_S, fetchWindow, parseApiParams, shapeMarey, type RawTrain, type StopRow } from './marey';
 import { loadRules } from './rules';
 import { parseGares, shapeBoard } from './station';
-import { WEEK_RE, type WeekRow } from './weekly';
+import { WEEK_RE, type WeekExtra, type WeekRow } from './weekly';
 import type { GareRow } from './command';
 import { parisDate, parseStatsParams } from './params';
 import { SCALE_COLUMNS, shapeStats, type Price, type Scale, type StatRow } from './stats';
@@ -114,14 +114,15 @@ export function createMareyHandler(deps: Deps) {
     const ttl = past ? PAST_TTL_S : BUCKET_S;
     const w = p.bloc === null ? fw : { bucket: Math.floor(nowS / ttl) * ttl, from: new Date(p.bloc * 1000).toISOString(), to: new Date((p.bloc + BLOCK_S) * 1000).toISOString() };
     // Clé = axe et tranche validés + seau de temps, jamais une chaîne brute de l'utilisateur. Les gares (244 lignes) sont relues une fois par jour.
-    return guarded(async () => json(await deps.cached(['marey', 'v3', p.axe, String(p.bloc ?? 'now'), String(w.bucket)], ttl, async () => {
-      const [trains, prices, stops] = await Promise.all([
+    return guarded(async () => json(await deps.cached(['marey', 'v4', p.axe, String(p.bloc ?? 'now'), String(w.bucket)], ttl, async () => {
+      const [trains, prices, stops, scale] = await Promise.all([
         unwrap<RawTrain[]>(deps.rpc('marey_trains', { p_axis: p.axe, p_from: w.from, p_to: w.to }), 'marey_trains'),
         unwrap<Price[]>(deps.select('reference_prices', 'brand,price_eur_ht,seats,price_source,seats_source,as_of'), 'reference_prices'),
         deps.cached(['marey-gares', 'v1'], 86_400, () => unwrap<StopRow[]>(deps.select('stops', 'stop_id,name,lat,lon'), 'stops')),
+        unwrap<Scale[]>(deps.select('compensation_scale', SCALE_COLUMNS), 'compensation_scale'),
       ]);
       // generated_at = heure réelle de la requête (pas le début du seau) : le bandeau en déduit le retard de la collecte.
-      return shapeMarey(p.axe, trains, prices, stops, deps.now()); // lève si invalide : rien n'est mis en cache
+      return shapeMarey(p.axe, trains, prices, stops, deps.now(), scale); // lève si invalide : rien n'est mis en cache
     }), 200, MAREY_CACHE));
   };
 }
@@ -131,15 +132,16 @@ export function createMareyHandler(deps: Deps) {
 export async function loadTrainProfile(deps: Deps, number: string): Promise<Profile | null> {
   if (!/^\d{1,5}$/.test(number)) return null;
   const cycle = Math.floor(deps.now().getTime() / 1000 / COLLECT_INTERVAL_S);
-  return deps.cached(['train', 'v1', number, String(cycle)], COLLECT_INTERVAL_S, async () => {
-    const [raw, prices] = await Promise.all([
+  return deps.cached(['train', 'v2', number, String(cycle)], COLLECT_INTERVAL_S, async () => {
+    const [raw, prices, scale] = await Promise.all([
       deps.rpc('train_profile', { p_number: number }).then(({ data, error }) => {
         if (error || (data !== null && (typeof data !== 'object' || !Array.isArray((data as RawProfile).days)))) throw new Error('lecture de train_profile impossible');
         return data as RawProfile | null; // objet, ou null pour un numéro inconnu
       }),
       unwrap<Price[]>(deps.select('reference_prices', 'brand,price_eur_ht,seats,price_source,seats_source,as_of'), 'reference_prices'),
+      unwrap<Scale[]>(deps.select('compensation_scale', SCALE_COLUMNS), 'compensation_scale'),
     ]);
-    return raw ? shapeProfile(number, raw, prices) : null;
+    return raw ? shapeProfile(number, raw, prices, scale) : null;
   });
 }
 
@@ -160,15 +162,22 @@ export const loadWeeks = (deps: Deps) => deps.cached(['weeks', 'v1'], 600, async
   (await unwrap<{ week: string }[]>(deps.select('weekly_reports', 'week'), 'weekly_reports')).map((r) => r.week).sort());
 
 // Bilan figé d'une semaine et de la précédente (variations) ; null si la semaine n'est pas calculée (jamais mis en cache).
-export async function loadWeek(deps: Deps, week: string): Promise<{ row: WeekRow; prev: WeekRow | null; weeks: string[] } | null> {
+export async function loadWeek(deps: Deps, week: string): Promise<{ row: WeekRow; prev: WeekRow | null; weeks: string[]; extra: WeekExtra | null } | null> {
   if (!WEEK_RE.test(week)) return null;
   const weeks = await loadWeeks(deps);
   const i = weeks.indexOf(week);
   if (i < 0) return null;
   const read = async (w: string) => (await unwrap<WeekRow[]>(deps.select('weekly_reports', 'week,monday,payload,computed_at', { week: w }), 'weekly_reports'))[0] ?? null;
   // Une correction manuelle (snapshot_week) apparaît en 1 h au plus.
-  const [row, prev] = await deps.cached(['week', 'v1', week], 3600, () => Promise.all([read(week), i > 0 ? read(weeks[i - 1]) : Promise.resolve(null)]));
-  return row ? { row, prev, weeks } : null;
+  const [row, prev, extra] = await deps.cached(['week', 'v2', week], 3600, async () => {
+    const [r, pr] = await Promise.all([read(week), i > 0 ? read(weeks[i - 1]) : Promise.resolve(null)]);
+    // Bilan figé avant la part en bons : bons et plafond international recalculés à part, totaux figés inchangés.
+    if (!r || r.payload.stats.some((x) => x[2] === 'comp_pct_sum_bon')) return [r, pr, null] as const;
+    const rows = await unwrap<StatRow[]>(deps.rpc('stats_period', { p_from: r.payload.from, p_to: r.payload.to }), 'stats_period');
+    const tt = shapeStats(rows, r.payload.prices, r.payload.scale, { from: r.payload.from, to: r.payload.to }).totals;
+    return [r, pr, { bon: tt.estimated_cost_eur_ht_bon, intl_cap: tt.intl_cap_eur_ht }] as const;
+  });
+  return row ? { row, prev, weeks, extra } : null;
 }
 
 export function createGaresHandler(deps: Deps) {
