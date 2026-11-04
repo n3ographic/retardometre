@@ -79,8 +79,21 @@ test('alerte hors période active du jour → non rattachée', () => {
   expect(snapshotsFromFeed(tu, copy, all).flatMap(s => s.alertIds)).toEqual([])
 })
 
-test('cause : texte français, sans HTML', () => {
+test('cause : titre puis description, en français, sans HTML', () => {
   expect(alertCause(sa, ['QOM:Broadcast::3926910641521586324:LOC'])).toBe(
-    'Cause : fortes précipitations pluvieuses ou crues affectant les voies et la vitesse des trains à TOULON.')
+    'Attention, certaines gares non desservies. Cause : fortes précipitations pluvieuses ou crues affectant les voies et la vitesse des trains à TOULON.')
   expect(alertCause(sa, [])).toBeNull()
+})
+
+test('cause : titre gardé quand la description n’en est que la suite, pas de doublon', () => {
+  const fr = (text: string) => ({ translation: [{ language: 'de', text: 'x' }, { language: 'fr', text }] })
+  const feed = { entity: [
+    { id: 'A', alert: { headerText: fr('Actuellement, nous ne sommes pas en mesure d’afficher le retard des trains.'),
+      descriptionText: fr('<p>C’est pourquoi, nous vous invitons à consulter régulièrement les informations.<br> </p>') } },
+    { id: 'B', alert: { headerText: fr('Travaux à Roeux'), descriptionText: fr('Travaux à Roeux du 17 août au 12 décembre.') } },
+    { id: 'C', alert: { headerText: fr('Voitures hors quai') } },
+  ] }
+  expect(alertCause(feed, ['A'])).toBe('Actuellement, nous ne sommes pas en mesure d’afficher le retard des trains. C’est pourquoi, nous vous invitons à consulter régulièrement les informations.')
+  expect(alertCause(feed, ['B'])).toBe('Travaux à Roeux du 17 août au 12 décembre.')
+  expect(alertCause(feed, ['C'])).toBe('Voitures hors quai')
 })
