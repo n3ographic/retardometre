@@ -5,6 +5,7 @@ import CauseText from './cause-text';
 import { bucketIndex, delayTone } from '../../lib/terminal-model';
 import { estimatePosition, segmentProgress } from '../../lib/position';
 import { compensationView, delayBounds, observedAgo, speedView, thresholdProgress, type Rules } from '../../lib/train-card';
+import { ruleLabel } from '../../lib/stats';
 
 const at = (stop?: string) => (!stop ? '' : /^[AEIOUYÂÉÈÊÎÔ]/i.test(stop) ? ` D’${stop.toUpperCase()}` : ` DE ${stop.toUpperCase()}`);
 const eur = (n: number) => n.toFixed(2).replace('.', ',');
@@ -42,8 +43,8 @@ export default function TrainPanel({ train: t, missing, gareOf, onGare, rules, s
   const delay = Math.max(t.delay_s ?? 0, 0);
   const b = delayBounds(delay);
   const idx = bucketIndex(t.delay_s);
-  const cv = !t.cancelled && rules ? compensationView(t.brand, t.delay_s, rules) : null;
-  const prog = !t.cancelled && rules ? thresholdProgress(t.brand, t.delay_s, rules) : null;
+  const cv = !t.cancelled && rules ? compensationView(t.brand, t.delay_s, rules, t.intl) : null;
+  const prog = !t.cancelled && rules ? thresholdProgress(t.brand, t.delay_s, rules, t.intl) : null;
   const ago = observedAgo(t.last_seen_at, now);
   const sv = speedView(speed, segmentProgress(t, now));
   const onMap = estimatePosition(t, now) !== null;
@@ -66,9 +67,9 @@ export default function TrainPanel({ train: t, missing, gareOf, onGare, rules, s
       </section>
       {(cv || prog) && (
         <section className="train-block">
-          <h3>Indemnité théorique <span className="term-dim" title={t.brand === 'OUIGO' ? 'OUIGO : 25 % dès 1 h, 50 % dès 2 h' : 'INOUI : 25 % dès 30 min, 50 % dès 2 h, 75 % au-delà de 3 h'}>· RÈGLE {t.brand}</span></h3>
+          <h3>Indemnité théorique <span className="term-dim" title={t.brand === 'OUIGO' ? 'OUIGO : 25 % dès 1 h, 50 % dès 2 h, en bon convertible en virement' : t.intl ? 'G30 international : 25 % dès 30 min, 50 % dès 2 h (plafond) ; bon d’achat jusqu’à 1 h, argent au-delà' : 'G30 national : 25 % dès 30 min, 50 % dès 2 h, 75 % au-delà de 3 h ; bon d’achat jusqu’à 1 h, argent au-delà'}>· {ruleLabel(t.brand, t.intl)}</span></h3>
           {cv && (cv.pct_high > 0
-            ? <p><span className="train-big">{range(cv.pct_low, cv.pct_high, (n) => `${n} %`)}</span> · {range(cv.eur_low, cv.eur_high, eur)} € / VOYAGEUR HT</p>
+            ? <p><span className="train-big">{range(cv.pct_low, cv.pct_high, (n) => `${n} %`)}</span> · {range(cv.eur_low, cv.eur_high, eur)} € / VOYAGEUR HT{cv.form && <> · {cv.form}</>}</p>
             : <p className="term-dim">AUCUNE AU RETARD ACTUEL</p>)}
           {prog && cv?.next && (
             <>

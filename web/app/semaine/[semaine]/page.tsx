@@ -5,6 +5,7 @@ import { COUNT_KEYS, COUNT_LABELS, breakdownText } from '../../../lib/counts';
 import { SAMPLE_MIN, TERMINUS_BUCKETS } from '../../../lib/dashboard-model';
 import { loadWeek } from '../../../lib/handlers';
 import { supabaseDeps } from '../../../lib/supabase';
+import { splitLabel } from '../../../lib/stats';
 import { RANGE_HINT, bucketIndex, charBar, eurRange } from '../../../lib/terminal-model';
 import { axisName, shapeWeek, summaryText, weekNum, type WeekView } from '../../../lib/weekly';
 import FootBar from '../../terminal/foot-bar';
@@ -24,7 +25,7 @@ const COUNTS_HINT = COUNT_KEYS.map((k) => `${COUNT_LABELS[k].short} : ${COUNT_LA
 
 async function load(semaine: string) {
   const r = await loadWeek(supabaseDeps, semaine);
-  return r && { view: shapeWeek(r.row, r.prev), weeks: r.weeks, scale: r.row.payload.scale };
+  return r && { view: shapeWeek(r.row, r.prev, r.extra), weeks: r.weeks, scale: r.row.payload.scale };
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -102,6 +103,7 @@ export default async function Page({ params }: Props) {
           <div className="term-panel">
             <h2 className="term-panel-title">Indemnités HT</h2>
             <p className="wk-big">{eur(k.cost.value)}</p>
+            {k.cost.bon !== null && <p className="wk-small" title={splitLabel(k.cost.value, k.cost.bon) ?? undefined}>DONT {eur(k.cost.bon)} EN BONS</p>}
             <Delta d={k.cost.delta} v={v} />
             {range && <p className="term-dim wk-small" title={RANGE_HINT}>FOURCHETTE {range}</p>}
           </div>
@@ -235,6 +237,7 @@ export default async function Page({ params }: Props) {
         <ShareBar text={summaryText(v, '').trimEnd()} week={v.week} />
 
         <p className="term-dim wk-small">
+          {v.intlCapNote && <>BARÈME INTERNATIONAL PLAFONNÉ À 50 % APPLIQUÉ À PARTIR DU {v.intlCapNote.from} · ÉCART ESTIMÉ SUR CETTE SEMAINE : {nf(Math.round(v.intlCapNote.eur))} €<br /></>}
           RÉGULARITÉ APPROCHÉE (RETARDS PUBLIÉS PAR PAS DE 5′) · INDEMNITÉS THÉORIQUES HT, OCCUPATION {nf(v.occupancy)} · TRAINS OBSERVÉS SEULEMENT · OBSERVATOIRE INDÉPENDANT, NON AFFILIÉ SNCF/OUIGO · <a href="/methodologie">MÉTHODOLOGIE →</a>
         </p>
       </main>

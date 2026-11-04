@@ -16,6 +16,23 @@ export function scaleFor(scale: Scale[], brand: string, intl = false): Scale[] {
   return (own.length ? own : of('national')).sort((a, b) => a.from_s - b.from_s);
 }
 
+// Palier atteint par un retard (null sous le premier seuil).
+export const stepAt = (scale: Scale[], brand: string, delay_s: number, intl = false): Scale | null =>
+  scaleFor(scale, brand, intl).filter((s) => s.from_s <= delay_s).pop() ?? null;
+
+export const ruleLabel = (brand: string, intl = false) =>
+  brand === 'OUIGO' ? 'RÈGLE OUIGO' : `RÈGLE G30 · ${intl ? 'INTERNATIONAL' : 'NATIONAL'}`;
+
+export const formLabel = (brand: string, form: Scale['form']) =>
+  form === 'bon' ? (brand === 'OUIGO' ? 'BON (CONVERTIBLE EN VIREMENT)' : 'EN BON D’ACHAT') : form === 'argent' ? 'EN ARGENT' : null;
+
+// « X € HT · DONT Y € EN BONS · Z € EN ARGENT » ; null sans la part en bons (réponse ancienne ou bilan figé).
+export function splitLabel(total: number, bon: number | null): string | null {
+  if (bon === null) return null;
+  const e = (n: number) => Math.round(n).toLocaleString('fr-FR');
+  return `${e(total)} € HT · DONT ${e(bon)} € EN BONS · ${e(Math.max(total - bon, 0))} € EN ARGENT`;
+}
+
 // Occupation de référence (ART 2023 : 76-77 % tous TGV, pas par marque). Le coût est linéaire :
 // coût = cost_eur_ht_at_full_occupancy × occupation.
 export const DEFAULT_OCCUPANCY = 0.75;
@@ -26,7 +43,7 @@ export const RANGE = { delay_tolerance_s: 299, aberrant_delay_s: 43200 };
 
 const COUNTS = ['planned', 'observed', 'removed_late', 'never_observed', 'cancelled', 'no_terminus',
   'circulated', 'on_time_official', 'comp_eligible', 'comp_pct_sum', 'aberrant', 'skipped_stop',
-  'comp_pct_sum_low', 'comp_pct_sum_high'] as const;
+  'comp_pct_sum_low', 'comp_pct_sum_high', 'comp_pct_sum_bon', 'comp_pct_sum_intl_cap'] as const;
 // Retards publiés par pas de 5 min : la tranche 1-4 de la base (quasi vide, ~0,1 %) est fondue avec 0 en « 0-4 ».
 const BUCKETS = ['0-4', '5-14', '15-29', '30-59', '60-119', '120-179', '180+'];
 const MERGED: Record<string, string> = { '0': '0-4', '1-4': '0-4' };
@@ -42,6 +59,9 @@ export type Totals = Counts & {
   // Fourchette ; null quand les lignes reçues n'ont pas les mesures basse et haute (ancienne réponse en cache).
   estimated_cost_eur_ht_low: number | null;
   estimated_cost_eur_ht_high: number | null;
+  // Part en bons d'achat, et écart au barème national (plafond international) ; null sans ces mesures (avant le 04/11/2026).
+  estimated_cost_eur_ht_bon: number | null;
+  intl_cap_eur_ht: number | null;
 };
 export type Group = { brand: string; axis: string } & Totals;
 // Retards d'au moins 5 min par catégorie de cause déclarée (codes de cause_rules, voir lib/causes.ts).
@@ -56,7 +76,7 @@ const zeros = (keys: readonly string[]) => Object.fromEntries(keys.map((k) => [k
 const empty = (): Totals => ({
   ...(zeros(COUNTS) as Counts), official_regularity_pct: null,
   terminus_buckets: zeros(BUCKETS), stop_buckets: zeros(STOP_BUCKETS), estimated_cost_eur_ht: 0, cost_eur_ht_at_full_occupancy: 0,
-  estimated_cost_eur_ht_low: null, estimated_cost_eur_ht_high: null,
+  estimated_cost_eur_ht_low: null, estimated_cost_eur_ht_high: null, estimated_cost_eur_ht_bon: null, intl_cap_eur_ht: null,
 });
 const regularity = (t: Totals) => (t.circulated === 0 ? null : round((t.on_time_official / t.circulated) * 100, 1));
 
@@ -96,8 +116,9 @@ export function shapeStats(rows: StatRow[], rawPrices: Price[], rawScale: Scale[
   }
 
   const hasRange = rows.some((x) => x.metric === 'comp_pct_sum_high');
+  const hasBon = rows.some((x) => x.metric === 'comp_pct_sum_bon');
   const totals = empty();
-  let cost = 0, low = 0, high = 0;
+  let cost = 0, low = 0, high = 0, bon = 0, cap = 0;
   const list = [...groups.values()].sort((a, b) => a.brand.localeCompare(b.brand) || a.axis.localeCompare(b.axis));
   for (const g of list) {
     const price = prices.find((x) => x.brand === g.brand);
@@ -113,6 +134,12 @@ export function shapeStats(rows: StatRow[], rawPrices: Price[], rawScale: Scale[
       low += g.comp_pct_sum_low * perPct;
       high += g.comp_pct_sum_high * perPct;
     }
+    if (hasBon) {
+      g.estimated_cost_eur_ht_bon = round(g.comp_pct_sum_bon * perPct, 2);
+      g.intl_cap_eur_ht = round(g.comp_pct_sum_intl_cap * perPct, 2);
+      bon += g.comp_pct_sum_bon * perPct;
+      cap += g.comp_pct_sum_intl_cap * perPct;
+    }
     g.official_regularity_pct = regularity(g);
     for (const k of COUNTS) totals[k] += g[k];
     for (const k of BUCKETS) totals.terminus_buckets[k] += g.terminus_buckets[k];
@@ -123,6 +150,10 @@ export function shapeStats(rows: StatRow[], rawPrices: Price[], rawScale: Scale[
   if (hasRange) {
     totals.estimated_cost_eur_ht_low = round(low, 2);
     totals.estimated_cost_eur_ht_high = round(high, 2);
+  }
+  if (hasBon) {
+    totals.estimated_cost_eur_ht_bon = round(bon, 2);
+    totals.intl_cap_eur_ht = round(cap, 2);
   }
   totals.official_regularity_pct = regularity(totals);
 

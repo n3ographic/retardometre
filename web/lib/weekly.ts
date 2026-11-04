@@ -55,7 +55,12 @@ function totalsOf(p: WeekPayload) {
   return shapeStats(rows, p.prices, p.scale, { from: p.from, to: p.to });
 }
 
-export function shapeWeek(row: WeekRow, prev: WeekRow | null) {
+// Bilan figé avant le 04/11/2026 : part en bons et écart du plafond international, recalculés à part sans toucher aux totaux.
+export type WeekExtra = { bon: number | null; intl_cap: number | null };
+export const INTL_CAP_FROM = '04/11';
+export const BON_SHARE_KEY = 30; // au-delà, phrase « À RETENIR » sur la part en bons
+
+export function shapeWeek(row: WeekRow, prev: WeekRow | null, extra: WeekExtra | null = null) {
   const p = row.payload;
   const s = totalsOf(p);
   const t = s.totals;
@@ -67,7 +72,8 @@ export function shapeWeek(row: WeekRow, prev: WeekRow | null) {
   const kpis = {
     trains: { value: t.circulated, delta: deltaPct(t.circulated, pt?.circulated, true, days2) },
     regularity: { value: t.official_regularity_pct, delta: deltaPt(t.official_regularity_pct, pt?.official_regularity_pct, true) },
-    cost: { value: t.estimated_cost_eur_ht, low: t.estimated_cost_eur_ht_low, high: t.estimated_cost_eur_ht_high, delta: deltaPct(t.estimated_cost_eur_ht, pt?.estimated_cost_eur_ht, false, days2) },
+    cost: { value: t.estimated_cost_eur_ht, low: t.estimated_cost_eur_ht_low, high: t.estimated_cost_eur_ht_high, delta: deltaPct(t.estimated_cost_eur_ht, pt?.estimated_cost_eur_ht, false, days2),
+      bon: t.estimated_cost_eur_ht_bon ?? extra?.bon ?? null },
     suppressions: { value: supp, n: t.cancelled, delta: deltaPt(supp, pt ? suppressionPct(pt) : undefined, false) },
   };
 
@@ -128,13 +134,18 @@ export function shapeWeek(row: WeekRow, prev: WeekRow | null) {
   }
   if (worstDay) takeaways.push(`Pire jour : ${worstDay.label.toLowerCase()} avec ${fr1(worstDay.pct!)} % de trains à l’heure${worstDay.cause ? `, cause la plus citée : ${causeShort(worstDay.cause).toLowerCase()}` : ''}.`);
   if (causes[0]) takeaways.push(`${causes[0].label.charAt(0) + causes[0].label.slice(1).toLowerCase()} pèse ${causes[0].share} % des indemnités liées à une cause.`);
+  const bon = kpis.cost.bon;
+  const bonShare = bon === null || t.estimated_cost_eur_ht === 0 ? null : Math.round((bon / t.estimated_cost_eur_ht) * 100);
+  if (bonShare !== null && bonShare > BON_SHARE_KEY) takeaways.push(`${bonShare} % des indemnités théoriques (${nf(Math.round(bon!))} €) sont dues en bons d’achat, et non en argent.`);
   if (train) takeaways.push(`Le ${train.number} ${train.origin ?? '?'} → ${train.dest ?? '?'} n’a été à l’heure ${train.ok === 0 ? 'aucun jour' : `que ${train.ok} jour${train.ok > 1 ? 's' : ''}`} sur ${train.counted}.`);
 
   return {
     week: row.week, num: weekNum(row.week), from: p.from, to: p.to, days: p.days, complete: p.days === 7, computed_at: row.computed_at,
     title: `SEMAINE ${weekNum(row.week)} · DU ${ddmm(p.from)} AU ${ddmm(p.to)}`,
     prev: prev && { week: prev.week, num: weekNum(prev.week), incomplete: prevIncomplete, days: prev.payload.days },
-    counts, kpis, train, byDay: days, worstDay, bestDay, axes, bestAxis, worstAxis, causes, heat, brands, takeaways: takeaways.slice(0, 5),
+    counts, kpis, train, byDay: days, worstDay, bestDay, axes, bestAxis, worstAxis, causes, heat, brands, takeaways: takeaways.slice(0, 6),
+    // Bilan figé avant le plafond international : écart estimé, les totaux restent ceux publiés.
+    intlCapNote: t.estimated_cost_eur_ht_bon === null && extra?.intl_cap != null ? { from: INTL_CAP_FROM, eur: extra.intl_cap } : null,
     small: isSmallSample(t), occupancy: s.assumptions.occupancy,
   };
 }

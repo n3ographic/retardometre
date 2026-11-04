@@ -2,8 +2,8 @@ import { isSmallSample, suppressionPct } from '../../lib/dashboard-model';
 import { COUNT_KEYS, COUNT_LABELS, breakdownText } from '../../lib/counts';
 import type { CumulPayload } from '../../lib/cumul';
 import { lastCompleteWeek } from '../../lib/weekly';
-import type { StatsPayload } from '../../lib/stats';
-import { RANGE_HINT, axisRegularity, brandSplit, calcLabel, charBar, eurRange, periodLabel, windowLabel, type Period } from '../../lib/terminal-model';
+import { splitLabel, type StatsPayload } from '../../lib/stats';
+import { CUMUL_MAX_AGE_MIN, RANGE_HINT, STATS_MAX_AGE_MIN, axisRegularity, brandSplit, calcLabel, charBar, eurRange, isCalcStale, periodLabel, windowLabel, type Period } from '../../lib/terminal-model';
 
 const nf = (n: number) => n.toLocaleString('fr-FR');
 const AXIS_SHORT: Record<string, string> = { ATLANTIQUE: 'ATL', EST: 'EST', INTERSECTEURS: 'INTER', NORD: 'NORD', SUD_EST: 'S-EST' };
@@ -21,7 +21,8 @@ export default function RightPanel({ cumul, cumulFailed, stats, statsFailed, sta
 }) {
   const t = stats?.totals;
   const day = cumul?.today;
-  const statsCalc = stats && !statsFailed ? calcLabel(stats.computed_at) : null;
+  const statsCalc = stats && !statsFailed ? calcLabel(stats.computed_at, STATS_MAX_AGE_MIN) : null;
+  const statsStale = stats ? isCalcStale(stats.computed_at, STATS_MAX_AGE_MIN) : false;
   const periodRange = t ? eurRange(t.estimated_cost_eur_ht_low, t.estimated_cost_eur_ht_high) : null;
   const cumulRange = cumul ? eurRange(cumul.cost_eur_ht_low, cumul.cost_eur_ht_high) : null;
   const split = stats ? brandSplit(stats.groups) : [];
@@ -38,16 +39,17 @@ export default function RightPanel({ cumul, cumulFailed, stats, statsFailed, sta
             <dt>SUPPR.</dt><dd>{pct(suppressionPct(t))}</dd>
             <dt>INDEMN.</dt><dd>{nf(Math.round(t.estimated_cost_eur_ht))} € HT</dd>
           </dl>
+          {splitLabel(t.estimated_cost_eur_ht, t.estimated_cost_eur_ht_bon) && <p className="term-dim">{splitLabel(t.estimated_cost_eur_ht, t.estimated_cost_eur_ht_bon)}</p>}
           {periodRange && <p className="term-dim" title={RANGE_HINT}>FOURCHETTE {periodRange} HT</p>}
           {windowLabel(period) && <p className="term-dim">{windowLabel(period)}</p>}
           </>
         )}
         {day && (
           <p className="today-line" title={`Trains terminés depuis minuit (heure de Paris), recalculé toutes les 5 minutes.\n${breakdownText(day)}\n${nf(inFeed)} DANS LE FLUX EN CE MOMENT (EN ROUTE OU SUR LE POINT DE PARTIR)`}>
-            AUJOURD&apos;HUI · {nf(day.circulated)} TR. TERMINÉS · RÉGUL. {pct(day.official_regularity_pct)} · {nf(Math.round(day.estimated_cost_eur_ht))} € HT
+            AUJOURD&apos;HUI · {nf(day.circulated)} TR. TERMINÉS · RÉGUL. {pct(day.official_regularity_pct)} · {nf(Math.round(day.estimated_cost_eur_ht))} € HT{day.estimated_cost_eur_ht_bon !== null && ` · DONT ${nf(Math.round(day.estimated_cost_eur_ht_bon))} € EN BONS`}
           </p>
         )}
-        {statsCalc && <p className="term-dim">{statsCalc}</p>}
+        {statsCalc && <p className={statsStale ? 'tone-late' : 'term-dim'}>{statsCalc}</p>}
         <p><a href="/semaine" className="to-marey">BILAN SEMAINE {lastCompleteWeek(new Date())} →</a></p>
       </section>
       <section className={cumul && isSmallSample(cumul) ? 'term-panel term-small' : 'term-panel'}>
@@ -55,12 +57,13 @@ export default function RightPanel({ cumul, cumulFailed, stats, statsFailed, sta
         {cumulFailed ? <p className="term-dim">INDISPONIBLE</p> : !cumul ? <p className="term-dim">…</p> : cumul.days === 0 ? <p className="term-dim">AUCUN JOUR TERMINÉ</p> : (
           <>
             <p className="big">{nf(Math.round(cumul.cost_eur_ht))} €</p>
+            {splitLabel(cumul.cost_eur_ht, cumul.cost_eur_ht_bon) && <p className="term-dim">{splitLabel(cumul.cost_eur_ht, cumul.cost_eur_ht_bon)}</p>}
             {cumulRange && <p className="term-dim" title={RANGE_HINT}>FOURCHETTE {cumulRange} HT</p>}
             <p className="term-dim" title={COUNTS_HINT}>{breakdownText(cumul)}</p>
             <p className="term-dim">HT · <span title="Part des trains prévus observés dans le flux temps réel, trains terminés depuis le 20 octobre 2026">{cumul.coverage_pct === null ? '—' : `${cumul.coverage_pct.toLocaleString('fr-FR')} %`} DU PRÉVU</span></p>
             {cumul.by_brand.map((b) => <p key={b.brand}>{b.brand} {nf(Math.round(b.cost_eur_ht))} €</p>)}
             <p className="term-dim">OBSERVÉ SEULEMENT, SANS EXTRAPOLATION · DEPUIS LE 20/10, AUJOURD&apos;HUI INCLUS</p>
-            {calcLabel(cumul.computed_at) && <p className="term-dim">{calcLabel(cumul.computed_at)}</p>}
+            {calcLabel(cumul.computed_at) && <p className={isCalcStale(cumul.computed_at, CUMUL_MAX_AGE_MIN) ? 'tone-late' : 'term-dim'}>{calcLabel(cumul.computed_at, CUMUL_MAX_AGE_MIN)}</p>}
           </>
         )}
       </section>
@@ -79,7 +82,7 @@ export default function RightPanel({ cumul, cumulFailed, stats, statsFailed, sta
           </ul>
         )}
         {stats && !statsFailed && <p className="term-dim">APPROCHÉE · RETARDS PAR PAS DE 5′</p>}
-        {statsCalc && <p className="term-dim">{statsCalc}</p>}
+        {statsCalc && <p className={statsStale ? 'tone-late' : 'term-dim'}>{statsCalc}</p>}
       </section>
       <section className={`term-panel${stale}`}>
         <h2 className="term-panel-title">INOUI / OUIGO {periodLabel(period)}</h2>
@@ -105,7 +108,7 @@ export default function RightPanel({ cumul, cumulFailed, stats, statsFailed, sta
             })}
           </>
         )}
-        {statsCalc && <p className="term-dim">{statsCalc}</p>}
+        {statsCalc && <p className={statsStale ? 'tone-late' : 'term-dim'}>{statsCalc}</p>}
       </section>
     </aside>
   );

@@ -1,5 +1,5 @@
 import type { SegmentProgress } from './position';
-import { RANGE, scaleFor, type Price, type Scale } from './stats';
+import { RANGE, formLabel, ruleLabel, scaleFor, stepAt, type Price, type Scale } from './stats';
 
 export type Rules = { compensation_scale: Scale[]; prices: Price[] };
 
@@ -8,29 +8,32 @@ export function delayBounds(delay_s: number): { low_s: number; high_s: number } 
   return { low_s: Math.max(delay_s - RANGE.delay_tolerance_s, 0), high_s: delay_s + RANGE.delay_tolerance_s };
 }
 
-const pctAt = (scale: Scale[], brand: string, d: number) =>
-  scaleFor(scale, brand).reduce((m, s) => (s.from_s <= d ? Math.max(m, s.pct) : m), 0);
+const pctAt = (scale: Scale[], brand: string, d: number, intl: boolean) =>
+  scaleFor(scale, brand, intl).reduce((m, s) => (s.from_s <= d ? Math.max(m, s.pct) : m), 0);
 // Seuils où le pourcentage change (le palier de 1 h 01 ne change que la forme, bon → argent).
-const pctMarks = (scale: Scale[], brand: string) =>
-  scaleFor(scale, brand).filter((s, i, all) => i === 0 || s.pct !== all[i - 1].pct);
+const pctMarks = (scale: Scale[], brand: string, intl: boolean) =>
+  scaleFor(scale, brand, intl).filter((s, i, all) => i === 0 || s.pct !== all[i - 1].pct);
 
 export type CompensationView = {
   pct_low: number; pct_high: number; eur_low: number; eur_high: number; // € HT par voyageur, à l'occupation près
   next: { from_s: number; pct: number; in_s: number } | null; // prochain seuil au-dessus du retard publié
+  rule: string; // « RÈGLE G30 · NATIONAL », « RÈGLE G30 · INTERNATIONAL » ou « RÈGLE OUIGO »
+  form: string | null; // forme au retard publié : « EN BON D’ACHAT », « BON (CONVERTIBLE EN VIREMENT) », « EN ARGENT »
 };
 
-export function compensationView(brand: string, delay_s: number | undefined, rules: Rules): CompensationView | null {
+export function compensationView(brand: string, delay_s: number | undefined, rules: Rules, intl = false): CompensationView | null {
   const price = rules.prices.find((p) => p.brand === brand);
   if (!price) return null;
   const d = Math.max(delay_s ?? 0, 0);
   const { low_s, high_s } = delayBounds(d);
-  const pct_low = pctAt(rules.compensation_scale, brand, low_s);
-  const pct_high = pctAt(rules.compensation_scale, brand, high_s);
+  const pct_low = pctAt(rules.compensation_scale, brand, low_s, intl);
+  const pct_high = pctAt(rules.compensation_scale, brand, high_s, intl);
   const eur = (pct: number) => Math.round(pct * price.price_eur_ht) / 100;
-  const above = pctMarks(rules.compensation_scale, brand).find((s) => s.from_s > d);
+  const above = pctMarks(rules.compensation_scale, brand, intl).find((s) => s.from_s > d);
   return {
     pct_low, pct_high, eur_low: eur(pct_low), eur_high: eur(pct_high),
     next: above ? { from_s: above.from_s, pct: above.pct, in_s: above.from_s - d } : null,
+    rule: ruleLabel(brand, intl), form: formLabel(brand, stepAt(rules.compensation_scale, brand, d, intl)?.form),
   };
 }
 
@@ -42,8 +45,8 @@ export function observedAgo(last_seen_at: string | undefined, now: Date): number
 }
 
 // Avancement du retard publié entre le seuil du palier en cours (0 avant le premier) et le prochain seuil ; null au dernier palier ou sans barème.
-export function thresholdProgress(brand: string, delay_s: number | undefined, rules: Rules): { from_s: number; to_s: number; ratio: number } | null {
-  const marks = pctMarks(rules.compensation_scale, brand).map((s) => s.from_s);
+export function thresholdProgress(brand: string, delay_s: number | undefined, rules: Rules, intl = false): { from_s: number; to_s: number; ratio: number } | null {
+  const marks = pctMarks(rules.compensation_scale, brand, intl).map((s) => s.from_s);
   const d = Math.max(delay_s ?? 0, 0);
   const to_s = marks.find((m) => m > d);
   if (to_s === undefined) return null;

@@ -1,4 +1,4 @@
-import { DEFAULT_OCCUPANCY, type Price } from './stats';
+import { DEFAULT_OCCUPANCY, stepAt, type Price, type Scale } from './stats';
 
 // Fiche par train (/train/XXXX) : réponse de la fonction SQL train_profile mise en forme pour la page et l'image de partage.
 export const ON_TIME_S = 300; // à l'heure : retard au terminus < 5 min (comme la régularité du site)
@@ -7,7 +7,7 @@ export const SMALL_DAYS = 7; // en dessous, « ÉCHANTILLON FAIBLE »
 // [date, observé, supprimé, retard au terminus (s) ou null, catégorie de cause ou null, % d'indemnité]
 export type RawDay = [string, boolean, boolean, number | null, string | null, number];
 export type RawProfile = {
-  info: { brand: string; axis: string; origin: string | null; dest: string | null; dep_planned: string; arr_planned: string };
+  info: { brand: string; axis: string; origin: string | null; dest: string | null; dep_planned: string; arr_planned: string; intl?: boolean };
   today: { date: string; observed: boolean; cancelled: boolean; delay_s: number | null; last_seen_at: string | null } | null;
   days: RawDay[];
   stops: [string, string | null, number | null, number][]; // [uic, nom, retard moyen (s), jours mesurés]
@@ -22,7 +22,7 @@ export type Profile = {
   days: Day[];
   score: { ok: number; n: number; small: boolean; mean_min: number | null; median_min: number | null };
   causes: { category: string; days: number }[];
-  comp: { days: number; eur: number };
+  comp: { days: number; eur: number; eur_bon: number | null }; // eur_bon : null sans barème (forme inconnue)
   stops: { uic: string; nom: string; avg_min: number | null; n: number }[];
   rank: { better_than_pct: number; of: number } | null;
 };
@@ -34,7 +34,7 @@ const median = (xs: number[]) => {
 };
 const min1 = (s: number | null) => (s === null ? null : Math.round(s / 6) / 10); // minutes à 0,1 près
 
-export function shapeProfile(number: string, raw: RawProfile, prices: Price[]): Profile {
+export function shapeProfile(number: string, raw: RawProfile, prices: Price[], scale: Scale[] = []): Profile {
   const days: Day[] = raw.days.map(([date, observed, cancelled, delay_s, cause, comp_pct]) => ({
     date, state: !observed ? 'unobserved' : cancelled ? 'cancelled' : 'ran', delay_s, cause, comp_pct,
   }));
@@ -49,7 +49,10 @@ export function shapeProfile(number: string, raw: RawProfile, prices: Price[]): 
 
   const price = prices.find((p) => p.brand === raw.info.brand);
   const compDays = days.filter((d) => d.state === 'ran' && d.comp_pct > 0);
-  const eur = price ? compDays.reduce((a, d) => a + (d.comp_pct / 100) * price.price_eur_ht * price.seats * DEFAULT_OCCUPANCY, 0) : 0;
+  const dayEur = (d: Day) => (price ? (d.comp_pct / 100) * price.price_eur_ht * price.seats * DEFAULT_OCCUPANCY : 0);
+  const eur = compDays.reduce((a, d) => a + dayEur(d), 0);
+  const isBon = (d: Day) => stepAt(scale, raw.info.brand, d.delay_s ?? 0, raw.info.intl)?.form === 'bon';
+  const eurBon = scale.length ? compDays.filter(isBon).reduce((a, d) => a + dayEur(d), 0) : null;
 
   // Rang dans l'axe : part des autres trains de l'axe dont la régularité est strictement plus basse.
   const rate = counted.length ? ok / counted.length : null;
@@ -61,7 +64,7 @@ export function shapeProfile(number: string, raw: RawProfile, prices: Price[]): 
     number, info: raw.info, today: raw.today, days,
     score: { ok, n: counted.length, small: counted.length < SMALL_DAYS, mean_min: min1(mean), median_min: min1(median(ran)) },
     causes: [...byCause].map(([category, n]) => ({ category, days: n })).sort((a, b) => b.days - a.days || a.category.localeCompare(b.category)),
-    comp: { days: compDays.length, eur: Math.round(eur) },
+    comp: { days: compDays.length, eur: Math.round(eur), eur_bon: eurBon === null ? null : Math.round(eurBon) },
     stops: raw.stops.map(([uic, nom, avg, n]) => ({ uic, nom: nom ?? uic, avg_min: min1(avg), n })),
     rank,
   };

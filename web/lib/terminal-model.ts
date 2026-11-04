@@ -63,7 +63,15 @@ export function periodQuery(p: Period): string {
 
 const parisTime = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit' });
 // Heure du calcul côté serveur (unité mise en cache), à l'heure de Paris ; null si absente.
-export const calcLabel = (iso: string | undefined) => (iso ? `CALCULÉ À ${parisTime.format(new Date(iso))}` : null);
+// Âge normal maximal d'un calcul : cache de données + cache CDN (s-maxage + stale-while-revalidate), avec une marge.
+// Au-delà, le recalcul échoue et les caches servent encore l'ancien résultat (unstable_cache garde l'entrée tant que le
+// recalcul lève) : le libellé le signale au lieu d'afficher des chiffres périmés comme s'ils étaient à jour.
+export const STATS_MAX_AGE_MIN = 40; // 15 min de données + 15 + 5 min de CDN
+export const CUMUL_MAX_AGE_MIN = 15; // 5 min de données + 5 + 1 min de CDN
+export const isCalcStale = (iso: string | undefined, maxAgeMin: number, now = new Date()) =>
+  iso !== undefined && now.getTime() - Date.parse(iso) > maxAgeMin * 60_000;
+export const calcLabel = (iso: string | undefined, maxAgeMin = Infinity, now = new Date()) =>
+  (iso ? `CALCULÉ À ${parisTime.format(new Date(iso))}${isCalcStale(iso, maxAgeMin, now) ? ' · PÉRIMÉ, MISE À JOUR EN ÉCHEC' : ''}` : null);
 
 // Périodes glissantes : jours complets de J-n à J-1, la fenêtre avance à minuit ; un mois inclut le jour en cours.
 export const windowLabel = (p: Period) => (/^\d+d$/.test(p) ? `JOURS COMPLETS · J-${p.slice(0, -1)} À J-1 · FENÊTRE DÉCALÉE À MINUIT` : null);

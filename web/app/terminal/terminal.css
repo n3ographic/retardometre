@@ -12,6 +12,7 @@ a { color: inherit; }
 .term-bar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 4px 16px; padding: 4px 8px; border-bottom: 1px solid var(--t-line); font-size: 13px; text-transform: uppercase; }
 .term-foot { border-top: 1px solid var(--t-line); border-bottom: 0; color: var(--t-amber-dim); }
 .term-foot nav { display: flex; gap: 16px; }
+.term-foot .foot-limits { flex-basis: 100%; color: var(--t-amber-dim); font-size: 11px; text-decoration: none; }
 .term-logo { background: var(--t-amber); color: #000; padding: 0 6px; font-weight: 600; }
 .term-panel { border: 1px solid var(--t-line); background: var(--t-panel); padding: 6px 8px; min-width: 0; }
 .term-panel-title { display: inline-block; background: var(--t-amber); color: #000; padding: 0 6px; margin: 0 0 6px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }

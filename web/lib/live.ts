@@ -9,7 +9,7 @@ export type LiveStop = {
 export type LiveTrain = {
   trip_id: string; service_date: string; brand: string; axis: string; train_number: string;
   cancelled: boolean; dep_planned: string; arr_planned: string; origin?: string; dest?: string;
-  delay_s?: number; last_seq?: number; cause?: string; comp_pct: number;
+  delay_s?: number; last_seq?: number; cause?: string; comp_pct: number; intl?: boolean;
   last_seen_at?: string; stops: LiveStop[];
 };
 

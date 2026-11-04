@@ -23,6 +23,7 @@ export const MIGRATIONS_UNDER_TEST = [
   '20261029000001_cause_rules_malveillance.sql',
   '20261107000001_cause_rules_site_notice.sql',
   '20261107000002_compensation_rules.sql',
+  '20261107000003_stats_period_fast.sql',
 ]
 
 const BOOTSTRAP = `
