@@ -9,19 +9,20 @@ import type { StatsPayload } from '../../lib/stats';
 import { collectHealth } from '../../lib/marey';
 import { parseGares, readBoard, type Board, type Tab } from '../../lib/station';
 import type { GareRow } from '../../lib/command';
-import { periodQuery, tickerItems, type Period } from '../../lib/terminal-model';
+import { beyondTop, delayThresholds, liveEvents, nextLiveDelayMs, periodQuery, type Period, type TickerItem } from '../../lib/terminal-model';
 import FootBar from './foot-bar';
-import CausesPanel from './causes-panel';
-import GroupsPanel from './groups-panel';
 import LeftPanel from './left-panel';
 import PeriodPicker from './period-picker';
 import RightPanel from './right-panel';
+import { parseVue, type Vue } from './stats-tabs';
 import StationPanel from './station-panel';
 import StatusBar from './status-bar';
 import TrainPanel from './train-panel';
 import Ticker from './ticker';
 
-const REFRESH_MS = 60_000;
+const REFRESH_MS = 60_000; // tableau d'une gare et reprise après un échec ; /api/live suit la durée de son cache (nextLiveDelayMs)
+const EVENT_TTL_MS = 3_600_000; // un événement reste dans le bandeau une heure
+const TOP_N = 10; // taille du Top retards de la colonne de gauche
 const AGG_REFRESH_MS = 300_000; // agrégats : cache serveur de 5 min (cumul) à 15 min (périodes)
 
 // Charge les trois sources une fois pour tout l'écran ; chaque panneau gère l'échec de la sienne.
@@ -36,6 +37,12 @@ export default function TerminalView() {
   const [statsFailed, setStatsFailed] = useState(false);
   const [statsLoading, setStatsLoading] = useState(true);
   const [period, setPeriod] = useState<Period>('7d');
+  const [vue, setVue] = useState<Vue>('axes');
+  const [events, setEvents] = useState<{ item: TickerItem; at: number }[]>([]);
+  const prevTrains = useRef<LiveItem[]>([]);
+  const record = useRef(0);
+  const lastGen = useRef<string | null>(null);
+  const thresholds = useRef<number[]>([]);
   const statsLatest = useRef(latest());
   const [focus, setFocus] = useState<Focus>(null);
   const [selected, setSelected] = useState<string | null>(null);
@@ -60,12 +67,24 @@ export default function TerminalView() {
     let alive = true;
     const q = new URLSearchParams(window.location.search), g = parseGares(q.get('gare'));
     if (g) setGare(g); else initialSel.current = q.get('sel');
+    setVue(parseVue(q.get('vue')));
+    let timer: ReturnType<typeof setTimeout>;
     const load = async () => {
+      let delay = REFRESH_MS;
       try {
         const r = await fetch('/api/live');
         if (!r.ok) throw new Error(String(r.status));
         const d = (await r.json()) as { trains: LiveItem[]; generated_at: string };
         if (!alive) return;
+        // Événements entre deux relevés distincts (une réponse identique du CDN n'en produit pas).
+        if (d.generated_at !== lastGen.current) {
+          lastGen.current = d.generated_at;
+          const ev = liveEvents(prevTrains.current, d.trains, thresholds.current, record.current);
+          record.current = ev.record;
+          const now = Date.now();
+          setEvents((old) => [...ev.events.map((item) => ({ item, at: now })), ...old].filter((e) => now - e.at < EVENT_TTL_MS).slice(0, 30));
+        }
+        prevTrains.current = d.trains;
         setTrains(d.trains);
         setGeneratedAt(d.generated_at);
         const sel = initialSel.current;
@@ -75,13 +94,14 @@ export default function TerminalView() {
         else if (sel && /^\d{1,5}$/.test(sel)) setMissing(sel);
         setLastOk(Date.now());
         setLiveFailed(false);
+        delay = nextLiveDelayMs(d.generated_at);
       } catch {
         if (alive) setLiveFailed(true); // on garde les derniers trains
       }
+      if (alive) timer = setTimeout(load, delay);
     };
     load();
-    const t = setInterval(load, REFRESH_MS);
-    return () => { alive = false; clearInterval(t); };
+    return () => { alive = false; clearTimeout(timer); };
   }, []);
 
   useEffect(() => {
@@ -135,8 +155,9 @@ export default function TerminalView() {
     const u = new URL(window.location.href);
     if (n) u.searchParams.set('sel', n); else u.searchParams.delete('sel');
     if (gare) u.searchParams.set('gare', gare.join(',')); else u.searchParams.delete('gare');
+    u.searchParams.set('vue', vue);
     window.history.replaceState(null, '', u);
-  }, [selected, missing, gare]); // seule la sélection réécrit l'URL, pas chaque rafraîchissement des trains
+  }, [selected, missing, gare, vue]); // seule la sélection réécrit l'URL, pas chaque rafraîchissement des trains
   // Train choisi avant l'arrivée du flux (ou entré dans le flux depuis) : il devient une vraie sélection, carte centrée.
   useEffect(() => {
     const hit = missing ? trains.find((t) => t.train_number === missing) : undefined;
@@ -176,7 +197,12 @@ export default function TerminalView() {
     select(null);
     setMissing(number);
   };
-  const items = useMemo(() => tickerItems(trains, 15), [trains]);
+  thresholds.current = useMemo(() => (stats ? delayThresholds(stats.assumptions.compensation_scale) : []), [stats]);
+  // Événements récents d'abord ; sans événement, les trains en retard au-delà du Top 10.
+  const items = useMemo(() => {
+    const recent = events.filter((e) => Date.now() - e.at < EVENT_TTL_MS).map((e) => e.item);
+    return recent.length > 0 ? recent.slice(0, 15) : beyondTop(trains, TOP_N, 15);
+  }, [events, trains]);
   // Retard du collecteur mesuré à la production de la réponse (comme sur /marey), pas l'âge du cache de /api/live (jusqu'à ~6 min).
   const status = (liveFailed && trains.length === 0) || !generatedAt ? { status: 'unknown' as const, ageMin: null } : collectHealth(generatedAt, trains);
 
@@ -192,12 +218,9 @@ export default function TerminalView() {
             highlight={highlight} gares={gares} onGare={openGare}
             overlay={gare ? <StationPanel uics={gare} board={board} failed={boardFailed} tab={tab} onTab={setTab} onPick={onPick} onClose={() => setGare(null)} />
               : selected || missing ? <TrainPanel train={trains.find((t) => t.trip_id === selected) ?? null} missing={missing} gareOf={(nom) => uicByName.get(nom) ?? null} onGare={openGare} rules={rules} speed={speed} onClose={() => select(null)} /> : null} />
-          <div className="term-bottom">
-            <GroupsPanel stats={stats} failed={statsFailed} loading={statsLoading} period={period} onRetry={reloadStats} />
-            <CausesPanel stats={stats} failed={statsFailed} loading={statsLoading} period={period} />
-          </div>
         </div>
-        <RightPanel cumul={cumul} cumulFailed={cumulFailed} stats={stats} statsFailed={statsFailed} statsLoading={statsLoading} period={period} inFeed={trains.length} />
+        <RightPanel cumul={cumul} cumulFailed={cumulFailed} stats={stats} statsFailed={statsFailed} statsLoading={statsLoading} period={period} inFeed={trains.length}
+          vue={vue} onVue={setVue} keys={!gare && !selected && !missing} onRetry={reloadStats} />
       </main>
       <FootBar />
     </div>

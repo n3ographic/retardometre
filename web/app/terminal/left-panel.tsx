@@ -1,7 +1,6 @@
-import { suppressionPct } from '../../lib/dashboard-model';
+import { TERMINUS_BUCKETS, suppressionPct } from '../../lib/dashboard-model';
 import type { LiveItem } from '../../lib/map-model';
 import type { StatsPayload } from '../../lib/stats';
-import { TERMINUS_BUCKETS } from '../../lib/dashboard-model';
 import { charBar, delayTone, liveBuckets, nextArrivals, periodLabel, topDelays, type Period } from '../../lib/terminal-model';
 
 const pct = (n: number | null) => (n === null ? '—' : `${n.toLocaleString('fr-FR', { minimumFractionDigits: 1 })} %`);
@@ -16,6 +15,7 @@ export default function LeftPanel({ trains, liveFailed, stats, statsFailed, stat
   const down = liveFailed && trains.length === 0;
   const buckets = liveBuckets(trains, now);
   const maxN = Math.max(...buckets.map((b) => b.n));
+  const departedN = buckets.reduce((n, b) => n + b.n, 0);
   const arrivals = nextArrivals(trains, 8, now);
   return (
     <aside className="term-col">
@@ -36,15 +36,8 @@ export default function LeftPanel({ trains, liveFailed, stats, statsFailed, stat
         )}
       </section>
       <section className="term-panel">
-        <h2 className="term-panel-title">Suppressions</h2>
-        <p>EN CIRCULATION <span className="tone-cancelled">{liveFailed && trains.length === 0 ? '—' : cancelled.length}</span></p>
-        {cancelled.slice(0, 5).map((t) => <p key={t.trip_id} className="term-dim">{t.brand} {t.train_number} {t.dest ?? ''}</p>)}
-        <p className={statsLoading && stats ? 'term-stale' : undefined}>
-          TAUX {periodLabel(period)} {statsFailed || !stats ? <span className="term-dim">{statsFailed ? 'INDISPONIBLE' : '—'}</span> : pct(suppressionPct(stats.totals))}
-        </p>
-      </section>
-      <section className="term-panel">
         <h2 className="term-panel-title">Retards maintenant</h2>
+        {!down && maxN > 0 && <p title="Trains partis et non supprimés, y compris à l’arrêt ou arrivés (0-4′ = à l’heure)">{departedN} PARTIS</p>}
         {down ? <p className="term-dim">INDISPONIBLE</p> : maxN === 0 ? <p className="term-dim">AUCUN TRAIN EN ROUTE</p> : (
           <ul className="live-buckets">
             {buckets.map((b, i) => (
@@ -56,7 +49,11 @@ export default function LeftPanel({ trains, liveFailed, stats, statsFailed, stat
             ))}
           </ul>
         )}
-        <p className="term-dim live-note">RETARDS PUBLIÉS PAR PAS DE 5′ : 0-4′ = À L’HEURE</p>
+        <p className="live-suppr" title={cancelled.length ? cancelled.map((t) => `${t.brand} ${t.train_number} ${t.dest ?? ''}`.trim()).join('\n') : undefined}>
+          SUPPR. EN CIRCULATION <span className="tone-cancelled">{down ? '—' : cancelled.length}</span>
+          {' · '}<span className={statsLoading && stats ? 'term-stale' : undefined}>TAUX {periodLabel(period)} {statsFailed || !stats ? <span className="term-dim">{statsFailed ? 'INDISPONIBLE' : '—'}</span> : pct(suppressionPct(stats.totals))}</span>
+        </p>
+        <p className="term-dim live-note">PAR PAS DE 5′ : 0-4′ = À L’HEURE</p>
       </section>
       <section className="term-panel">
         <h2 className="term-panel-title">Prochaines arrivées</h2>

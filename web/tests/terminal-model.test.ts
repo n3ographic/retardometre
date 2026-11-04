@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { axisRegularity, bucketBar, bucketIndex, brandSplit, calcLabel, charBar, delayTone, eurRange, liveBuckets, nextArrivals, periodLabel, periodQuery, tickerItems, topDelays, windowLabel } from '../lib/terminal-model';
+import { axisRegularity, bucketBar, bucketIndex, brandSplit, calcLabel, charBar, delayTone, eurRange, liveBuckets, nextArrivals, periodLabel, periodQuery, topDelays, windowLabel, beyondTop, delayThresholds, liveEvents, nextLiveDelayMs, rangeLabel, eurShort } from '../lib/terminal-model';
 
 test('heure du calcul à Paris ; fenêtre glissante seulement pour les périodes en jours', () => {
   expect(calcLabel('2026-11-02T19:08:00Z')).toBe('CALCULÉ À 20:08');
@@ -7,7 +7,7 @@ test('heure du calcul à Paris ; fenêtre glissante seulement pour les périodes
   expect(windowLabel('7d')).toBe('JOURS COMPLETS · J-7 À J-1 · FENÊTRE DÉCALÉE À MINUIT');
   expect(windowLabel('2026-11')).toBeNull();
 });
-import type { LiveItem } from '../lib/map-model';
+import { lateCount, type LiveItem } from '../lib/map-model';
 import type { Group } from '../lib/stats';
 
 const NOW = new Date('2026-10-22T15:00:00Z');
@@ -33,21 +33,67 @@ test('topDelays : sans annulés ni retards nuls, tri décroissant, coupe à n', 
   expect(topDelays([], 10)).toEqual([]);
 });
 
-test('tickerItems : libellé, minutes arrondies, destination absente omise', () => {
-  const [a, b] = tickerItems([
-    item({ trip_id: 'T1', train_number: '9713', origin: 'Paris', dest: 'Barcelone', delay_s: 13800 }),
-    item({ trip_id: 'T2', brand: 'OUIGO', train_number: '7825', origin: 'Paris', delay_s: 10230 }),
-  ], 5);
-  expect(a).toEqual({ trip_id: 'T1', label: 'INOUI 9713 Paris → Barcelone', minutes: 230, tone: 'severe' });
-  expect(b.label).toBe('OUIGO 7825 Paris');
-  expect(b.minutes).toBe(171);
+test('beyondTop : saute le Top 10, libellé avec destination absente omise', () => {
+  const l = [
+    item({ train_number: 'a', delay_s: 1200, origin: 'Paris', dest: 'Lyon' }),
+    item({ train_number: 'b', brand: 'OUIGO', delay_s: 900, origin: 'Paris' }),
+    item({ train_number: 'c', delay_s: 600 }),
+  ];
+  const r = beyondTop(l, 1, 5);
+  expect(r.map((x) => x.label)).toEqual(['OUIGO b Paris', 'INOUI c']);
+  expect(r[0].tag).toBe('▼ +15′');
+  expect(beyondTop(l, 3, 5)).toEqual([]);
+});
+
+test('delayThresholds : minutes du barème, sans doublon, triées', () => {
+  expect(delayThresholds([{ from_s: 7200 }, { from_s: 3600 }, { from_s: 1860 }, { from_s: 3600 }])).toEqual([31, 60, 120]);
+  expect(delayThresholds([])).toEqual([]);
+});
+
+test('liveEvents : seuil le plus haut franchi, suppression, record ; premier relevé sans événement', () => {
+  const T = [31, 60, 120];
+  const a = item({ trip_id: 'A', train_number: 'A', delay_s: 1500 });
+  const b = item({ trip_id: 'B', train_number: 'B', delay_s: 100 });
+  const first = liveEvents([], [a, b], T, 0);
+  expect(first.events).toEqual([]);
+  expect(first.record).toBe(1500);
+  const next = [item({ trip_id: 'A', train_number: 'A', delay_s: 4000 }), item({ trip_id: 'B', train_number: 'B', delay_s: 0, cancelled: true })];
+  const r = liveEvents([a, b], next, T, first.record);
+  expect(r.events.map((e) => e.tag)).toEqual(['SEUIL +60′', 'SUPPRIMÉ', 'RECORD +67′']);
+  expect(r.record).toBe(4000);
+  // Rien de nouveau : aucun événement.
+  expect(liveEvents(next, next, T, r.record).events).toEqual([]);
+});
+
+test('nextLiveDelayMs : après le renouvellement du cache, jamais sous 20 s ni au-delà de la durée du cache', () => {
+  const gen = '2026-11-04T10:00:00Z';
+  const t = Date.parse(gen);
+  expect(nextLiveDelayMs(gen, t + 60_000)).toBe(243_000);
+  expect(nextLiveDelayMs(gen, t + 400_000)).toBe(20_000);
+  expect(nextLiveDelayMs(gen, t - 100_000)).toBe(300_000);
+});
+
+test('rangeLabel : JJ/MM → JJ/MM', () => {
+  expect(rangeLabel('2026-10-28', '2026-11-03')).toBe('28/10 → 03/11');
+});
+
+test('EN RETARD de la carte = somme des tranches ≥ 5′ de Retards maintenant (même filtre)', () => {
+  const ds = [0, 60, 299, 300, 899, 900, 1800, 3600, 7200, 10800, undefined, -120];
+  const l = [
+    ...ds.map((d, i) => item({ train_number: String(i), delay_s: d })),
+    item({ train_number: 'x', delay_s: 5000, cancelled: true }),
+    item({ train_number: 'f', delay_s: 5000, dep_planned: '2026-10-22T16:00:00Z' }),
+  ];
+  const fromBuckets = liveBuckets(l, NOW).slice(1).reduce((s, b) => s + b.n, 0);
+  expect(lateCount(l, NOW)).toBe(fromBuckets);
+  expect(lateCount(l, NOW)).toBe(7);
 });
 
 test('axisRegularity : somme des marques par axe, pourcentage, petit échantillon', () => {
-  const g = (brand: string, axis: string, circulated: number, on_time_official: number) => ({ brand, axis, circulated, on_time_official }) as Group;
+  const g = (brand: string, axis: string, circulated: number, on_time_official: number) => ({ brand, axis, circulated, on_time_official, cancelled: 0, estimated_cost_eur_ht: 0 }) as Group;
   const r = axisRegularity([g('OUIGO', 'ATLANTIQUE', 4, 3), g('INOUI', 'ATLANTIQUE', 19, 14), g('INOUI', 'EST', 0, 0), g('INOUI', 'SUD_EST', 40, 20)]);
   expect(r.map((x) => x.axis)).toEqual(['ATLANTIQUE', 'EST', 'SUD_EST']);
-  expect(r[0]).toEqual({ axis: 'ATLANTIQUE', circulated: 23, on_time: 17, pct: 73.9, small: true });
+  expect(r[0]).toMatchObject({ axis: 'ATLANTIQUE', circulated: 23, on_time: 17, pct: 73.9, small: true });
   expect(r[1]).toMatchObject({ pct: null, small: true });
   expect(r[2]).toMatchObject({ pct: 50, small: false });
 });
@@ -142,4 +188,11 @@ test('brandSplit : régularité, indemnités et parts par marque ; marque absent
 test('bucketIndex : indice de la tranche de TERMINUS_BUCKETS pour un retard en secondes', () => {
   expect([undefined, -5, 0, 59, 60, 299, 300, 899, 900, 1800, 3600, 7200, 10800, 99999].map(bucketIndex))
     .toEqual([0, 0, 0, 0, 0, 0, 1, 1, 2, 3, 4, 5, 6, 6]);
+});
+
+test('eurShort : M€, k€, €', () => {
+  expect(eurShort(1015435)).toBe('1,02 M€');
+  expect(eurShort(310400)).toBe('310 k€');
+  expect(eurShort(840.4)).toBe('840 €');
+  expect(eurShort(0)).toBe('0 €');
 });

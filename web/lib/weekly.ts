@@ -30,13 +30,15 @@ const causeLong = (c: string) => CAUSE_LABELS[c]?.long ?? c;
 
 // Semaine ISO complète la plus récente à l'heure de Paris, décalée de 7 h : le bilan du lundi n'existe qu'après la tâche
 // de 05:00 UTC (06:00 l'hiver, 07:00 l'été).
-export function lastCompleteWeek(now: Date): number {
+export function lastCompleteWeekId(now: Date): string {
   const d = new Date(now.getTime() - 7 * 3600_000 - 7 * 86_400_000);
   const t = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
   t.setUTCDate(t.getUTCDate() + 3 - ((t.getUTCDay() + 6) % 7)); // jeudi de la semaine ISO
   const jan4 = new Date(Date.UTC(t.getUTCFullYear(), 0, 4));
-  return 1 + Math.round(((t.getTime() - jan4.getTime()) / 86_400_000 - 3 + ((jan4.getUTCDay() + 6) % 7)) / 7);
+  const n = 1 + Math.round(((t.getTime() - jan4.getTime()) / 86_400_000 - 3 + ((jan4.getUTCDay() + 6) % 7)) / 7);
+  return `${t.getUTCFullYear()}-W${String(n).padStart(2, '0')}`;
 }
+export const lastCompleteWeek = (now: Date): number => weekNum(lastCompleteWeekId(now));
 
 type Delta = { value: number; unit: '%' | 'PT'; good: boolean; perDay?: boolean } | null;
 // Variation : en % pour un volume, en points pour un taux ; « good » colore la flèche (une hausse de régularité est bonne).

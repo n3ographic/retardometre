@@ -29,10 +29,11 @@ test('axes : distincts et triés ; vide', () => {
   expect(axes([])).toEqual([]);
 });
 
-test('lateCount : late et severe seulement', () => {
-  const l = [item({ delay_s: 0 }), item({ delay_s: 400 }), item({ delay_s: 2000 }), item({ delay_s: 5000, cancelled: true })];
-  expect(lateCount(l)).toBe(2);
-  expect(lateCount([])).toBe(0);
+test('lateCount : late et severe seulement, partis et non supprimés', () => {
+  const l = [item({ delay_s: 0 }), item({ delay_s: 400 }), item({ delay_s: 2000 }), item({ delay_s: 5000, cancelled: true }),
+    item({ delay_s: 5000, dep_planned: '2026-11-02T12:00:00Z' })];
+  expect(lateCount(l, NOW)).toBe(2);
+  expect(lateCount([], NOW)).toBe(0);
 });
 
 test('isStale : 600 s, absent', () => {

@@ -23,8 +23,12 @@ export function axes(trains: LiveItem[]): string[] {
   return [...new Set(trains.map((t) => t.axis))].sort();
 }
 
-export function lateCount(trains: LiveItem[]): number {
-  return trains.filter((t) => ['late', 'severe'].includes(delayClass(t))).length;
+// Train parti (heure de départ prévue passée) et non supprimé : la population des « Retards maintenant ».
+export const departed = (t: Pick<LiveItem, 'cancelled' | 'dep_planned'>, now: Date) => !t.cancelled && Date.parse(t.dep_planned) <= now.getTime();
+
+// Trains partis et non supprimés avec au moins 5 min de retard : même filtre que les tranches ≥ 5′ de liveBuckets.
+export function lateCount(trains: LiveItem[], now: Date): number {
+  return trains.filter((t) => departed(t, now) && ['late', 'severe'].includes(delayClass(t))).length;
 }
 
 // Dernier passage du collecteur absent ou trop ancien : la position ne peut plus être garantie.
