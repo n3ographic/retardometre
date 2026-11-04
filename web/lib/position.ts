@@ -9,6 +9,9 @@ export function segment(a: Lngl, b: Lngl): Lngl[] {
   return [a, b];
 }
 
+const mercY = (lat: number) => Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI) / 360));
+const unmercY = (y: number) => (Math.atan(Math.exp(y)) * 360) / Math.PI - 90;
+
 // Point à la fraction p (0..1) de la longueur de la polyligne.
 function along(line: Lngl[], p: number): Lngl {
   // Longitude pondérée par cos(latitude) : un degré de longitude est plus court qu'un degré de latitude.
@@ -20,7 +23,9 @@ function along(line: Lngl[], p: number): Lngl {
   for (let i = 0; i < lens.length; i++) {
     if (left <= lens[i] || i === lens.length - 1) {
       const f = lens[i] === 0 ? 0 : Math.min(left / lens[i], 1);
-      return [line[i][0] + (line[i + 1][0] - line[i][0]) * f, line[i][1] + (line[i + 1][1] - line[i][1]) * f];
+      // Interpolation en Mercator : la carte trace le segment droit dans cette projection, le point reste dessus.
+      const y = mercY(line[i][1]) + (mercY(line[i + 1][1]) - mercY(line[i][1])) * f;
+      return [line[i][0] + (line[i + 1][0] - line[i][0]) * f, unmercY(y)];
     }
     left -= lens[i];
   }

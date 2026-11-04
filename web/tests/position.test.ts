@@ -15,7 +15,7 @@ test('en route, retard nul : milieu du segment', () => {
   const e = estimatePosition(train([A, B], 0), at('11:30'))!;
   expect(e.state).toBe('moving');
   expect(e.lon).toBeCloseTo(3);
-  expect(e.lat).toBeCloseTo(47);
+  expect(e.lat).toBeCloseTo(47, 1); // milieu en Mercator, un peu au nord du milieu en latitude
 });
 
 test('après l’arrivée : arrêt B', () => {
@@ -32,7 +32,7 @@ test('retard de 600 s : départ et arrivée décalés', () => {
 test('retard négatif traité comme nul', () => {
   const e = estimatePosition(train([A, B], -120), at('11:30'))!;
   expect(e.lon).toBeCloseTo(3);
-  expect(e.lat).toBeCloseTo(47);
+  expect(e.lat).toBeCloseTo(47, 1);
 });
 
 test('un seul arrêt : à l’arrêt ; aucun arrêt : null', () => {
@@ -52,6 +52,13 @@ test('coordonnée ou horaire invalide : null', () => {
 test('départ corrigé ≥ arrivée corrigée : arrêt B, sans division par zéro', () => {
   const e = estimatePosition(train([{ ...A, dep: '2026-11-02T12:00:00Z' }, B], 0), at('12:00'))!;
   expect(e).toEqual({ lon: 4, lat: 46, state: 'arrived' });
+});
+
+test('ligne droite : le point reste sur le segment tel que la carte le dessine (Mercator)', () => {
+  const merc = (lat: number) => Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI) / 360));
+  const e = estimatePosition(train([A, B], 0), at('11:30'))!;
+  expect(merc(e.lat)).toBeCloseTo((merc(48) + merc(46)) / 2, 6);
+  expect(e.lat).toBeGreaterThan(47);
 });
 
 test('le tracé injecté est suivi au prorata de sa longueur', () => {
@@ -84,7 +91,7 @@ test('trois arrêts : au premier tronçon, puis à l’arrêt intermédiaire (te
   const second = estimatePosition(trip3(0), at('12:35'))!; // (12:35−12:10)/(13:00−12:10) = 0,5
   expect(second.state).toBe('moving');
   expect(second.lon).toBeCloseTo(5);
-  expect(second.lat).toBeCloseTo(45);
+  expect(second.lat).toBeCloseTo(45, 1);
   expect(estimatePosition(trip3(0), at('13:10'))).toEqual({ lon: 6, lat: 44, state: 'arrived' })
 });
 
