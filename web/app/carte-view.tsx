@@ -10,6 +10,7 @@ import { makeSegment, straightLines, tracesToLines, type LineCollection, type Tr
 import { estimatePosition, segmentSpeedKmh, type Lngl } from '../lib/position';
 import { searchTrains } from '../lib/train-search';
 import type { GareRow } from '../lib/command';
+import { TERMINUS_BUCKETS } from '../lib/dashboard-model';
 import { delayTone, type Tone } from '../lib/terminal-model';
 import { VMAX_BANDS, vmaxColorExpr } from '../lib/vitesses';
 
@@ -424,6 +425,11 @@ export default function CarteView({ trains, failed, lastOk, focus, selected, onS
       <div className="carte-stage">
       <div ref={container} className="carte-map" />
       {overlay}
+      {/* Seule légende des couleurs de retard de la page : mêmes tranches que les barres des panneaux. */}
+      <ul className="carte-legend" aria-label="Légende des retards en minutes">
+        {TERMINUS_BUCKETS.map((b, i) => <li key={b}><span className={`seg-c s${i}`} aria-hidden="true">█</span>{b}</li>)}
+        <li className="term-dim">MIN</li>
+      </ul>
       {failed && (
         <p className="carte-banner" role="status">
           {staleMin === null ? 'DONNÉES INDISPONIBLES' : `DONNÉES NON ACTUALISÉES DEPUIS ${staleMin} MIN`}
@@ -440,7 +446,7 @@ export default function CarteView({ trains, failed, lastOk, focus, selected, onS
         </div>
       )}
       <p className="carte-count" aria-live="polite">
-        {failed && trains.length === 0 ? 'AUCUNE DONNÉE' : <>{shown.length} TRAINS · {moving} EN ROUTE · <span className="tone-strong">{lateCount(shown)} EN RETARD</span></>}
+        {failed && trains.length === 0 ? 'AUCUNE DONNÉE' : <><span title="Trains du flux temps réel : pas encore partis, à l’arrêt, en route, arrivés ou supprimés">{shown.length} DANS LE FLUX</span> · <span title="Trains entre deux arrêts, d’après la position estimée">{moving} EN ROUTE</span> · <span className="tone-strong" title="Trains partis et non supprimés avec au moins 5 min de retard (même chiffre que les tranches de 5′ et plus de Retards maintenant)">{lateCount(shown, new Date(now))} EN RETARD (≥5′)</span></>}
       </p>
     </section>
   );

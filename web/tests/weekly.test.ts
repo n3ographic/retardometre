@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { lastCompleteWeek, shapeWeek, summaryText, type WeekPayload, type WeekRow } from '../lib/weekly';
+import { lastCompleteWeek, lastCompleteWeekId, shapeWeek, summaryText, type WeekPayload, type WeekRow } from '../lib/weekly';
 
 const prices = [
   { brand: 'INOUI', price_eur_ht: 50, seats: 500, price_source: '', seats_source: '', as_of: '' },
@@ -59,5 +59,7 @@ test('dernière semaine complète : le bilan du lundi n’existe qu’après 07:
   expect(lastCompleteWeek(new Date('2026-11-02T20:00:00Z'))).toBe(44);
   expect(lastCompleteWeek(new Date('2026-11-09T04:00:00Z'))).toBe(44);
   expect(lastCompleteWeek(new Date('2026-11-09T07:30:00Z'))).toBe(45);
+  expect(lastCompleteWeekId(new Date('2026-11-04T12:00:00Z'))).toBe('2026-W44');
+  expect(lastCompleteWeekId(new Date('2027-01-12T12:00:00Z'))).toBe('2027-W01'); // année ISO, pas calendaire
   expect(lastCompleteWeek(new Date('2027-01-05T12:00:00Z'))).toBe(53); // 2026 compte 53 semaines ISO
 });

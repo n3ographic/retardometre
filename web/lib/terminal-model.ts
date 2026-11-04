@@ -1,5 +1,5 @@
-import { SAMPLE_MIN, TERMINUS_BUCKETS, isSmallSample } from './dashboard-model';
-import type { LiveItem } from './map-model';
+import { SAMPLE_MIN, TERMINUS_BUCKETS, isSmallSample, suppressionPct } from './dashboard-model';
+import { departed, type LiveItem } from './map-model';
 import type { Group } from './stats';
 
 export type Tone = 'ontime' | 'late' | 'strong' | 'severe' | 'cancelled';
@@ -19,28 +19,22 @@ export function topDelays(trains: LiveItem[], n: number): LiveItem[] {
     .slice(0, n);
 }
 
-export function tickerItems(trains: LiveItem[], n: number): { trip_id: string; label: string; minutes: number; tone: Tone }[] {
-  return topDelays(trains, n).map((t) => ({
-    trip_id: t.trip_id,
-    label: [`${t.brand} ${t.train_number}`, [t.origin, t.dest].filter(Boolean).join(' → ')].filter(Boolean).join(' '),
-    minutes: Math.round((t.delay_s ?? 0) / 60),
-    tone: delayTone(t.delay_s, t.cancelled),
-  }));
-}
-
 // Régularité par axe, toutes marques confondues.
-export function axisRegularity(groups: Group[]): { axis: string; circulated: number; on_time: number; pct: number | null; small: boolean }[] {
-  const by = new Map<string, { circulated: number; on_time: number }>();
+export function axisRegularity(groups: Group[]): { axis: string; circulated: number; on_time: number; pct: number | null; small: boolean; cancelled: number; suppr_pct: number | null; cost: number }[] {
+  const by = new Map<string, { circulated: number; on_time: number; cancelled: number; cost: number }>();
   for (const g of groups) {
-    const a = by.get(g.axis) ?? { circulated: 0, on_time: 0 };
+    const a = by.get(g.axis) ?? { circulated: 0, on_time: 0, cancelled: 0, cost: 0 };
     a.circulated += g.circulated;
     a.on_time += g.on_time_official;
+    a.cancelled += g.cancelled;
+    a.cost += g.estimated_cost_eur_ht;
     by.set(g.axis, a);
   }
   return [...by.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([axis, a]) => ({
     axis, ...a,
     pct: a.circulated === 0 ? null : Math.round((a.on_time / a.circulated) * 1000) / 10,
     small: a.circulated < SAMPLE_MIN,
+    suppr_pct: suppressionPct(a),
   }));
 }
 
@@ -113,7 +107,6 @@ export function bucketIndex(delay_s: number | undefined): number {
   const min = Math.floor(Math.max(delay_s ?? 0, 0) / 60);
   return BUCKET_FROM_MIN.filter((b) => min >= b).length - 1;
 }
-const departed = (t: LiveItem, now: Date) => !t.cancelled && Date.parse(t.dep_planned) <= now.getTime();
 export function liveBuckets(trains: LiveItem[], now: Date): { bucket: string; n: number }[] {
   const counts = TERMINUS_BUCKETS.map(() => 0);
   for (const t of trains) {
@@ -156,4 +149,60 @@ export function brandSplit(groups: Group[]): { brand: string; circulated: number
       trains_share: share(a.circulated, totalN), cost_share: share(a.cost, totalC),
     };
   });
+}
+
+// Dernier jour entier de la période (« 7J · 28/10 → 03/11 ») : les bornes from/to de /api/stats, en JJ/MM.
+export const rangeLabel = (from: string, to: string) => `${from.slice(8, 10)}/${from.slice(5, 7)} → ${to.slice(8, 10)}/${to.slice(5, 7)}`;
+
+// Durée du cache de données de /api/live (handlers.ts, createLiveHandler) : inutile de rappeler plus tôt, la réponse est la même.
+export const LIVE_CACHE_S = 300;
+// Prochain appel de /api/live : juste après le renouvellement du cache (generated_at + durée), au plus tôt dans 20 s
+// (réponse du CDN encore ancienne : on réessaie), au plus tard à la durée du cache.
+export function nextLiveDelayMs(generatedAt: string, now: number = Date.now()): number {
+  const due = Date.parse(generatedAt) + (LIVE_CACHE_S + 3) * 1000 - now;
+  return Math.min(LIVE_CACHE_S * 1000, Math.max(20_000, Number.isFinite(due) ? due : 60_000));
+}
+
+// Seuils d'indemnité (minutes) tirés du barème en vigueur, sans doublon : +31′, +60′, +120′… selon les règles chargées.
+export const delayThresholds = (scale: { from_s: number }[]): number[] =>
+  [...new Set(scale.map((s) => Math.round(s.from_s / 60)))].sort((a, b) => a - b);
+
+export type TickerItem = { key: string; trip_id: string; tag: string; label: string; tone: Tone };
+const trainLabel = (t: LiveItem) =>
+  [`${t.brand} ${t.train_number}`, [t.origin, t.dest].filter(Boolean).join(' → ')].filter(Boolean).join(' ');
+
+// Événements entre deux relevés du flux : seuil d'indemnité franchi (le plus haut seulement), suppression, nouveau record
+// de retard. `record` = plus grand retard (s) déjà vu depuis l'ouverture de la page ; le premier relevé (prev vide) fixe la base.
+export function liveEvents(prev: LiveItem[], next: LiveItem[], thresholdsMin: number[], record: number): { events: TickerItem[]; record: number } {
+  const before = new Map(prev.map((t) => [t.trip_id, t]));
+  const events: TickerItem[] = [];
+  let top: LiveItem | undefined;
+  for (const t of next) {
+    const d = t.delay_s ?? 0;
+    if (!t.cancelled && d > (top?.delay_s ?? 0)) top = t;
+    const p = before.get(t.trip_id);
+    if (!p) continue;
+    if (t.cancelled && !p.cancelled) events.push({ key: `${t.trip_id}:supp`, trip_id: t.trip_id, tag: 'SUPPRIMÉ', label: trainLabel(t), tone: 'cancelled' });
+    if (t.cancelled) continue;
+    const crossed = thresholdsMin.filter((m) => (p.delay_s ?? 0) < m * 60 && d >= m * 60).pop();
+    if (crossed !== undefined) events.push({ key: `${t.trip_id}:s${crossed}`, trip_id: t.trip_id, tag: `SEUIL +${crossed}′`, label: trainLabel(t), tone: delayTone(d, false) });
+  }
+  const best = top?.delay_s ?? 0;
+  if (prev.length > 0 && top && best > record) {
+    events.push({ key: `${top.trip_id}:rec${best}`, trip_id: top.trip_id, tag: `RECORD +${Math.round(best / 60)}′`, label: trainLabel(top), tone: delayTone(best, false) });
+  }
+  return { events, record: Math.max(record, best) };
+}
+
+// Sans événement récent : les trains en retard au-delà du Top 10 de la colonne de gauche.
+export function beyondTop(trains: LiveItem[], skip: number, n: number): TickerItem[] {
+  return topDelays(trains, skip + n).slice(skip).map((t) => ({
+    key: t.trip_id, trip_id: t.trip_id, tag: `▼ +${Math.round((t.delay_s ?? 0) / 60)}′`, label: trainLabel(t), tone: delayTone(t.delay_s, t.cancelled),
+  }));
+}
+
+// Montant court pour les tableaux serrés : 1,02 M€, 310 k€, 840 €. Le montant exact reste dans les infobulles et le cumul.
+export function eurShort(n: number): string {
+  const [div, unit, digits] = n >= 1e6 ? [1e6, ' M€', 2] : n >= 1e3 ? [1e3, ' k€', 0] : [1, ' €', 0];
+  return `${(n / div).toLocaleString('fr-FR', { minimumFractionDigits: digits, maximumFractionDigits: digits })}${unit}`;
 }
