@@ -206,3 +206,6 @@ export function eurShort(n: number): string {
   const [div, unit, digits] = n >= 1e6 ? [1e6, ' M€', 2] : n >= 1e3 ? [1e3, ' k€', 0] : [1, ' €', 0];
   return `${(n / div).toLocaleString('fr-FR', { minimumFractionDigits: digits, maximumFractionDigits: digits })}${unit}`;
 }
+
+// Couleur d'une régularité (%) : mêmes seuils sur toute la colonne de droite.
+export const regTone = (p: number | null) => (p === null ? 'term-dim' : p >= 80 ? 'tone-ontime' : p >= 60 ? 'tone-late' : p >= 40 ? 'tone-strong' : 'tone-severe');

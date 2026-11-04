@@ -1,9 +1,9 @@
 import { isSmallSample, suppressionPct } from '../../lib/dashboard-model';
 import { COUNT_KEYS, COUNT_LABELS, breakdownText } from '../../lib/counts';
 import type { CumulPayload } from '../../lib/cumul';
-import { lastCompleteWeek, lastCompleteWeekId } from '../../lib/weekly';
+import { lastCompleteWeekId, weekDays, weekNum } from '../../lib/weekly';
 import { splitLabel, type StatsPayload } from '../../lib/stats';
-import { CUMUL_MAX_AGE_MIN, RANGE_HINT, STATS_MAX_AGE_MIN, calcLabel, eurRange, isCalcStale, periodLabel, rangeLabel, windowLabel, type Period } from '../../lib/terminal-model';
+import { CUMUL_MAX_AGE_MIN, RANGE_HINT, STATS_MAX_AGE_MIN, calcLabel, eurRange, isCalcStale, periodLabel, rangeLabel, regTone, windowLabel, type Period } from '../../lib/terminal-model';
 import InfoTip from './info-tip';
 import StatsTabs, { type Vue } from './stats-tabs';
 
@@ -23,7 +23,8 @@ export default function RightPanel({ cumul, cumulFailed, stats, statsFailed, sta
   const calc = stats && !statsFailed ? calcLabel(stats.computed_at, STATS_MAX_AGE_MIN) : null;
   const cumulCalc = cumul ? calcLabel(cumul.computed_at, CUMUL_MAX_AGE_MIN) : null;
   const stale = statsLoading && stats && !statsFailed ? ' term-stale' : '';
-  const week = lastCompleteWeek(new Date());
+  const weekId = lastCompleteWeekId(new Date());
+  const week = weekNum(weekId);
   return (
     <aside className="term-col term-right">
       <section className="term-panel today" aria-labelledby="today-title">
@@ -33,9 +34,12 @@ export default function RightPanel({ cumul, cumulFailed, stats, statsFailed, sta
         </div>
         {!day ? <p className="term-dim">{cumulFailed ? 'INDISPONIBLE' : '…'}</p> : (
           <div title={`Trains terminés depuis minuit (heure de Paris), recalculé toutes les 5 minutes.\n${breakdownText(day)}\n${nf(inFeed)} DANS LE FLUX EN CE MOMENT`}>
-            <p className="today-row"><span><span className="term-dim">RÉGUL.</span> <strong>{pct(day.official_regularity_pct)}</strong></span><span>{nf(day.circulated)} <span className="term-dim">TRAINS TERMINÉS</span></span></p>
-            <p className="today-row"><strong>{eur(day.estimated_cost_eur_ht)}</strong><span className="term-dim">HT</span></p>
-            {day.estimated_cost_eur_ht_bon !== null && <p className="term-dim">DONT {eur(day.estimated_cost_eur_ht_bon)} EN BONS</p>}
+            <dl className="kpi-row kpi-today">
+              <div><dt>RÉGUL.</dt><dd className={regTone(day.official_regularity_pct)}>{pct(day.official_regularity_pct)}</dd></div>
+              <div><dt>TERMINÉS</dt><dd>{nf(day.circulated)}</dd></div>
+              <div><dt>INDEMN. HT</dt><dd>{eur(day.estimated_cost_eur_ht)}</dd></div>
+            </dl>
+            {day.estimated_cost_eur_ht_bon !== null && <p className="term-dim kpi-bon">DONT {eur(day.estimated_cost_eur_ht_bon)} EN BONS</p>}
           </div>
         )}
       </section>
@@ -61,9 +65,9 @@ export default function RightPanel({ cumul, cumulFailed, stats, statsFailed, sta
             </p>
             <dl className="kpi-row">
               <div title="Trains qui ont roulé (observés, non supprimés, avec un retard publié au terminus)"><dt>TRAINS</dt><dd>{nf(t.circulated)}</dd></div>
-              <div><dt>RÉGUL.</dt><dd>{pct(t.official_regularity_pct)}</dd></div>
+              <div><dt>RÉGUL.</dt><dd className={regTone(t.official_regularity_pct)}>{pct(t.official_regularity_pct)}</dd></div>
               <div><dt>SUPPR.</dt><dd>{pct(suppressionPct(t))}</dd></div>
-              <div><dt>INDEMN.</dt><dd>{eur(t.estimated_cost_eur_ht)}</dd></div>
+              <div><dt>INDEMN. HT</dt><dd>{eur(t.estimated_cost_eur_ht)}</dd></div>
             </dl>
             {t.estimated_cost_eur_ht_bon !== null && <p className="term-dim kpi-bon">DONT {eur(t.estimated_cost_eur_ht_bon)} EN BONS</p>}
           </div>
@@ -71,7 +75,7 @@ export default function RightPanel({ cumul, cumulFailed, stats, statsFailed, sta
         <StatsTabs stats={stats} failed={statsFailed} loading={statsLoading} vue={vue} onVue={onVue} keys={keys} onRetry={onRetry} />
       </section>
 
-      <section className={cumul && isSmallSample(cumul) ? 'term-panel term-small' : 'term-panel'} aria-labelledby="cumul-title">
+      <section className={`term-panel cumul${cumul && isSmallSample(cumul) ? ' term-small' : ''}`} aria-labelledby="cumul-title">
         <div className="panel-head">
           <h2 className="term-panel-title" id="cumul-title">Cumul depuis le 20/10</h2>
           {cumul && cumul.days > 0 && (
@@ -95,7 +99,11 @@ export default function RightPanel({ cumul, cumulFailed, stats, statsFailed, sta
           </>
         )}
       </section>
-      <p className="week-link"><a href={`/semaine/${lastCompleteWeekId(new Date())}`} className="to-marey">BILAN SEMAINE {week} →</a></p>
+      <a href={`/semaine/${weekId}`} className="week-link">
+        <span>BILAN SEMAINE {week}</span>
+        <span className="term-dim">{weekDays(weekId).join(' → ')}</span>
+        <span aria-hidden="true">→</span>
+      </a>
     </aside>
   );
 }

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { CAUSE_LABELS } from '../../lib/causes';
 import { SAMPLE_MIN, bucketShares, isSmallSample, sortGroups, suppressionPct } from '../../lib/dashboard-model';
 import type { StatsPayload } from '../../lib/stats';
-import { RANGE_HINT, axisRegularity, brandSplit, charBar, eurRange, eurShort } from '../../lib/terminal-model';
+import { RANGE_HINT, axisRegularity, brandSplit, charBar, eurRange, eurShort, regTone } from '../../lib/terminal-model';
 import { typing } from './command-bar';
 
 export type Vue = 'axes' | 'marques' | 'croise' | 'causes';
@@ -19,7 +19,7 @@ const nf = (n: number) => n.toLocaleString('fr-FR');
 const pct = (n: number | null) => (n === null ? '—' : `${n.toLocaleString('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} %`);
 const AXIS_SHORT: Record<string, string> = { ATLANTIQUE: 'ATL', EST: 'EST', INTERSECTEURS: 'INTER', NORD: 'NORD', SUD_EST: 'S-EST' };
 const axisName = (a: string) => AXIS_SHORT[a] ?? a.slice(0, 5);
-const tone = (p: number | null) => (p === null ? 'term-dim' : p >= 80 ? 'tone-ontime' : p >= 60 ? 'tone-late' : p >= 40 ? 'tone-strong' : 'tone-severe');
+const tone = regTone;
 const BAR_W = 20;
 // Barre empilée : la première marque prend sa part, la seconde le reste (une seule marque = toute la barre).
 const stackLens = (shares: number[]) => (shares.length < 2 ? [BAR_W] : [Math.round((shares[0] / 100) * BAR_W), BAR_W - Math.round((shares[0] / 100) * BAR_W)]);
@@ -154,8 +154,9 @@ function Causes({ stats, more, onMore }: { stats: StatsPayload; more: boolean; o
   const rows = stats.cause_breakdown;
   if (rows.length === 0) return <p className="term-dim">AUCUN RETARD SUR CETTE PÉRIODE</p>;
   const head = rows.slice(0, TOP_CAUSES), rest = rows.slice(TOP_CAUSES);
-  const line = (c: (typeof rows)[number]) => (
-    <tr key={c.category}>
+  // Ordinateur : toutes les causes (la place est là). Mobile : les 5 premières, puis AUTRES (N) dépliable (CSS).
+  const line = (c: (typeof rows)[number], extra = false) => (
+    <tr key={c.category} className={extra ? `cause-extra${more ? ' open' : ''}` : undefined}>
       <th scope="row" title={CAUSE_LABELS[c.category]?.long ?? c.category}>{CAUSE_LABELS[c.category]?.short ?? c.category.toUpperCase()}</th>
       <td>{nf(c.trains)}</td><td>{c.avg_delay_min}′</td><td>{eurShort(c.cost_eur_ht)}</td>
     </tr>
@@ -165,16 +166,16 @@ function Causes({ stats, more, onMore }: { stats: StatsPayload; more: boolean; o
       <caption className="sr-only">Retards d’au moins 5 minutes par cause déclarée, trains, retard moyen, indemnités</caption>
       <thead><tr><th scope="col">Cause</th><th scope="col">Trains</th><th scope="col">Moy.</th><th scope="col">Indemn.</th></tr></thead>
       <tbody>
-        {head.map(line)}
+        {head.map((c) => line(c))}
         {rest.length > 0 && (
           <>
-            <tr>
+            <tr className="stab-more-row">
               <th scope="row" colSpan={3}>
                 <button type="button" className="stab-more" aria-expanded={more} onClick={onMore}>AUTRES ({rest.length}) {more ? '▾' : '▸'}</button>
               </th>
               <td>{eurShort(rest.reduce((s, c) => s + c.cost_eur_ht, 0))}</td>
             </tr>
-            {more && rest.map(line)}
+            {rest.map((c) => line(c, true))}
           </>
         )}
       </tbody>

@@ -37,7 +37,7 @@ a { color: inherit; }
 .seg-c.s0 { color: var(--seg0); } .seg-c.s1 { color: var(--seg1); } .seg-c.s2 { color: var(--seg2); } .seg-c.s3 { color: var(--seg3); }
 .seg-c.s4 { color: var(--seg4); } .seg-c.s5 { color: var(--seg5); } .seg-c.s6 { color: var(--seg6); }
 .term-right { overflow: visible; } /* les bulles ⓘ débordent du panneau ; la colonne tient sans défilement */
-.big { font-size: 22px; font-weight: 600; margin: 2px 0 !important; }
+.big { font-size: 26px; font-weight: 600; margin: 2px 0 !important; }
 .top-list { list-style: none; margin: 0; padding: 0; }
 .top-list li { display: flex; align-items: stretch; }
 /* Liens vers le Marey : pointillé au repos, trait fin plein au survol. */
@@ -82,15 +82,21 @@ a.ta-btn:hover, a.ta-btn:focus-visible, .ta-btn.on { background: var(--t-amber);
 @media (max-width: 899px) {
   .term { height: auto; overflow: visible; }
   .term-grid { display: flex; flex-direction: column; }
-  .term-col, .term-center,   .term-panel { order: 3; }
-  .carte { order: 0; }
-  .period-panel { order: 1; }
-      .carte-map, .term-center .carte-map { height: 60vh; flex: none; }
+  .term-col, .term-center { display: contents; }
+  /* Mobile : la carte d'abord, puis aujourd'hui, la période, le cumul, le bilan, enfin le direct de la colonne de gauche. */
+  .term-panel { order: 5; }
+  .term-grid .carte { order: 0; }
+  .term-grid .today { order: 1; }
+  .term-grid .period-panel { order: 2; }
+  .term-grid .cumul { order: 3; }
+  .term-grid .week-link { order: 4; }
+  .stab-body { overflow-x: auto; }
+  .carte-map, .term-center .carte-map { height: 60vh; flex: none; }
 }
 .term-h1 { display: inline-block; background: var(--t-amber); color: #000; padding: 0 8px; margin: 8px 0 12px; font-size: 18px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
 .live-buckets { list-style: none; margin: 0; padding: 0; }
-.live-buckets li { display: grid; grid-template-columns: 56px 1fr auto; gap: 6px; align-items: baseline; }
-.live-buckets .seg-c { white-space: pre; letter-spacing: -1px; }
+.live-buckets li { display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; gap: 6px; align-items: baseline; }
+.live-buckets .seg-c { white-space: pre; letter-spacing: -1px; overflow: hidden; }
 .live-buckets li > :last-child { text-align: right; }
 .arrivals button { gap: 6px; }
 .arrivals .arr-dest { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--t-amber-dim); }
@@ -158,15 +164,17 @@ a.ta-btn:hover, a.ta-btn:focus-visible, .ta-btn.on { background: var(--t-amber);
 .live-badge { display: inline-flex; align-items: center; gap: 4px; color: var(--t-ontime); font-size: 11px; letter-spacing: 0.06em; }
 .live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--t-ontime); animation: live-pulse 2s ease-in-out infinite; }
 @keyframes live-pulse { 50% { opacity: 0.25; } }
-.today-row { display: flex; justify-content: space-between; align-items: baseline; margin: 0 0 2px; }
-.today-row:nth-of-type(2) { justify-content: flex-start; gap: 6px; }
-.today-row strong { font-size: 15px; font-weight: 600; }
 .kpi-row { display: flex; justify-content: space-between; gap: 6px; margin: 2px 0 0; }
 .kpi-row dt { color: var(--t-amber-dim); font-size: 10px; }
-.kpi-row dd { margin: 0; font-size: 14px; font-weight: 600; white-space: nowrap; }
+.kpi-row dd { margin: 0; font-size: 15px; font-weight: 600; white-space: nowrap; }
+.kpi-today dd { font-size: 18px; }
 .kpi-bon { text-align: right; margin-top: 1px; }
 .big-unit { font-size: 12px; font-weight: 400; }
-.week-link { margin: 0; text-align: right; }
+.week-link { display: flex; align-items: baseline; gap: 8px; white-space: nowrap; padding: 5px 8px; border: 1px solid var(--t-amber); text-decoration: none; font-size: 12px; }
+.week-link > :first-child { font-weight: 600; }
+.week-link > :last-child { margin-left: auto; }
+.week-link:hover, .week-link:focus-visible { background: var(--t-amber); color: #000; }
+.week-link:hover .term-dim, .week-link:focus-visible .term-dim { color: #000; }
 .term-right > .term-panel { flex: none; }
 .term-right > .period-panel { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
 .stab { margin-top: 6px; flex: 1; min-height: 0; display: flex; flex-direction: column; }
@@ -187,11 +195,16 @@ a.ta-btn:hover, a.ta-btn:focus-visible, .ta-btn.on { background: var(--t-amber);
 .tip-btn { all: unset; cursor: pointer; padding: 0 4px; color: var(--t-amber-dim); }
 .tip-btn:hover, .tip-btn:focus-visible { color: var(--t-amber); }
 .tip-btn:focus-visible { outline: 1px solid var(--t-amber); }
-.tip-body { position: absolute; z-index: 5; top: 24px; left: 4px; right: 4px; padding: 6px 8px; background: var(--t-bg); border: 1px solid var(--t-amber); font-size: 11px; max-height: 70vh; overflow-y: auto; }
+.tip-body { position: absolute; z-index: 5; top: 24px; left: 4px; right: 4px; padding: 6px 8px; background: var(--t-bg); border: 1px solid var(--t-amber); font-size: 11px; overflow-y: auto; }
+.tip-body.up { top: auto; bottom: calc(100% + 2px); }
 .tip-body p { margin: 0 0 4px; }
 .tip-list { list-style: none; margin: 0 0 4px; padding: 0; }
-/* Légende des retards : seule occurrence de la page, en surimpression discrète sur la carte. */
 .live-suppr { margin: 4px 0 2px; }
 @media (prefers-reduced-motion: reduce) {
   .live-dot { animation: none; }
+}
+.stab-more-row { display: none; }
+@media (max-width: 899px) {
+  .stab-more-row { display: table-row; }
+  .cause-extra:not(.open) { display: none; }
 }
