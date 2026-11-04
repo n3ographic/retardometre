@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { isSmallSample, suppressionPct } from '../../lib/dashboard-model';
 import { COUNT_KEYS, COUNT_LABELS, breakdownText } from '../../lib/counts';
 import type { CumulPayload } from '../../lib/cumul';
@@ -11,9 +12,9 @@ const nf = (n: number) => n.toLocaleString('fr-FR');
 const eur = (n: number) => `${nf(Math.round(n))} €`;
 const pct = (n: number | null) => (n === null ? '—' : `${n.toLocaleString('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} %`);
 
-export default function RightPanel({ cumul, cumulFailed, stats, statsFailed, statsLoading, period, inFeed, vue, onVue, keys, onRetry }: {
+export default function RightPanel({ cumul, cumulFailed, stats, statsFailed, statsLoading, period, inFeed, picker, vue, onVue, keys, onRetry }: {
   cumul: CumulPayload | null; cumulFailed: boolean; stats: StatsPayload | null; statsFailed: boolean; statsLoading: boolean; period: Period; inFeed: number;
-  vue: Vue; onVue: (v: Vue) => void; keys: boolean; onRetry: () => void;
+  picker: ReactNode; vue: Vue; onVue: (v: Vue) => void; keys: boolean; onRetry: () => void;
 }) {
   const t = stats?.totals;
   const day = cumul?.today;
@@ -47,6 +48,8 @@ export default function RightPanel({ cumul, cumulFailed, stats, statsFailed, sta
       <section className={`term-panel period-panel${t && isSmallSample(t) ? ' term-small' : ''}`} aria-labelledby="period-title">
         <div className="panel-head">
           <h2 className="term-panel-title" id="period-title">Période</h2>
+          {/* Le sélecteur ne change que ce bloc (et le taux de suppression à gauche) : il vit ici, pas dans la barre du haut. */}
+          {picker}
           {stats && !statsFailed && (
             <InfoTip label="Détails de la période">
               <p>RÉGULARITÉ APPROCHÉE : RETARDS PUBLIÉS PAR PAS DE 5′.</p>

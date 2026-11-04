@@ -208,7 +208,7 @@ export default function TerminalView() {
 
   return (
     <div className="term">
-      <StatusBar status={status} coveragePct={cumul?.coverage_pct ?? null} picker={<PeriodPicker value={period} onChange={setPeriod} />} />
+      <StatusBar status={status} coveragePct={cumul?.coverage_pct ?? null} />
       <Ticker items={items} failed={liveFailed} onFocus={onFocus} />
       <main className="term-grid">
         <h1 className="sr-only">Observatoire TGV : trains en circulation, retards et indemnités théoriques</h1>
@@ -220,7 +220,7 @@ export default function TerminalView() {
               : selected || missing ? <TrainPanel train={trains.find((t) => t.trip_id === selected) ?? null} missing={missing} gareOf={(nom) => uicByName.get(nom) ?? null} onGare={openGare} rules={rules} speed={speed} onClose={() => select(null)} /> : null} />
         </div>
         <RightPanel cumul={cumul} cumulFailed={cumulFailed} stats={stats} statsFailed={statsFailed} statsLoading={statsLoading} period={period} inFeed={trains.length}
-          vue={vue} onVue={setVue} keys={!gare && !selected && !missing} onRetry={reloadStats} />
+          picker={<PeriodPicker value={period} onChange={setPeriod} />} vue={vue} onVue={setVue} keys={!gare && !selected && !missing} onRetry={reloadStats} />
       </main>
       <FootBar />
     </div>

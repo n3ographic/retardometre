@@ -28,6 +28,8 @@ a { color: inherit; }
 .term-small { opacity: 0.55; }
 .term-stale { opacity: 0.55; }
 .period { display: flex; gap: 4px; align-items: center; }
+.panel-head .period { margin: 0 auto 4px 0; font-size: 11px; }
+.panel-head .period select { padding: 0 2px; }
 .period button, .period select { font: inherit; text-transform: uppercase; background: var(--t-bg); color: var(--t-amber); border: 1px solid var(--t-line); padding: 0 6px; cursor: pointer; }
 .period button[aria-pressed="true"], .period select.on { background: var(--t-amber); color: #000; }
 .term-center { display: flex; flex-direction: column; gap: 6px; min-height: 0; min-width: 0; }

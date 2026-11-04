@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState } from 'react';
 
 type Status = { status: 'ok' | 'slow' | 'late' | 'unknown'; ageMin: number | null };
 
@@ -13,7 +13,7 @@ const COLLECT = {
 
 // Barre d'état commune : l'horloge n'est rendue qu'après montage (pas d'écart d'hydratation).
 // status et coveragePct absents : la barre ne les affiche pas (pages sans données temps réel).
-export default function StatusBar({ status, coveragePct, picker }: { status?: Status | null; coveragePct?: number | null; picker?: ReactNode }) {
+export default function StatusBar({ status, coveragePct }: { status?: Status | null; coveragePct?: number | null }) {
   const [clock, setClock] = useState<string | null>(null);
   useEffect(() => {
     const tick = () => setClock(new Date().toLocaleTimeString('fr-FR', { timeZone: 'Europe/Paris' }));
@@ -25,7 +25,6 @@ export default function StatusBar({ status, coveragePct, picker }: { status?: St
     <header className="term-bar">
       <a href="/" className="term-logo">OBS·TGV</a>
       <span>LIVE {clock ?? '--:--:--'} PARIS</span>
-      {picker}
       {status && COLLECT[status.status](status.ageMin)}
       {coveragePct !== undefined && <span title="Part des trains prévus observés dans le flux temps réel, trains terminés depuis le 20 octobre 2026">OBS. DEPUIS 20/10 {coveragePct === null ? '—' : `${coveragePct.toLocaleString('fr-FR', { minimumFractionDigits: 1 })} %`}</span>}
     </header>
