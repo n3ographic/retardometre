@@ -1,4 +1,5 @@
-import { cityOf } from './command';
+import { cityOf, type GareRow } from './command';
+import { distKm } from './marey-lines';
 
 // Panneau gare de l'accueil (?gare=UIC[,UIC]) : tableau des départs et arrivées lu par station_board.
 export const MAX_GARES = 8; // la fonction SQL n'en lit pas plus
@@ -14,6 +15,20 @@ type RawBoard = { gares: [string, string, number, number][]; today_trains: numbe
 export function parseGares(param: string | null): string[] | null {
   const uics = [...new Set((param ?? '').split(',').filter((u) => /^\d{8}$/.test(u)))].slice(0, MAX_GARES);
   return uics.length ? uics : null;
+}
+
+// Jeu de gares accepté : codes connus, tous à moins de AREA_KM de la première (une ville ou une agglomération, comme les
+// regroupements de la barre de commande et du Marey ; sans coordonnées, même ville). Un code inventé ou un mélange de villes
+// est refusé avant toute lecture : le nombre de clés de cache (donc d'appels à la base) reste borné (audit du 2026-11-04).
+export const AREA_KM = 30;
+export function knownArea(uics: string[], gares: GareRow[]): boolean {
+  const by = new Map(gares.map((g) => [g[0], g]));
+  const rows = uics.map((u) => by.get(u));
+  if (rows.length === 0 || rows.some((r) => r === undefined)) return false;
+  const [a, ...rest] = rows as GareRow[];
+  return rest.every((g) => (a[2] != null && a[3] != null && g[2] != null && g[3] != null
+    ? distKm([a[3], a[2]], [g[3], g[2]]) <= AREA_KM
+    : cityOf(g[1]) === cityOf(a[1])));
 }
 
 // Réponse de station_board vérifiée ; lève si elle est illisible (rien n'est alors mis en cache).

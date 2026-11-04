@@ -1,6 +1,6 @@
 import { expect, test, vi } from 'vitest';
 import { createStationHandler } from '../lib/handlers';
-import { boardLines, boardTitle, parseGares, readBoard, regPct, shapeBoard, type BoardRow } from '../lib/station';
+import { boardLines, boardTitle, knownArea, parseGares, readBoard, regPct, shapeBoard, type BoardRow } from '../lib/station';
 
 const row = (o: Partial<BoardRow>): BoardRow => ({
   trip_id: 't', train_number: '8537', brand: 'INOUI', axis: 'ATLANTIQUE', uic: '87581009', cancelled: false, first: false, last: false,
@@ -40,16 +40,40 @@ test('boardLines : départs sans terminus, arrivées sans origine, heure estimé
   expect(boardLines(b, 'ARR', now).map((l) => [l.train_number, l.planned, l.place])).toEqual([['8485', '17:40', 'Paris'], ['8537', '18:00', 'Paris']]);
 });
 
-test('handler : 400 sans code valide ; un appel par jeu de gares trié et par cycle', async () => {
+const stopRows = [
+  { stop_id: 'StopArea:OCE87773002', name: 'Montpellier Saint-Roch', lat: 43.6, lon: 3.88 },
+  { stop_id: 'StopArea:OCE87688887', name: 'Montpellier Sud de France', lat: 43.59, lon: 3.92 },
+  { stop_id: 'StopArea:OCE87581009', name: 'Bordeaux Saint-Jean', lat: 44.8, lon: -0.55 },
+];
+
+test('knownArea : codes connus et voisins ; code inventé ou villes éloignées refusés', () => {
+  const g: [string, string, number?, number?][] = [['87773002', 'Montpellier Saint-Roch', 43.6, 3.88], ['87688887', 'Montpellier Sud de France', 43.59, 3.92],
+    ['87581009', 'Bordeaux Saint-Jean', 44.8, -0.55], ['87000001', 'Lyon Part-Dieu'], ['87000002', 'Lyon Perrache'], ['87000003', 'Nice Ville']];
+  expect(knownArea(['87773002'], g)).toBe(true);
+  expect(knownArea(['87773002', '87688887'], g)).toBe(true); // ~3,5 km
+  expect(knownArea(['87773002', '87581009'], g)).toBe(false); // Montpellier + Bordeaux
+  expect(knownArea(['87773002', '12345678'], g)).toBe(false); // code inventé
+  expect(knownArea(['87000001', '87000002'], g)).toBe(true); // sans coordonnées : même ville
+  expect(knownArea(['87000001', '87000003'], g)).toBe(false);
+});
+
+test('handler : 400 sans code valide ; 404 sans lecture si gare inconnue ou villes mêlées ; un appel par jeu de gares trié et par cycle', async () => {
   const rpc = vi.fn(async () => ({ data: raw([row({})]), error: null }));
   const keys: string[] = [];
-  const deps = { rpc, select: vi.fn(), now: () => new Date('2026-11-02T17:00:00Z'), cached: <T>(k: string[], _s: number, fn: () => Promise<T>) => { keys.push(k.join('|')); return fn(); } };
+  const select = vi.fn(async () => ({ data: stopRows, error: null }));
+  const deps = { rpc, select, now: () => new Date('2026-11-02T17:00:00Z'), cached: <T>(k: string[], _s: number, fn: () => Promise<T>) => { keys.push(k.join('|')); return fn(); } };
   expect((await createStationHandler(deps)(new Request('http://x/api/gare?uic=abc'))).status).toBe(400);
+  for (const q of ['12345678', '87773002,87581009']) {
+    const r = await createStationHandler(deps)(new Request(`http://x/api/gare?uic=${q}`));
+    expect(r.status).toBe(404);
+    expect(r.headers.get('cache-control')).toBe('no-store');
+  }
+  expect(rpc).not.toHaveBeenCalled();
   const r = await createStationHandler(deps)(new Request('http://x/api/gare?uic=87773002,87688887'));
   expect(r.status).toBe(200);
   const body = await r.json();
   expect(readBoard(body).gares[0].nom).toBe('Bordeaux Saint-Jean'); // le navigateur relit la réponse telle quelle
   expect(() => readBoard({ rows: [] })).toThrow();
   expect(rpc).toHaveBeenCalledWith('station_board', { p_uics: ['87773002', '87688887'] });
-  expect(keys[0]).toMatch(/^gare\|v1\|87688887,87773002\|\d+$/);
+  expect(keys.filter((k) => k.startsWith('gare|'))[0]).toMatch(/^gare\|v1\|87688887,87773002\|\d+$/);
 });
