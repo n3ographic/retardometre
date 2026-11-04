@@ -148,9 +148,9 @@ test('clé hors de la plage int ignorée sans faire échouer la requête', async
   expect(trains[0]).toMatchObject({ delay_s: 0, last_seq: 1 })
 })
 
-test('cause tronquée à 160 caractères', async () => {
-  await seedTrip(db, trip('L', { terminusDelayS: null, stopDelays: { '1': 0 }, cause: 'x'.repeat(500) }))
-  expect((await live(db))[0].cause).toHaveLength(160)
+test('cause tronquée à 600 caractères', async () => {
+  await seedTrip(db, trip('L', { terminusDelayS: null, stopDelays: { '1': 0 }, cause: 'x'.repeat(700) }))
+  expect((await live(db))[0].cause).toHaveLength(600)
 })
 
 // Trajet de cinq arrêts, un tous les ~30 min, pour tester le choix de la fenêtre selon l'heure (NOW = 12:00Z).

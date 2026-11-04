@@ -10,11 +10,11 @@ beforeAll(async () => {
 afterEach(async () => { await resetData(db) })
 
 test('barème INOUI et OUIGO (secondes de retard)', async () => {
-  const { rows } = await db.query('select brand, from_s, pct from compensation_scale order by brand, from_s')
-  expect(rows).toEqual([
-    { brand: 'INOUI', from_s: 1860, pct: 25 }, { brand: 'INOUI', from_s: 7200, pct: 50 },
-    { brand: 'INOUI', from_s: 10860, pct: 75 },
-    { brand: 'OUIGO', from_s: 3600, pct: 25 }, { brand: 'OUIGO', from_s: 7200, pct: 50 }])
+  const { rows } = await db.query('select brand, scope, from_s, pct, form from compensation_scale order by brand, scope, from_s')
+  expect(rows.map((r: any) => `${r.brand} ${r.scope} ${r.from_s} ${r.pct} ${r.form}`)).toEqual([
+    'INOUI international 1860 25 bon', 'INOUI international 3660 25 argent', 'INOUI international 7200 50 argent',
+    'INOUI national 1860 25 bon', 'INOUI national 3660 25 argent', 'INOUI national 7200 50 argent', 'INOUI national 10860 75 argent',
+    'OUIGO national 3600 25 bon', 'OUIGO national 7200 50 bon'])
 })
 
 test('règle de régularité officielle', async () => {
@@ -48,7 +48,7 @@ test('anon lit les règles et stop_times_planned, pas events ni collector_state'
     scale: await count('compensation_scale'), regularity: await count('regularity_rule'), prices: await count('reference_prices'),
     stopTimes: await count('stop_times_planned'), events: await count('events'), state: await count('collector_state'),
   }))
-  expect(seen).toEqual({ scale: 5, regularity: 3, prices: 2, stopTimes: 1, events: 0, state: 0 })
+  expect(seen).toEqual({ scale: 9, regularity: 3, prices: 2, stopTimes: 1, events: 0, state: 0 })
 })
 
 test('anon ne peut ni écrire dans les règles ni dans circulations', async () => {
@@ -64,7 +64,7 @@ test('anon ne peut ni écrire dans les règles ni dans circulations', async () =
   })
   const { rows } = await db.query(`select (select count(*) from compensation_scale)::int as scale, (select count(*) from regularity_rule)::int as regularity,
     (select count(*) from reference_prices)::int as prices, (select count(*) from circulations)::int as circ`)
-  expect(rows[0]).toEqual({ scale: 5, regularity: 3, prices: 2, circ: 0 })
+  expect(rows[0]).toEqual({ scale: 9, regularity: 3, prices: 2, circ: 0 })
 })
 
 test('asAnon remet le rôle même si le rappel échoue', async () => {

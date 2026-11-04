@@ -1,5 +1,5 @@
 import type { SegmentProgress } from './position';
-import { RANGE, type Price, type Scale } from './stats';
+import { RANGE, scaleFor, type Price, type Scale } from './stats';
 
 export type Rules = { compensation_scale: Scale[]; prices: Price[] };
 
@@ -9,7 +9,10 @@ export function delayBounds(delay_s: number): { low_s: number; high_s: number } 
 }
 
 const pctAt = (scale: Scale[], brand: string, d: number) =>
-  scale.reduce((m, s) => (s.brand === brand && s.from_s <= d ? Math.max(m, s.pct) : m), 0);
+  scaleFor(scale, brand).reduce((m, s) => (s.from_s <= d ? Math.max(m, s.pct) : m), 0);
+// Seuils où le pourcentage change (le palier de 1 h 01 ne change que la forme, bon → argent).
+const pctMarks = (scale: Scale[], brand: string) =>
+  scaleFor(scale, brand).filter((s, i, all) => i === 0 || s.pct !== all[i - 1].pct);
 
 export type CompensationView = {
   pct_low: number; pct_high: number; eur_low: number; eur_high: number; // € HT par voyageur, à l'occupation près
@@ -24,7 +27,7 @@ export function compensationView(brand: string, delay_s: number | undefined, rul
   const pct_low = pctAt(rules.compensation_scale, brand, low_s);
   const pct_high = pctAt(rules.compensation_scale, brand, high_s);
   const eur = (pct: number) => Math.round(pct * price.price_eur_ht) / 100;
-  const above = rules.compensation_scale.filter((s) => s.brand === brand && s.from_s > d).sort((a, b) => a.from_s - b.from_s)[0];
+  const above = pctMarks(rules.compensation_scale, brand).find((s) => s.from_s > d);
   return {
     pct_low, pct_high, eur_low: eur(pct_low), eur_high: eur(pct_high),
     next: above ? { from_s: above.from_s, pct: above.pct, in_s: above.from_s - d } : null,
@@ -40,7 +43,7 @@ export function observedAgo(last_seen_at: string | undefined, now: Date): number
 
 // Avancement du retard publié entre le seuil du palier en cours (0 avant le premier) et le prochain seuil ; null au dernier palier ou sans barème.
 export function thresholdProgress(brand: string, delay_s: number | undefined, rules: Rules): { from_s: number; to_s: number; ratio: number } | null {
-  const marks = rules.compensation_scale.filter((s) => s.brand === brand).map((s) => s.from_s).sort((a, b) => a - b);
+  const marks = pctMarks(rules.compensation_scale, brand).map((s) => s.from_s);
   const d = Math.max(delay_s ?? 0, 0);
   const to_s = marks.find((m) => m > d);
   if (to_s === undefined) return null;

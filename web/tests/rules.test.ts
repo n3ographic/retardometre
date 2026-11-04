@@ -38,7 +38,7 @@ test('loadRules : trois lectures, clé de cache et durée', async () => {
   const cached = vi.fn(async <T>(_k: string[], _s: number, fn: () => Promise<T>) => fn()) as unknown as Deps['cached'];
   const select = vi.fn(okSelect) as unknown as Deps['select'];
   const r = await loadRules(deps(select, cached));
-  expect(cached).toHaveBeenCalledWith(['rules', 'v1'], 3600, expect.any(Function));
+  expect(cached).toHaveBeenCalledWith(['rules', 'v3'], 3600, expect.any(Function));
   expect((select as unknown as ReturnType<typeof vi.fn>).mock.calls.map((c) => c[0]).sort())
     .toEqual(['compensation_scale', 'reference_prices', 'regularity_rule']);
   expect(r.regularity_rule).toHaveLength(3);
