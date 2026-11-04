@@ -106,11 +106,14 @@ const tr = (ts: any): string | null => {
   return text || null
 }
 
-// alert id -> texte (description fr sans HTML, sinon titre fr).
+// alert id -> texte : titre fr puis description fr, sans HTML. Le titre porte souvent le sens et la description
+// n'en est que la suite (« Actuellement, nous ne sommes pas en mesure… » / « C'est pourquoi, nous vous invitons… »).
 export function alertTexts(alerts: DecodedFeed): Map<string, string> {
   const m = new Map<string, string>()
   for (const e of alerts.entity ?? []) {
-    const text = e.alert && (tr(e.alert.descriptionText) ?? tr(e.alert.headerText))
+    if (!e.alert) continue
+    const h = tr(e.alert.headerText), d = tr(e.alert.descriptionText)
+    const text = h && d && !d.startsWith(h) ? `${h}${/[.!?:…]$/.test(h) ? '' : '.'} ${d}` : (d ?? h)
     if (text) m.set(e.id, text)
   }
   return m

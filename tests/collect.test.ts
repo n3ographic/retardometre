@@ -174,7 +174,7 @@ describe('collectChanges', () => {
       cancelled: false, terminus_delay_s: 5400, max_delay_s: 5400, alert_ids: [A7853],
       first_seen_at: NOW, last_seen_at: NOW,
     })
-    expect(c7853.cause).toMatch(/^Cause : fortes précipitations/)
+    expect(c7853.cause).toMatch(/^Attention, certaines gares non desservies\. Cause : fortes précipitations/)
     expect(by(circulations, T6153)).toMatchObject({ cancelled: true, alert_ids: [A6153], terminus_delay_s: null, max_delay_s: null })
   })
 

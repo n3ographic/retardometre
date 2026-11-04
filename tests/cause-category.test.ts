@@ -27,6 +27,8 @@ test.each([
   ["Retard affectant votre train. En raison d'un incident d’exploitation survenu au cours du trajet, votre train circule actuellement avec un retard.", 'exploitation'],
   ['Cause : orage violent à RENNES.', 'meteo'],
   ['Gare de Tourcoing : texte sans rapport connu', 'autre'],
+  ["Actuellement, nous ne sommes pas en mesure d'afficher le retard des trains sur le site Sncf-voyageurs.com. C'est pourquoi, nous vous invitons à consulter régulièrement les informations qui seront transmises ici.", 'information'],
+  ["C'est pourquoi, nous vous invitons à consulter régulièrement les informations qui seront transmises ici, en temps réel.", 'information'],
   // Textes réels restés en « autre » jusqu'au 27/10/2026.
   ['Cause : un vol de câbles entraîne des perturbations sur la circulation des trains à REIMS.', 'malveillance'],
   ['Cause : acte de vandalisme sur les installations à LYON.', 'malveillance'],
