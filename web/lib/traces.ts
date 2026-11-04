@@ -39,3 +39,23 @@ export function tracesToLines(table: TraceTable): LineCollection {
       .map((coordinates) => ({ type: 'Feature' as const, properties: {}, geometry: { type: 'LineString' as const, coordinates } })),
   };
 }
+
+const okStop = (s: { lon?: number; lat?: number }) => s.lon != null && s.lat != null && Number.isFinite(s.lon + s.lat);
+
+// Paires d'arrêts consécutifs des trains sans tracé connu : la ligne droite que suit le train, une fois par paire.
+export function straightLines(table: TraceTable, trains: { stops: { lon?: number; lat?: number }[] }[]): LineCollection {
+  const seen = new Map<string, [number, number][]>();
+  for (const { stops } of trains) {
+    for (let i = 0; i < stops.length - 1; i++) {
+      const a = stops[i], b = stops[i + 1];
+      if (!okStop(a) || !okStop(b)) continue;
+      const pa: Lngl = [a.lon!, a.lat!], pb: Lngl = [b.lon!, b.lat!];
+      const key = pairKey(pa, pb);
+      if (pt(pa) !== pt(pb) && !table.pairs[key] && !seen.has(key)) seen.set(key, [pa, pb]);
+    }
+  }
+  return {
+    type: 'FeatureCollection',
+    features: [...seen.values()].map((coordinates) => ({ type: 'Feature' as const, properties: {}, geometry: { type: 'LineString' as const, coordinates } })),
+  };
+}

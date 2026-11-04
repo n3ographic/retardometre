@@ -47,7 +47,7 @@ test('toFeatureCollection : coordonnées, propriétés, trains sans position omi
   const [f] = fc.features;
   // retard 400 s : progression (11:30−11:06:40)/60 min = 0,3889
   expect(f.geometry.coordinates[0]).toBeCloseTo(2 + 2 * (1400 / 3600));
-  expect(f.geometry.coordinates[1]).toBeCloseTo(48 - 2 * (1400 / 3600));
+  expect(f.geometry.coordinates[1]).toBeCloseTo(48 - 2 * (1400 / 3600), 1); // interpolée en Mercator
   expect(f.properties).toEqual({ trip_id: 'a', cls: 'late', stale: false, state: 'moving', label: '1' }); // label : numéro affiché à côté du point aux zooms élevés
   expect(toFeatureCollection([], NOW).features).toEqual([]);
 });

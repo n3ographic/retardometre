@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { makeSegment, pairKey, tracesToLines } from '../lib/traces';
+import { makeSegment, pairKey, straightLines, tracesToLines } from '../lib/traces';
 
 const A: [number, number] = [2.3331, 48.8441];
 const B: [number, number] = [4.8591, 45.7601];
@@ -35,4 +35,16 @@ test('tracesToLines : une ligne par paire, polylignes de moins de deux points ig
   expect(fc.features).toHaveLength(2);
   expect(fc.features[1].geometry).toEqual({ type: 'LineString', coordinates: [[3, 47], [4, 46], [5, 45]] });
   expect(tracesToLines({ pairs: {} }).features).toEqual([]);
+});
+
+test('straightLines : paires sans tracé, une fois chacune, arrêts sans coordonnées ignorés', () => {
+  const C: [number, number] = [5.3698, 43.3026];
+  const table = { pairs: { [pairKey(A, B)]: [A, B] } };
+  const stop = ([lon, lat]: [number, number]) => ({ lon, lat });
+  const trains = [
+    { stops: [stop(A), stop(B), stop(C)] },
+    { stops: [stop(C), stop(B), {}, stop(A)] },
+  ];
+  expect(straightLines(table, trains).features.map((f) => f.geometry.coordinates)).toEqual([[B, C]]);
+  expect(straightLines({ pairs: {} }, [{ stops: [stop(A), stop(B)] }]).features).toHaveLength(1);
 });
