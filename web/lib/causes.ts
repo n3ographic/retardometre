@@ -24,3 +24,6 @@ export function causeExcerpt(text: string, max = 160): { short: string; cut: boo
   const at = end >= 40 ? end + 1 : head.lastIndexOf(' ');
   return { short: `${head.slice(0, at > 0 ? at : max).trimEnd()} …`, cut: true };
 }
+
+// Fin d'alerte SNCF sans cause : le début du message (la vraie cause) n'est pas dans le texte stocké.
+export const isGenericCause = (text: string) => /^C['’]est pourquoi, nous vous invitons à consulter/i.test(text.trim());
