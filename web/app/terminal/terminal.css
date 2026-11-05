@@ -30,12 +30,14 @@ a { color: inherit; }
 .period { display: flex; gap: 4px; align-items: center; }
 .panel-head .period { margin: 0 auto 4px 0; font-size: 11px; }
 .period-line { font-size: 11px; display: flex; justify-content: space-between; align-items: baseline; gap: 4px; margin: 0 0 3px; }
-.kpi-row.kpi-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 8px; }
-.kpi-row.kpi-grid dd { font-size: 18px; }
+.kpi-row.kpi-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 8px; }
+.kpi-row.kpi-grid > div { border: 1px solid var(--t-line); padding: 4px 8px; }
+.kpi-row.kpi-grid dt { margin-bottom: 4px; }
+.kpi-row.kpi-grid dd { font-size: 22px; line-height: 1.15; }
 .kpi-row.kpi-grid dd.kpi-sub { font-size: 10px; font-weight: 400; }
 .term-right > .period-panel > * { flex-shrink: 0; }
 .term-right > .period-panel > .stab { flex-shrink: 1; min-height: 60px; }
-.spread { width: 100%; margin-top: 6px; border-collapse: collapse; font-size: 11px; border-top: 1px dotted var(--t-line); }
+.spread { width: 100%; margin-top: 6px; border-collapse: collapse; font-size: 11px; line-height: 1.2; border-top: 1px dotted var(--t-line); }
 .spread th, .spread td { padding: 0 6px 0 0; text-align: right; font-weight: 400; white-space: nowrap; }
 .spread th[scope=row], .spread thead th:first-child { text-align: left; }
 .spread thead th { color: var(--t-amber-dim); font-size: 10px; text-transform: uppercase; padding-top: 3px; }
@@ -182,6 +184,7 @@ a.ta-btn:hover, a.ta-btn:focus-visible, .ta-btn.on { background: var(--t-amber);
 .panel-head .term-panel-title { margin-bottom: 4px; }
 .panel-head .period-line { margin: 0 0 4px; }
 .term-right .term-panel { position: relative; }
+.panel-head .today-count { margin-right: auto; font-size: 10px; } /* LIVE et le compte restent collés au titre : le ⓘ est seul à droite */
 .live-badge { display: inline-flex; align-items: center; gap: 4px; color: var(--t-ontime); font-size: 11px; letter-spacing: 0.06em; }
 .live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--t-ontime); animation: live-pulse 2s ease-in-out infinite; }
 @keyframes live-pulse { 50% { opacity: 0.25; } }
@@ -235,14 +238,16 @@ a.ta-btn:hover, a.ta-btn:focus-visible, .ta-btn.on { background: var(--t-amber);
   .stab-table { font-size: 11px; line-height: 1.2; }
   .stab-table th, .stab-table td { padding: 0 6px 0 0; line-height: 1.2; }
   .kpi-row.kpi-grid { gap: 0 8px; }
-  .kpi-row.kpi-grid dd, .kpi-today dd { font-size: 16px; }
+  .kpi-row.kpi-grid > div { padding: 2px 6px; }
+  .kpi-row.kpi-grid dt { margin-bottom: 2px; }
+  .kpi-row.kpi-grid dd { font-size: 18px; }
   .spread { font-size: 10px; line-height: 1.15; }
   .big { font-size: 22px; }
   .term-right .term-panel { padding: 4px 8px; }
 }
 .col-head { margin: -2px 0 -4px; font-size: 10px; line-height: 12px; text-align: right; }
 .kpi-today { display: flex; justify-content: space-between; }
-.kpi-today .kpi-right { text-align: right; }
+.kpi-today .kpi-right { text-align: left; }
 .kpi-row dd.kpi-sub { font-size: 10px; font-weight: 400; }
 .stab-table thead th.stab-scale { font-size: 9px; }
 .term-col .term-panel { position: relative; }
