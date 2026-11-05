@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { axisRegularity, bucketBar, bucketIndex, brandSplit, calcLabel, charBar, delayTone, eurRange, liveBuckets, nextArrivals, periodLabel, periodQuery, topDelays, windowLabel, beyondTop, delayThresholds, liveEvents, nextLiveDelayMs, rangeLabel, eurShort } from '../lib/terminal-model';
+import { axisRegularity, bucketBar, bucketIndex, brandSplit, calcLabel, charBar, delayTone, eurRange, liveBuckets, nextArrivals, periodLabel, periodQuery, topDelays, windowLabel, beyondTop, delayThresholds, liveEvents, nextLiveDelayMs, rangeLabel, eurShort, liveGroups, groupTrips, regScaleMin, deltaPts, gare, tickerFeed, bucketHighlight, columnCalc, isCalcStale, STATS_MAX_AGE_MIN, CUMUL_MAX_AGE_MIN } from '../lib/terminal-model';
 
 test('heure du calcul à Paris ; fenêtre glissante seulement pour les périodes en jours', () => {
   expect(calcLabel('2026-11-02T19:08:00Z')).toBe('CALCULÉ À 20:08');
@@ -40,7 +40,7 @@ test('beyondTop : saute le Top 10, libellé avec destination absente omise', () 
     item({ train_number: 'c', delay_s: 600 }),
   ];
   const r = beyondTop(l, 1, 5);
-  expect(r.map((x) => x.label)).toEqual(['OUIGO b Paris', 'INOUI c']);
+  expect(r.map((x) => x.label)).toEqual(['OUIGO b PARIS', 'INOUI c']);
   expect(r[0].tag).toBe('▼ +15′');
   expect(beyondTop(l, 3, 5)).toEqual([]);
 });
@@ -59,7 +59,7 @@ test('liveEvents : seuil le plus haut franchi, suppression, record ; premier rel
   expect(first.record).toBe(1500);
   const next = [item({ trip_id: 'A', train_number: 'A', delay_s: 4000 }), item({ trip_id: 'B', train_number: 'B', delay_s: 0, cancelled: true })];
   const r = liveEvents([a, b], next, T, first.record);
-  expect(r.events.map((e) => e.tag)).toEqual(['SEUIL +60′', 'SUPPRIMÉ', 'RECORD +67′']);
+  expect(r.events.map((e) => e.tag)).toEqual(['SEUIL 60′ FRANCHI', 'SUPPRIMÉ', 'RECORD +67′']);
   expect(r.record).toBe(4000);
   // Rien de nouveau : aucun événement.
   expect(liveEvents(next, next, T, r.record).events).toEqual([]);
@@ -195,4 +195,60 @@ test('eurShort : M€, k€, €', () => {
   expect(eurShort(310400)).toBe('310 k€');
   expect(eurShort(840.4)).toBe('840 €');
   expect(eurShort(0)).toBe('0 €');
+});
+
+test('liveGroups : 60+ réunit les trois dernières tranches ; groupTrips suit le même filtre', () => {
+  const ds = [0, 300, 900, 1800, 3600, 7200, 10800];
+  const l = [...ds.map((d, i) => item({ trip_id: `t${i}`, train_number: String(i), delay_s: d })), item({ trip_id: 'x', train_number: 'x', delay_s: 4000, cancelled: true })];
+  const g = liveGroups(l, NOW);
+  expect(g.map((x) => [x.label, x.n])).toEqual([['0-4', 1], ['5-14', 1], ['15-29', 1], ['30-59', 1], ['60+', 3]]);
+  expect(groupTrips(l, NOW, [4, 5, 6])).toEqual(['t4', 't5', 't6']);
+});
+
+test('regScaleMin, deltaPts, gare', () => {
+  expect(regScaleMin([81.6, 85.7, 76.7])).toBe(70);
+  expect(regScaleMin([73.5, 69.1, null])).toBe(60);
+  expect(regScaleMin([null])).toBe(70);
+  expect(deltaPts(73.3, 82.7)).toBe('−9,4 PTS');
+  expect(deltaPts(85, 82.7)).toBe('+2,3 PTS');
+  expect(deltaPts(null, 82.7)).toBeNull();
+  expect(gare('Paris Montparnasse Hall 1 - 2')).toBe('PARIS MONTP.');
+  expect(gare('Saint-Étienne Châteaucreux', 12)).toBe('ST-ÉTIENNE…');
+});
+
+test('tickerFeed : jamais un train du Top ; sans événement restant, les trains au-delà du Top', () => {
+  const l = [1, 2, 3, 4].map((i) => item({ trip_id: `t${i}`, train_number: String(i), delay_s: 6000 - i * 600 }));
+  const ev = (id: string, tag: string) => ({ key: `${id}:${tag}`, trip_id: id, tag, label: id, tone: 'late' as const });
+  // Top 2 = t1, t2 : l'événement de t2 disparaît, celui de t3 reste.
+  expect(tickerFeed([ev('t2', 'SEUIL 31′ FRANCHI'), ev('t3', 'SUPPRIMÉ')], l, 2, 15).map((e) => e.trip_id)).toEqual(['t3']);
+  // Seul événement = record du n°1 : repli sur les trains au-delà du Top.
+  expect(tickerFeed([ev('t1', 'RECORD +90′')], l, 2, 15).map((e) => e.trip_id)).toEqual(['t3', 't4']);
+});
+
+test('seuil PÉRIMÉ propre à chaque bloc : cumul et jour 15 min, période 40 min', () => {
+  expect(CUMUL_MAX_AGE_MIN).toBe(15); // 5 min de cache de données + 5 + 1 min de CDN, avec une marge
+  expect(STATS_MAX_AGE_MIN).toBe(40); // 15 min de cache de données + 15 + 5 min de CDN, avec une marge
+  const now = new Date('2026-11-05T10:40:00Z');
+  const ago = (min: number) => new Date(now.getTime() - min * 60_000).toISOString();
+  expect(isCalcStale(ago(14), CUMUL_MAX_AGE_MIN, now)).toBe(false);
+  expect(isCalcStale(ago(16), CUMUL_MAX_AGE_MIN, now)).toBe(true);
+  expect(isCalcStale(ago(39), STATS_MAX_AGE_MIN, now)).toBe(false);
+  expect(isCalcStale(ago(41), STATS_MAX_AGE_MIN, now)).toBe(true);
+  // Période de 30 min : normal pour elle ; le même âge rend le cumul périmé.
+  expect(columnCalc(ago(30), ago(2), now)).toEqual({ label: 'CALCULÉ À 11:38', stale: false });
+  expect(columnCalc(ago(2), ago(30), now)?.stale).toBe(true);
+  expect(columnCalc(ago(45), ago(2), now)?.stale).toBe(true);
+  expect(columnCalc(undefined, undefined, now)).toBeNull();
+});
+
+test('filtre de tranche épinglé : suit les relevés, garde le train sélectionné', () => {
+  const before = [item({ trip_id: 'a', train_number: 'a', delay_s: 1000 }), item({ trip_id: 'b', train_number: 'b', delay_s: 2000 })];
+  const after = [item({ trip_id: 'a', train_number: 'a', delay_s: 1900 }), item({ trip_id: 'b', train_number: 'b', delay_s: 2000 })];
+  // Tranche 30-59 (indice 3) : a y entre au relevé suivant.
+  expect(bucketHighlight(before, NOW, [3], null)).toEqual(['b']);
+  expect(bucketHighlight(after, NOW, [3], null)).toEqual(['a', 'b']);
+  // Tranche 15-29 (indice 2) : a en sort ; s'il est sélectionné, il reste visible.
+  expect(bucketHighlight(after, NOW, [2], null)).toEqual([]);
+  expect(bucketHighlight(after, NOW, [2], 'a')).toEqual(['a']);
+  expect(bucketHighlight(after, NOW, [3], 'a')).toEqual(['a', 'b']);
 });

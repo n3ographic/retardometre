@@ -2,7 +2,7 @@ import { TERMINUS_BUCKETS } from '../../lib/dashboard-model';
 import { isStale, type LiveItem } from '../../lib/map-model';
 import TrainActions from './train-actions';
 import CauseText from './cause-text';
-import { bucketIndex, delayTone } from '../../lib/terminal-model';
+import { bucketIndex, delayTone, gare } from '../../lib/terminal-model';
 import { estimatePosition, segmentProgress } from '../../lib/position';
 import { compensationView, delayBounds, observedAgo, speedView, thresholdProgress, type Rules } from '../../lib/train-card';
 import { ruleLabel } from '../../lib/stats';
@@ -23,7 +23,7 @@ export default function TrainPanel({ train: t, missing, gareOf, onGare, rules, s
   // Origine ou destination connue de la liste des gares : un clic ouvre son panneau gare.
   const station = (nom: string) => {
     const uic = gareOf(nom);
-    return uic ? <button type="button" className="to-gare" onClick={() => onGare(uic)} title={`Départs et arrivées : ${nom}`}>{nom}</button> : nom;
+    return uic ? <button type="button" className="to-gare" onClick={() => onGare(uic)} title={`Départs et arrivées : ${nom}`}>{gare(nom)}</button> : <span title={nom}>{gare(nom)}</span>;
   };
   const shell = (title: string, body: React.ReactNode) => (
     <aside className="train-modal" role="dialog" aria-label={`Fiche du train ${title}`}>
