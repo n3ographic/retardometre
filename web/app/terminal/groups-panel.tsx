@@ -31,7 +31,7 @@ export default function GroupsPanel({ stats, failed, loading, period, onRetry }:
               <caption className="sr-only">Par marque et par axe</caption>
               <thead>
                 <tr>
-                  <th scope="col">Marque</th><th scope="col">Axe</th><th scope="col">Trains</th><th scope="col">Régul.</th>
+                  <th scope="col">Marque</th><th scope="col">Axe</th><th scope="col">Trains</th><th scope="col" title="Régularité de cette marque sur cet axe seulement ; l'onglet AXES réunit toutes les marques.">Régul.</th>
                   <th scope="col">Suppr.</th><th scope="col">Retard terminus</th><th scope="col">Indemn.</th>
                 </tr>
               </thead>

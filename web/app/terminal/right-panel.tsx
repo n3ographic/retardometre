@@ -75,9 +75,7 @@ export default function RightPanel({ cumul, cumulFailed, stats, statsFailed, sta
       <section className={`term-panel period-panel${t && isSmallSample(t) ? ' term-small' : ''}`} aria-labelledby="period-title">
         <div className="panel-head">
           <h2 className="term-panel-title" id="period-title">Période {periodLabel(period)}</h2>
-        </div>
-        {statsFailed ? <p className="term-dim">INDISPONIBLE</p> : !t || !stats ? <p className="term-dim">…</p> : (
-          <div className={stale}>
+          {!statsFailed && t && stats && (
             <div className={`period-line ${statsStale ? 'tone-late' : 'term-dim'}`}>
               <span>{rangeLabel(stats.from, stats.to)}</span>
               <InfoTip label="Détails de la période">
@@ -90,6 +88,10 @@ export default function RightPanel({ cumul, cumulFailed, stats, statsFailed, sta
                 <p><a href="/methodologie" className="to-marey">MÉTHODOLOGIE →</a></p>
               </InfoTip>
             </div>
+          )}
+        </div>
+        {statsFailed ? <p className="term-dim">INDISPONIBLE</p> : !t || !stats ? <p className="term-dim">…</p> : (
+          <div className={stale}>
             <dl className="kpi-row kpi-grid">
               <div title="Trains qui ont roulé (observés, non supprimés, avec un retard publié au terminus)"><dt>TRAINS</dt><dd>{nf(t.circulated)}</dd></div>
               <div><dt>RÉGUL.</dt><dd className={regTone(t.official_regularity_pct)}>{pct(t.official_regularity_pct)}</dd></div>
