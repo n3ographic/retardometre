@@ -90,16 +90,15 @@ test('calcul périmé : signalé au-delà de l’âge normal des caches', async 
   expect(calcLabel('2026-11-04T09:50:00Z')).toBe('CALCULÉ À 10:50');
 });
 
-test('INOUI à exactement +30′ : rien (« plus de 30 minutes », SNCF Connect) ; 31′ et plus : 25 % ; bandeau et calcul alignés', () => {
-  expect(stepAt(scale, 'INOUI', 1800)).toBeNull();
-  expect(stepAt(scale, 'INOUI', 1859)).toBeNull();
-  expect(stepAt(scale, 'INOUI', 1860)?.pct).toBe(25);
-  // Retards publiés par pas de 5 min : le premier retard indemnisé en pratique est +35′.
+test('INOUI à exactement +30′ : 25 % (« Entre 30 min et 2h : 25 % », SNCF Connect) ; 29′ : rien ; bandeau et calcul alignés', () => {
+  expect(stepAt(scale, 'INOUI', 1740)).toBeNull();
+  expect(stepAt(scale, 'INOUI', 1799)).toBeNull();
+  expect(stepAt(scale, 'INOUI', 1800)?.pct).toBe(25);
   expect(stepAt(scale, 'INOUI', 2100)?.pct).toBe(25);
-  // Le bandeau lit le même barème : seuil à 31′, pas d'événement pour un train qui passe à +30′.
-  expect(delayThresholds(scale.filter((s) => s.brand === 'INOUI'))[0]).toBe(31);
+  // Le bandeau lit le même barème : seuil à 30′, événement dès qu'un train passe à +30′.
+  expect(delayThresholds(scale.filter((s) => s.brand === 'INOUI'))[0]).toBe(30);
   const t = (delay_s: number) => ({ trip_id: 'a', service_date: '2026-11-05', brand: 'INOUI', axis: 'SUD_EST', train_number: '1', cancelled: false,
     dep_planned: '2026-11-05T08:00:00Z', arr_planned: '2026-11-05T11:00:00Z', comp_pct: 0, comp_eur_per_passenger_ref: 0, stops: [], delay_s });
-  expect(liveEvents([t(1500)], [t(1800)], [31, 60, 120], 9999).events).toEqual([]);
-  expect(liveEvents([t(1800)], [t(2100)], [31, 60, 120], 9999).events.map((e) => e.tag)).toEqual(['SEUIL 31′ FRANCHI']);
+  expect(liveEvents([t(1500)], [t(1500)], [30, 60, 120], 9999).events).toEqual([]);
+  expect(liveEvents([t(1500)], [t(1800)], [30, 60, 120], 9999).events.map((e) => e.tag)).toEqual(['SEUIL 30′ FRANCHI']);
 });
