@@ -76,9 +76,10 @@ function Axes({ stats }: { stats: StatsPayload }) {
   const lo = regScaleMin(rows.map((a) => a.pct));
   const scaled = (p: number | null) => (p === null ? null : Math.max(0, ((p - lo) / (100 - lo)) * 100));
   return (
+    <>
     <table className="stab-table">
-      <caption className="sr-only">Régularité, suppressions et indemnités par axe</caption>
-      <thead><tr><th scope="col">Axe</th><th scope="col">Régul.</th><th scope="col" className="stab-scale" title={`Barre de régularité sur une échelle de ${lo} à 100 %`}>{lo}–100 %</th><th scope="col">Suppr.</th><th scope="col">Indemn.</th></tr></thead>
+      <caption className="sr-only">Régularité, suppressions et indemnités par axe, toutes marques confondues</caption>
+      <thead><tr><th scope="col" title="Chaque ligne additionne toutes les marques ; le tableau Marque × axe détaille chaque marque séparément.">Axe</th><th scope="col">Régul.</th><th scope="col" className="stab-scale" title={`Barre de régularité sur une échelle de ${lo} à 100 %`}>{lo}–100 %</th><th scope="col">Suppr.</th><th scope="col">Indemn.</th></tr></thead>
       <tbody>
         {rows.map((a) => (
           <tr key={a.axis} className={a.small ? 'term-small' : undefined} title={a.small ? `${a.axis} : moins de ${SAMPLE_MIN} trains` : a.axis}>
@@ -91,6 +92,8 @@ function Axes({ stats }: { stats: StatsPayload }) {
         ))}
       </tbody>
     </table>
+    <p className="term-dim stab-note">INOUI + OUIGO RÉUNIS</p>
+    </>
   );
 }
 
@@ -102,7 +105,7 @@ function Marques({ stats }: { stats: StatsPayload }) {
       <dl className="brand-split">
         {split.map((b) => (
           <div key={b.brand} className={b.small ? 'term-small' : undefined}>
-            <dt className={`brand-${b.brand.toLowerCase()}`}>{b.brand}</dt>
+            <dt className={`brand-${b.brand.toLowerCase()}`} title={`${b.brand}, tous axes confondus`}>{b.brand}</dt>
             <dd>{nf(b.circulated)} TR · {pct(b.pct)} · {eurShort(b.cost)}</dd>
           </div>
         ))}
