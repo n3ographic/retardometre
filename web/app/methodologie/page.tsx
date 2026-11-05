@@ -217,7 +217,7 @@ export default async function Page() {
       <section>
         <h2>Causes de retard</h2>
         <p>Chaque alerte du flux temps réel peut porter un texte de cause. Ce texte est classé par des règles publiques (table <code>cause_rules</code>, voir le{' '}
-          <a href={`${REPO}/tree/main/supabase/migrations`}>migrations <code>cause_categories</code> et <code>cause_rules_malveillance</code></a>) : on lit la phrase qui suit « Cause : »
+          <a href={`${REPO}/tree/main/supabase/migrations`}>migrations <code>cause_categories</code> et <code>cause_rules_malveillance</code>, <code>cause_rules_greve</code></a>) : on lit la phrase qui suit « Cause : »
           (sinon le début du message), et la première règle qui correspond, par ordre de priorité, donne la catégorie. Seuls les trains en retard d’au moins 5 minutes au terminus
           sont comptés, hors trains supprimés et retards aberrants.</p>
         <ul>
