@@ -122,10 +122,12 @@ export default async function Page() {
           coût = pourcentage × prix de référence × places × occupation.</p>
         <p>Les deux marques n’ont <strong>pas le même barème</strong>, c’est voulu. Trois règles s’appliquent, selon le train :</p>
         <ul>
-          <li><strong>G30 national</strong> (TGV INOUI) : 25 % au-delà de 30 minutes, 50 % de 2 à 3 heures, 75 % au-delà de 3 heures, quel que soit le motif du retard.</li>
-          <li><strong>G30 international</strong> (TGV INOUI dont la gare d’origine ou de destination est hors de France) : 25 % au-delà de 30 minutes, 50 % à partir de 2 heures, <strong>plafonné à 50 %</strong>.</li>
+          <li><strong>G30 national</strong> (TGV INOUI) : 25 % dès 30 minutes, 50 % de 2 à 3 heures, 75 % au-delà de 3 heures, quel que soit le motif du retard.</li>
+          <li><strong>G30 international</strong> (TGV INOUI dont la gare d’origine ou de destination est hors de France) : 25 % dès 30 minutes, 50 % à partir de 2 heures, <strong>plafonné à 50 %</strong>.</li>
           <li><strong>OUIGO</strong> : 25 % de 60 à 119 minutes, 50 % à partir de 120 minutes.</li>
         </ul>
+        <p><strong>Seuil de 30 minutes.</strong> Le tableau du barème de SNCF Connect indique « Entre 30 min et 2h : 25 % » : un train INOUI à 30 minutes pile est compté indemnisable.
+          La page SNCF dit aussi « plus de 30 minutes » dans son texte ; nous suivons le tableau.</p>
         <p><strong>Bons ou argent.</strong> En TGV INOUI, l’indemnité est un bon d’achat de 30 minutes à 1 heure de retard, puis de l’argent au-delà d’une heure.
           En OUIGO, c’est un bon d’achat, convertible en virement sur demande (CGV OUIGO, article 3.3.2) : nous le comptons « en bons ».
           Les montants sont séparés en conséquence : part en bons, part en argent.</p>
@@ -202,7 +204,7 @@ export default async function Page() {
           <strong> C’est une moyenne tous TGV, sans détail par marque ni par train</strong> ; le coût est proportionnel à l’occupation, <code>/api/stats</code> fournit aussi le coût à rames pleines.</p>
         <h3>Fourchette</h3>
         <p>Le flux publie les retards par pas de 5 minutes : le retard réel est à moins de 4 min 59 s du retard publié, et le sens de l’arrondi est inconnu. Les montants sont donc donnés avec une fourchette.
-          Le montant <strong>central</strong> utilise le retard publié. La borne <strong>haute</strong> ajoute 4 min 59 s à chaque retard (un train publié à 30 minutes dépasse alors le seuil de 31 minutes).
+          Le montant <strong>central</strong> utilise le retard publié. La borne <strong>haute</strong> ajoute 4 min 59 s à chaque retard (un train publié à 25 minutes atteint alors le seuil de 30 minutes).
           La borne <strong>basse</strong> retire 4 min 59 s et exclut aussi les trains qui sautent un arrêt intermédiaire, dont le retard au terminus reste compté au centre et en haut.
           L’occupation reste à 0,75 dans les trois cas : la fourchette traduit l’incertitude de mesure, pas celle du prix, des places et de l’occupation.</p>
         <h3>Retards aberrants</h3>

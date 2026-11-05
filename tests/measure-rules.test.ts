@@ -12,8 +12,8 @@ afterEach(async () => { await resetData(db) })
 test('barème INOUI et OUIGO (secondes de retard)', async () => {
   const { rows } = await db.query('select brand, scope, from_s, pct, form from compensation_scale order by brand, scope, from_s')
   expect(rows.map((r: any) => `${r.brand} ${r.scope} ${r.from_s} ${r.pct} ${r.form}`)).toEqual([
-    'INOUI international 1860 25 bon', 'INOUI international 3660 25 argent', 'INOUI international 7200 50 argent',
-    'INOUI national 1860 25 bon', 'INOUI national 3660 25 argent', 'INOUI national 7200 50 argent', 'INOUI national 10860 75 argent',
+    'INOUI international 1800 25 bon', 'INOUI international 3660 25 argent', 'INOUI international 7200 50 argent',
+    'INOUI national 1800 25 bon', 'INOUI national 3660 25 argent', 'INOUI national 7200 50 argent', 'INOUI national 10860 75 argent',
     'OUIGO national 3600 25 bon', 'OUIGO national 7200 50 bon'])
 })
 

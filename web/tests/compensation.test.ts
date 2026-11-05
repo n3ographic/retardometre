@@ -8,9 +8,9 @@ const row = (brand: string, scope: 'national' | 'international', from_s: number,
   ({ brand, scope, from_s, pct, form, source_url: '', source_as_of: '' });
 // Barème en base depuis le 04/11/2026.
 const scale: Scale[] = [
-  row('INOUI', 'national', 1860, 25, 'bon'), row('INOUI', 'national', 3660, 25, 'argent'),
+  row('INOUI', 'national', 1800, 25, 'bon'), row('INOUI', 'national', 3660, 25, 'argent'),
   row('INOUI', 'national', 7200, 50, 'argent'), row('INOUI', 'national', 10860, 75, 'argent'),
-  row('INOUI', 'international', 1860, 25, 'bon'), row('INOUI', 'international', 3660, 25, 'argent'),
+  row('INOUI', 'international', 1800, 25, 'bon'), row('INOUI', 'international', 3660, 25, 'argent'),
   row('INOUI', 'international', 7200, 50, 'argent'),
   row('OUIGO', 'national', 3600, 25, 'bon'), row('OUIGO', 'national', 7200, 50, 'bon'),
 ];
@@ -23,7 +23,8 @@ test('barème du train : international plafonné, OUIGO international rabattu su
   expect(stepAt(scale, 'INOUI', 10860)?.pct).toBe(75);
   expect(stepAt(scale, 'INOUI', 10860, true)?.pct).toBe(50);
   expect(scaleFor(scale, 'OUIGO', true).map((s) => s.pct)).toEqual([25, 50]);
-  expect(stepAt(scale, 'INOUI', 1800)).toBeNull();
+  expect(stepAt(scale, 'INOUI', 1740)).toBeNull();
+  expect(stepAt(scale, 'INOUI', 1800)?.pct).toBe(25); // « Entre 30 min et 2h : 25 % »
 });
 
 test('libellés : règle appliquée et forme du versement', () => {

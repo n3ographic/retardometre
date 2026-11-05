@@ -17,7 +17,7 @@ test('shapeRules : nombres convertis, tri, horodatage', () => {
     prices: [{ ...prices[0], price_eur_ht: '34.20', seats: '634' }, prices[1]],
   }, now);
   expect(r.generated_at).toBe('2026-10-21T10:00:00.000Z');
-  expect(r.compensation_scale.map((s) => `${s.brand} ${s.from_s}`)).toEqual(['INOUI 1860', 'INOUI 7200', 'OUIGO 3600']);
+  expect(r.compensation_scale.map((s) => `${s.brand} ${s.from_s}`)).toEqual(['INOUI 1800', 'INOUI 7200', 'OUIGO 3600']);
   expect(r.compensation_scale[2]).toMatchObject({ from_s: 3600, pct: 25 });
   expect(r.regularity_rule.map((x) => x.duration_from_s)).toEqual([0, 5400, 10801]);
   expect(r.reference_prices.map((p) => p.brand)).toEqual(['INOUI', 'OUIGO']);
@@ -42,7 +42,7 @@ test('loadRules : trois lectures, clé de cache et durée', async () => {
   expect((select as unknown as ReturnType<typeof vi.fn>).mock.calls.map((c) => c[0]).sort())
     .toEqual(['compensation_scale', 'reference_prices', 'regularity_rule']);
   expect(r.regularity_rule).toHaveLength(3);
-  expect(r.compensation_scale[0]).toMatchObject({ brand: 'INOUI', from_s: 1860 });
+  expect(r.compensation_scale[0]).toMatchObject({ brand: 'INOUI', from_s: 1800 });
 });
 
 test('loadRules : une lecture en erreur fait échouer le tout', async () => {
