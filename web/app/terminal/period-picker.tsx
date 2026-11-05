@@ -4,12 +4,13 @@ import { useMemo } from 'react';
 import { monthOptions } from '../../lib/dashboard-model';
 import { FIXED_PERIODS, periodLabel, type Period } from '../../lib/terminal-model';
 
-// Période des panneaux de statistiques ; la carte, le bandeau et le cumul n'en dépendent pas.
+// Filtre global des statistiques (bloc Période, tableau marque × axe, taux de suppression) ; la carte, le direct et le cumul n'en dépendent pas.
 export default function PeriodPicker({ value, onChange }: { value: Period; onChange: (p: Period) => void }) {
   const months = useMemo(() => monthOptions(new Date()), []);
   const isMonth = !/^\d+d$/.test(value);
   return (
-    <div className="period" role="group" aria-label="Période">
+    <div className="period" role="group" aria-label="Période des statistiques">
+      <span className="term-dim">STATISTIQUES</span>
       {FIXED_PERIODS.map((p) => (
         <button key={p} type="button" aria-pressed={value === p} onClick={() => onChange(p)}>{periodLabel(p)}</button>
       ))}

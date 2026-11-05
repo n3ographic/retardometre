@@ -3,6 +3,7 @@ import { shapeCumul, type CumulRow } from '../lib/cumul';
 import { formLabel, ruleLabel, scaleFor, shapeStats, splitLabel, stepAt, type Price, type Scale } from '../lib/stats';
 import { compensationView, thresholdProgress } from '../lib/train-card';
 import { shapeWeek, type WeekRow } from '../lib/weekly';
+import { delayThresholds, liveEvents } from '../lib/terminal-model';
 
 const row = (brand: string, scope: 'national' | 'international', from_s: number, pct: number, form: 'bon' | 'argent'): Scale =>
   ({ brand, scope, from_s, pct, form, source_url: '', source_as_of: '' });
@@ -87,4 +88,18 @@ test('calcul périmé : signalé au-delà de l’âge normal des caches', async 
   expect(isCalcStale('2026-11-04T10:10:00Z', STATS_MAX_AGE_MIN, now)).toBe(false);
   expect(calcLabel('2026-11-04T09:50:00Z', STATS_MAX_AGE_MIN, now)).toBe('CALCULÉ À 10:50 · PÉRIMÉ, MISE À JOUR EN ÉCHEC');
   expect(calcLabel('2026-11-04T09:50:00Z')).toBe('CALCULÉ À 10:50');
+});
+
+test('INOUI à exactement +30′ : rien (« plus de 30 minutes », SNCF Connect) ; 31′ et plus : 25 % ; bandeau et calcul alignés', () => {
+  expect(stepAt(scale, 'INOUI', 1800)).toBeNull();
+  expect(stepAt(scale, 'INOUI', 1859)).toBeNull();
+  expect(stepAt(scale, 'INOUI', 1860)?.pct).toBe(25);
+  // Retards publiés par pas de 5 min : le premier retard indemnisé en pratique est +35′.
+  expect(stepAt(scale, 'INOUI', 2100)?.pct).toBe(25);
+  // Le bandeau lit le même barème : seuil à 31′, pas d'événement pour un train qui passe à +30′.
+  expect(delayThresholds(scale.filter((s) => s.brand === 'INOUI'))[0]).toBe(31);
+  const t = (delay_s: number) => ({ trip_id: 'a', service_date: '2026-11-05', brand: 'INOUI', axis: 'SUD_EST', train_number: '1', cancelled: false,
+    dep_planned: '2026-11-05T08:00:00Z', arr_planned: '2026-11-05T11:00:00Z', comp_pct: 0, comp_eur_per_passenger_ref: 0, stops: [], delay_s });
+  expect(liveEvents([t(1500)], [t(1800)], [31, 60, 120], 9999).events).toEqual([]);
+  expect(liveEvents([t(1800)], [t(2100)], [31, 60, 120], 9999).events.map((e) => e.tag)).toEqual(['SEUIL 31′ FRANCHI']);
 });

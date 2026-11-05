@@ -9,9 +9,10 @@ import type { StatsPayload } from '../../lib/stats';
 import { collectHealth } from '../../lib/marey';
 import { parseGares, readBoard, type Board, type Tab } from '../../lib/station';
 import type { GareRow } from '../../lib/command';
-import { beyondTop, delayThresholds, liveEvents, nextLiveDelayMs, periodQuery, type Period, type TickerItem } from '../../lib/terminal-model';
+import { bucketHighlight, delayThresholds, liveEvents, nextLiveDelayMs, periodQuery, tickerFeed, type Period, type TickerItem } from '../../lib/terminal-model';
 import FootBar from './foot-bar';
-import LeftPanel from './left-panel';
+import GroupsPanel from './groups-panel';
+import LeftPanel, { type BucketFilter } from './left-panel';
 import PeriodPicker from './period-picker';
 import RightPanel from './right-panel';
 import { parseVue, type Vue } from './stats-tabs';
@@ -186,8 +187,18 @@ export default function TerminalView() {
     const t = setInterval(load, REFRESH_MS);
     return () => { alive = false; clearInterval(t); };
   }, [gare]);
-  const highlight = useMemo<Highlight>(() => (gare && board
+  const gareHighlight = useMemo<Highlight>(() => (gare && board
     ? { trips: board.rows.map((r) => r.trip_id), points: board.gares.map((g) => [g.lon, g.lat] as [number, number]) } : null), [gare, board]);
+  // Tranche de l'histogramme survolée ou épinglée : ses trains en avant sur la carte (le panneau gare reste prioritaire).
+  const [bucket, setBucket] = useState<BucketFilter>(null);
+  useEffect(() => {
+    if (!bucket?.pinned) return;
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setBucket(null); };
+    window.addEventListener('keydown', esc);
+    return () => window.removeEventListener('keydown', esc);
+  }, [bucket]);
+  const highlight = useMemo<Highlight>(() => gareHighlight
+    ?? (bucket ? { trips: bucketHighlight(trains, new Date(), bucket.idx, selected), points: [] } : null), [gareHighlight, bucket, trains, selected]);
   const rules = useMemo(() => (stats ? { compensation_scale: stats.assumptions.compensation_scale, prices: stats.assumptions.prices } : null), [stats]);
   // Règle unique de l'accueil : un clic sur un train le centre sur la carte (s'il a une position) et ouvre sa fiche.
   const onFocus = useCallback((trip_id: string) => { setFocus({ trip_id, at: Date.now() }); select(trip_id); }, [select]);
@@ -201,7 +212,7 @@ export default function TerminalView() {
   // Événements récents d'abord ; sans événement, les trains en retard au-delà du Top 10.
   const items = useMemo(() => {
     const recent = events.filter((e) => Date.now() - e.at < EVENT_TTL_MS).map((e) => e.item);
-    return recent.length > 0 ? recent.slice(0, 15) : beyondTop(trains, TOP_N, 15);
+    return tickerFeed(recent, trains, TOP_N, 15);
   }, [events, trains]);
   // Retard du collecteur mesuré à la production de la réponse (comme sur /marey), pas l'âge du cache de /api/live (jusqu'à ~6 min).
   const status = (liveFailed && trains.length === 0) || !generatedAt ? { status: 'unknown' as const, ageMin: null } : collectHealth(generatedAt, trains);
@@ -212,12 +223,13 @@ export default function TerminalView() {
       <Ticker items={items} failed={liveFailed} onFocus={onFocus} />
       <main className="term-grid">
         <h1 className="sr-only">Observatoire TGV : trains en circulation, retards et indemnités théoriques</h1>
-        <LeftPanel trains={trains} liveFailed={liveFailed} stats={stats} statsFailed={statsFailed} statsLoading={statsLoading} period={period} onFocus={onFocus} />
+        <LeftPanel trains={trains} liveFailed={liveFailed} onFocus={onFocus} filter={bucket} onFilter={setBucket} />
         <div className="term-center">
           <CarteView trains={trains} failed={liveFailed} lastOk={lastOk} focus={focus} selected={selected} onSelect={select} onSpeed={setSpeed}
             highlight={highlight} gares={gares} onGare={openGare}
             overlay={gare ? <StationPanel uics={gare} board={board} failed={boardFailed} tab={tab} onTab={setTab} onPick={onPick} onClose={() => setGare(null)} />
               : selected || missing ? <TrainPanel train={trains.find((t) => t.trip_id === selected) ?? null} missing={missing} gareOf={(nom) => uicByName.get(nom) ?? null} onGare={openGare} rules={rules} speed={speed} onClose={() => select(null)} /> : null} />
+          <GroupsPanel stats={stats} failed={statsFailed} loading={statsLoading} period={period} onRetry={reloadStats} />
         </div>
         <RightPanel cumul={cumul} cumulFailed={cumulFailed} stats={stats} statsFailed={statsFailed} statsLoading={statsLoading} period={period} inFeed={trains.length}
           vue={vue} onVue={setVue} keys={!gare && !selected && !missing} onRetry={reloadStats} />

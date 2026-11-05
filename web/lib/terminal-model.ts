@@ -1,5 +1,6 @@
 import { SAMPLE_MIN, TERMINUS_BUCKETS, isSmallSample, suppressionPct } from './dashboard-model';
 import { departed, type LiveItem } from './map-model';
+import { shortName } from './marey-layout';
 import type { Group } from './stats';
 
 export type Tone = 'ontime' | 'late' | 'strong' | 'severe' | 'cancelled';
@@ -168,8 +169,10 @@ export const delayThresholds = (scale: { from_s: number }[]): number[] =>
   [...new Set(scale.map((s) => Math.round(s.from_s / 60)))].sort((a, b) => a - b);
 
 export type TickerItem = { key: string; trip_id: string; tag: string; label: string; tone: Tone };
+// Gare en abrégé (table du Marey : « Hall 1 - 2 » retiré, Saint- en St-…), sans troncature par défaut.
+export const gare = (nom: string | undefined, max = 40) => (nom ? shortName(nom, max) : '');
 const trainLabel = (t: LiveItem) =>
-  [`${t.brand} ${t.train_number}`, [t.origin, t.dest].filter(Boolean).join(' → ')].filter(Boolean).join(' ');
+  [`${t.brand} ${t.train_number}`, [gare(t.origin), gare(t.dest)].filter(Boolean).join(' → ')].filter(Boolean).join(' ');
 
 // Événements entre deux relevés du flux : seuil d'indemnité franchi (le plus haut seulement), suppression, nouveau record
 // de retard. `record` = plus grand retard (s) déjà vu depuis l'ouverture de la page ; le premier relevé (prev vide) fixe la base.
@@ -185,7 +188,7 @@ export function liveEvents(prev: LiveItem[], next: LiveItem[], thresholdsMin: nu
     if (t.cancelled && !p.cancelled) events.push({ key: `${t.trip_id}:supp`, trip_id: t.trip_id, tag: 'SUPPRIMÉ', label: trainLabel(t), tone: 'cancelled' });
     if (t.cancelled) continue;
     const crossed = thresholdsMin.filter((m) => (p.delay_s ?? 0) < m * 60 && d >= m * 60).pop();
-    if (crossed !== undefined) events.push({ key: `${t.trip_id}:s${crossed}`, trip_id: t.trip_id, tag: `SEUIL +${crossed}′`, label: trainLabel(t), tone: delayTone(d, false) });
+    if (crossed !== undefined) events.push({ key: `${t.trip_id}:s${crossed}`, trip_id: t.trip_id, tag: `SEUIL ${crossed}′ FRANCHI`, label: trainLabel(t), tone: delayTone(d, false) });
   }
   const best = top?.delay_s ?? 0;
   if (prev.length > 0 && top && best > record) {
@@ -205,4 +208,57 @@ export function beyondTop(trains: LiveItem[], skip: number, n: number): TickerIt
 export function eurShort(n: number): string {
   const [div, unit, digits] = n >= 1e6 ? [1e6, ' M€', 2] : n >= 1e3 ? [1e3, ' k€', 0] : [1, ' €', 0];
   return `${(n / div).toLocaleString('fr-FR', { minimumFractionDigits: digits, maximumFractionDigits: digits })}${unit}`;
+}
+
+// Couleur d'une régularité (%) : mêmes seuils sur toute la colonne de droite.
+export const regTone = (p: number | null) => (p === null ? 'term-dim' : p >= 80 ? 'tone-ontime' : p >= 60 ? 'tone-late' : p >= 40 ? 'tone-strong' : 'tone-severe');
+
+// Histogramme « Retards maintenant » : les trois dernières tranches (rares) réunies en 60+, détail au survol.
+export const LIVE_GROUPS: { label: string; idx: number[] }[] = [
+  { label: '0-4', idx: [0] }, { label: '5-14', idx: [1] }, { label: '15-29', idx: [2] }, { label: '30-59', idx: [3] }, { label: '60+', idx: [4, 5, 6] },
+];
+export function liveGroups(trains: LiveItem[], now: Date): { label: string; idx: number[]; n: number; detail: { bucket: string; n: number }[] }[] {
+  const b = liveBuckets(trains, now);
+  return LIVE_GROUPS.map((g) => ({ ...g, n: g.idx.reduce((n, i) => n + b[i].n, 0), detail: g.idx.map((i) => b[i]) }));
+}
+// Trains d'un groupe de tranches (même filtre que liveBuckets), pour les mettre en avant sur la carte.
+export function groupTrips(trains: LiveItem[], now: Date, idx: number[]): string[] {
+  return trains.filter((t) => departed(t, now) && idx.includes(bucketIndex(t.delay_s))).map((t) => t.trip_id);
+}
+
+// Bas de l'échelle des barres de régularité : 70 %, ou la dizaine sous le plus bas axe s'il passe dessous.
+export function regScaleMin(pcts: (number | null)[]): number {
+  const lo = Math.min(...pcts.filter((p): p is number => p !== null));
+  return Number.isFinite(lo) && lo < 70 ? Math.floor(lo / 10) * 10 : 70;
+}
+
+// Écart en points entre deux régularités : « −9,1 PTS », « +2,0 PTS » ; null s'il en manque une.
+export function deltaPts(a: number | null, b: number | null): string | null {
+  if (a === null || b === null) return null;
+  const d = Math.round((a - b) * 10) / 10;
+  return `${d > 0 ? '+' : d < 0 ? '−' : ''}${Math.abs(d).toLocaleString('fr-FR', { minimumFractionDigits: 1 })} PTS`;
+}
+
+// Contenu du bandeau : les événements récents sans les trains déjà dans le Top retards (jamais deux fois à l'écran) ;
+// sans événement restant, les trains en retard au-delà du Top.
+export function tickerFeed(events: TickerItem[], trains: LiveItem[], topN: number, n: number): TickerItem[] {
+  const inTop = new Set(topDelays(trains, topN).map((t) => t.trip_id));
+  const kept = events.filter((e) => !inTop.has(e.trip_id));
+  return kept.length > 0 ? kept.slice(0, n) : beyondTop(trains, topN, n);
+}
+
+// Trains mis en avant sur la carte par un filtre de tranche, recalculé à chaque relevé (un train qui change de tranche
+// entre ou sort) ; le train sélectionné reste toujours visible.
+export function bucketHighlight(trains: LiveItem[], now: Date, idx: number[], selected: string | null): string[] {
+  const trips = groupTrips(trains, now, idx);
+  return selected && !trips.includes(selected) ? [...trips, selected] : trips;
+}
+
+// En-tête de la colonne de droite : l'heure du calcul le plus récent, et « périmé » dès qu'un bloc dépasse son propre
+// seuil (cumul et jour : CUMUL_MAX_AGE_MIN ; période : STATS_MAX_AGE_MIN).
+export function columnCalc(statsAt: string | undefined, cumulAt: string | undefined, now = new Date()): { label: string; stale: boolean } | null {
+  const times = [statsAt, cumulAt].filter((x): x is string => !!x).sort();
+  if (times.length === 0) return null;
+  const stale = isCalcStale(statsAt, STATS_MAX_AGE_MIN, now) || isCalcStale(cumulAt, CUMUL_MAX_AGE_MIN, now);
+  return { label: calcLabel(times[times.length - 1])!, stale };
 }

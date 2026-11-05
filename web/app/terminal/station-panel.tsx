@@ -1,7 +1,7 @@
 'use client';
 
 import { boardLines, boardTitle, regPct, type Board, type Tab } from '../../lib/station';
-import { bucketIndex } from '../../lib/terminal-model';
+import { bucketIndex, gare } from '../../lib/terminal-model';
 import { useShortcuts } from './train-actions';
 
 const TABS: [Tab, string][] = [['DEP', 'DÉPARTS'], ['ARR', 'ARRIVÉES']];
@@ -50,7 +50,7 @@ export default function StationPanel({ uics, board, failed, tab, onTab, onPick, 
                       <span>{l.planned}</span>
                       <span>{l.cancelled ? '—' : l.estimated}</span>
                       <span>{l.brand === 'OUIGO' ? 'OG' : 'IN'} {l.train_number}</span>
-                      <span className="st-place">{l.place}</span>
+                      <span className="st-place" title={l.place}>{gare(l.place)}</span>
                       {l.cancelled ? <span className="tone-cancelled">SUPPR.</span>
                         : <span className={`seg-c s${bucketIndex(l.delay_s)}`}>{l.delay_s >= 60 ? `+${Math.round(l.delay_s / 60)}′` : 'À L’H.'}</span>}
                     </button>

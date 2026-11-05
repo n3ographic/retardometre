@@ -39,6 +39,13 @@ export function lastCompleteWeekId(now: Date): string {
   return `${t.getUTCFullYear()}-W${String(n).padStart(2, '0')}`;
 }
 export const lastCompleteWeek = (now: Date): number => weekNum(lastCompleteWeekId(now));
+// Lundi et dimanche (JJ/MM) d'une semaine ISO « 2026-W44 ».
+export function weekDays(id: string): [string, string] {
+  const jan4 = new Date(Date.UTC(Number(id.slice(0, 4)), 0, 4));
+  const monday = new Date(jan4.getTime() + (((weekNum(id) - 1) * 7) - ((jan4.getUTCDay() + 6) % 7)) * 86_400_000);
+  const f = (d: Date) => `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+  return [f(monday), f(new Date(monday.getTime() + 6 * 86_400_000))];
+}
 
 type Delta = { value: number; unit: '%' | 'PT'; good: boolean; perDay?: boolean } | null;
 // Variation : en % pour un volume, en points pour un taux ; « good » colore la flèche (une hausse de régularité est bonne).
