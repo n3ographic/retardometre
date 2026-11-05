@@ -427,8 +427,8 @@ export default function CarteView({ trains, failed, lastOk, focus, selected, onS
       {overlay}
       {/* Seule légende des couleurs de retard de la page : mêmes tranches que les barres des panneaux. */}
       <ul className="carte-legend" aria-label="Légende des retards en minutes">
-        {TERMINUS_BUCKETS.map((b, i) => <li key={b}><span className={`seg-c s${i}`} aria-hidden="true">█</span>{b}</li>)}
-        <li className="term-dim">MIN</li>
+        <li className="term-dim">RETARD</li>
+        {TERMINUS_BUCKETS.map((b, i) => <li key={b}><span className={`seg-c s${i}`} aria-hidden="true">█</span>{b}′</li>)}
       </ul>
       {failed && (
         <p className="carte-banner" role="status">
@@ -446,7 +446,7 @@ export default function CarteView({ trains, failed, lastOk, focus, selected, onS
         </div>
       )}
       <p className="carte-count" aria-live="polite">
-        {failed && trains.length === 0 ? 'AUCUNE DONNÉE' : <><span title="Trains du flux temps réel : pas encore partis, à l’arrêt, en route, arrivés ou supprimés">{shown.length} DANS LE FLUX</span> · <span title="Trains entre deux arrêts, d’après la position estimée">{moving} EN ROUTE</span> · <span className="tone-strong" title="Trains partis et non supprimés avec au moins 5 min de retard (même chiffre que les tranches de 5′ et plus de Retards maintenant)">{lateCount(shown, new Date(now))} EN RETARD (≥5′)</span></>}
+        {failed && trains.length === 0 ? 'AUCUNE DONNÉE' : <span title={`Trains entre deux gares, d’après la position estimée. Dans le flux : ${shown.length} (pas encore partis, arrêtés en gare, arrivés ou supprimés compris). En retard d’au moins 5 min : ${lateCount(shown, new Date(now))}, détail dans Retards maintenant.`}>{moving} EN ROUTE</span>}
       </p>
     </section>
   );
