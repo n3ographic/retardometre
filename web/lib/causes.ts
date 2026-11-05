@@ -4,6 +4,7 @@ export const CAUSE_LABELS: Record<string, { short: string; long: string }> = {
   meteo: { short: 'MÉTÉO', long: 'Météo et végétation' },
   obstacle: { short: 'OBSTACLE / ANIMAL', long: 'Obstacle, animal, choc' },
   malveillance: { short: 'MALVEILLANCE', long: 'Malveillance (vol de câbles, vandalisme, signal d’alarme tiré abusivement)' },
+  greve: { short: 'GRÈVE', long: 'Grève (mouvement social, préavis)' },
   voyageurs_surete: { short: 'VOYAGEURS / SÛRETÉ', long: 'Voyageurs et sûreté' },
   infrastructure: { short: 'INFRASTRUCTURE', long: 'Infrastructure et travaux' },
   materiel: { short: 'MATÉRIEL', long: 'Matériel et préparation du train' },

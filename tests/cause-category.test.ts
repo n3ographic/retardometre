@@ -43,6 +43,12 @@ test.each([
   ['Votre TGV INOUI a quitté la gare avec du retard. Ce retard était dû à des conditions de départ non réunies avant la mise en circulation du train.', 'exploitation'],
   ["Cause : signal d'alarme tiré abusivement entre TOULON et MARSEILLE SAINT CHARLES.", 'malveillance'],
   ["Cause : un voyageur a actionné un signal d'alarme à bord d'un train à AGEN.", 'voyageurs_surete'],
+  // Textes réels restés en « autre » jusqu'au 05/11/2026.
+  ['Cause : mouvement social national perturbant la circulation des trains. La circulation de votre TGV est modifiée.', 'greve'],
+  ['Cause : un mouvement social interprofessionnel perturbe la circulation des TGV INOUI.', 'greve'],
+  ['Cause : un mouvement social perturbe la circulation des TGV INOUI / INTERCITÉS / OUIGO à BORDEAUX.', 'greve'],
+  ['Cause : grève de contrôleurs à NANTES.', 'greve'],
+  ['Cause : le matériel utilisé pour assurer votre train a été retardé sur son précédent trajet en raison d’un mouvement social.', 'enchainement'],
   // « dégradation » de la météo reste de la météo (règle météo prioritaire).
   ['Cause : dégradation des conditions météorologiques à BREST.', 'meteo'],
 ])('cause_category(%s) = %s', async (cause, expected) => {
