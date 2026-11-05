@@ -12,15 +12,15 @@ const pct = (brand: string, d: number, intl: boolean) => one<number>('select pub
 const form = (brand: string, d: number, intl: boolean) => one<string | null>('select public.compensation_form($1, $2, $3) as v', [brand, d, intl])
 
 test('G30 national 25 / 50 / 75 %, international plafonné à 50 % ; OUIGO identique en international', async () => {
-  expect([await pct('INOUI', 1800, false), await pct('INOUI', 1860, false), await pct('INOUI', 7200, false), await pct('INOUI', 10860, false)])
+  expect([await pct('INOUI', 1740, false), await pct('INOUI', 1800, false), await pct('INOUI', 7200, false), await pct('INOUI', 10860, false)])
     .toEqual([0, 25, 50, 75])
-  expect([await pct('INOUI', 1860, true), await pct('INOUI', 7200, true), await pct('INOUI', 10860, true)]).toEqual([25, 50, 50])
+  expect([await pct('INOUI', 1740, true), await pct('INOUI', 1800, true), await pct('INOUI', 7200, true), await pct('INOUI', 10860, true)]).toEqual([0, 25, 50, 50])
   expect([await pct('OUIGO', 3600, true), await pct('OUIGO', 10860, true)]).toEqual([25, 50])
   expect(await one<number>('select public.compensation_pct($1, $2) as v', ['INOUI', 10860])).toBe(75)
 })
 
-test('forme : bon de 31 min à 1 h, argent au-delà en INOUI ; toujours bon en OUIGO', async () => {
-  expect([await form('INOUI', 1860, false), await form('INOUI', 3600, false), await form('INOUI', 3660, false), await form('INOUI', 10860, true)])
+test('forme : bon de 30 min à 1 h, argent au-delà en INOUI ; toujours bon en OUIGO', async () => {
+  expect([await form('INOUI', 1800, false), await form('INOUI', 3600, false), await form('INOUI', 3660, false), await form('INOUI', 10860, true)])
     .toEqual(['bon', 'bon', 'argent', 'argent'])
   expect([await form('OUIGO', 3600, false), await form('OUIGO', 7200, false), await form('INOUI', 1200, false)]).toEqual(['bon', 'bon', null])
 })

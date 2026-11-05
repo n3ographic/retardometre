@@ -55,7 +55,7 @@ test('delay_bucket aux bornes', async () => {
 })
 
 test('compensation_pct aux bornes', async () => {
-  expect(await pcts(db, 'INOUI', [1800, 1860, 7140, 7200, 10800, 10860])).toEqual([0, 25, 25, 50, 50, 75])
+  expect(await pcts(db, 'INOUI', [1740, 1800, 7140, 7200, 10800, 10860])).toEqual([0, 25, 25, 50, 50, 75])
   expect(await pcts(db, 'OUIGO', [3540, 3600, 7140, 7200])).toEqual([0, 25, 25, 50])
   expect(await pcts(db, 'TER', [7200])).toEqual([0])
 })

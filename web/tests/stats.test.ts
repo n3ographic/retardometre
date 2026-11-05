@@ -73,7 +73,7 @@ test('hypothèses : occupation, prix et barème triés par marque puis palier', 
   expect(p.assumptions.occupancy).toBe(0.75);
   expect(DEFAULT_OCCUPANCY).toBe(0.75);
   expect(p.assumptions.prices.map((x) => x.brand)).toEqual(['INOUI', 'OUIGO']);
-  expect(p.assumptions.compensation_scale.map((x) => `${x.brand}:${x.from_s}`)).toEqual(['INOUI:1860', 'INOUI:7200', 'OUIGO:3600']);
+  expect(p.assumptions.compensation_scale.map((x) => `${x.brand}:${x.from_s}`)).toEqual(['INOUI:1800', 'INOUI:7200', 'OUIGO:3600']);
 });
 
 test('hypothèses : prix et barème convertis en nombres', () => {

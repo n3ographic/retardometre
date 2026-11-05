@@ -163,7 +163,7 @@ export function nextLiveDelayMs(generatedAt: string, now: number = Date.now()): 
   return Math.min(LIVE_CACHE_S * 1000, Math.max(20_000, Number.isFinite(due) ? due : 60_000));
 }
 
-// Seuils d'indemnité (minutes) tirés du barème en vigueur, sans doublon : +31′, +60′, +120′… selon les règles chargées.
+// Seuils d'indemnité (minutes) tirés du barème en vigueur, sans doublon : +30′, +60′, +120′… selon les règles chargées.
 export const delayThresholds = (scale: { from_s: number }[]): number[] =>
   [...new Set(scale.map((s) => Math.round(s.from_s / 60)))].sort((a, b) => a - b);
 

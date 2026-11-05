@@ -3,7 +3,7 @@ import { compensationView, delayBounds, observedAgo, speedView, thresholdProgres
 
 const rules: Rules = {
   compensation_scale: [
-    { brand: 'INOUI', from_s: 1860, pct: 25, source_url: '', source_as_of: '' },
+    { brand: 'INOUI', from_s: 1800, pct: 25, source_url: '', source_as_of: '' },
     { brand: 'INOUI', from_s: 7200, pct: 50, source_url: '', source_as_of: '' },
     { brand: 'OUIGO', from_s: 3600, pct: 25, source_url: '', source_as_of: '' },
   ],
@@ -18,11 +18,11 @@ test('delayBounds : le retard réel est à moins de 299 s du retard publié, jam
 test('compensationView : pourcentage et euros en fourchette, prochain seuil', () => {
   const v = compensationView('INOUI', 1200, rules)!;
   expect(v).toMatchObject({ pct_low: 0, pct_high: 0, eur_low: 0, eur_high: 0 });
-  expect(v.next).toEqual({ from_s: 1860, pct: 25, in_s: 660 });
+  expect(v.next).toEqual({ from_s: 1800, pct: 25, in_s: 600 });
 });
 
 test('compensationView : l’incertitude chevauche un seuil', () => {
-  const v = compensationView('INOUI', 1800, rules)!; // réel entre 1501 et 2099 s : le seuil de 1860 s est dans la fourchette
+  const v = compensationView('INOUI', 1800, rules)!; // réel entre 1501 et 2099 s : le seuil de 1800 s est dans la fourchette
   expect(v.pct_low).toBe(0);
   expect(v.pct_high).toBe(25);
   expect(v.eur_high).toBeCloseTo(11.65, 2);
@@ -42,12 +42,12 @@ test('observedAgo : minutes depuis la dernière observation, absent si inconnue'
 });
 
 test('thresholdProgress : avancement du retard entre le palier en cours et le prochain seuil', () => {
-  // INOUI : 0 → 1860 s (25 %) → 7200 s (50 %)
-  expect(thresholdProgress('INOUI', 930, rules)).toEqual({ from_s: 0, to_s: 1860, ratio: 0.5 });
-  expect(thresholdProgress('INOUI', 1860, rules)).toEqual({ from_s: 1860, to_s: 7200, ratio: 0 });
-  expect(thresholdProgress('INOUI', 4530, rules)!.ratio).toBeCloseTo(0.5, 5);
+  // INOUI : 0 → 1800 s (25 %) → 7200 s (50 %)
+  expect(thresholdProgress('INOUI', 900, rules)).toEqual({ from_s: 0, to_s: 1800, ratio: 0.5 });
+  expect(thresholdProgress('INOUI', 1800, rules)).toEqual({ from_s: 1800, to_s: 7200, ratio: 0 });
+  expect(thresholdProgress('INOUI', 4500, rules)!.ratio).toBeCloseTo(0.5, 5);
   expect(thresholdProgress('INOUI', 9000, rules)).toBeNull(); // dernier palier
-  expect(thresholdProgress('INOUI', undefined, rules)).toEqual({ from_s: 0, to_s: 1860, ratio: 0 });
+  expect(thresholdProgress('INOUI', undefined, rules)).toEqual({ from_s: 0, to_s: 1800, ratio: 0 });
   expect(thresholdProgress('AUTRE', 100, rules)).toBeNull(); // marque sans barème
 });
 

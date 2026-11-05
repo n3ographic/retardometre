@@ -42,13 +42,13 @@ test('vue circulation_measures : un retard aberrant n’a ni tranche, ni régula
 })
 
 test('pourcentages central, bas (retard − 4 min 59 s) et haut (retard + 4 min 59 s) aux seuils INOUI', async () => {
-  // Retards publiés par pas de 5 min : 1800 (sous le seuil de 1860), 2100, 7200, 10800, 300.
+  // Retards publiés par pas de 5 min : 1800 (au seuil de 1800), 2100, 7200, 10800, 300.
   await seed(trip('T1', { terminusDelayS: 1800 }), trip('T2', { terminusDelayS: 2100 }), trip('T3', { terminusDelayS: 7200 }),
     trip('T4', { terminusDelayS: 10800 }), trip('T5', { terminusDelayS: 300 }))
   const m = await stats()
-  expect(m.comp_pct_sum).toBe(0 + 25 + 50 + 50 + 0)
-  expect(m.comp_pct_sum_low).toBe(0 + 0 + 25 + 50 + 0) // 2100 − 299 = 1801 < 1860 ; 7200 − 299 < 7200
-  expect(m.comp_pct_sum_high).toBe(25 + 25 + 50 + 75 + 0) // 1800 + 299 ≥ 1860 ; 10800 + 299 ≥ 10860
+  expect(m.comp_pct_sum).toBe(25 + 25 + 50 + 50 + 0)
+  expect(m.comp_pct_sum_low).toBe(0 + 25 + 25 + 50 + 0) // 1800 − 299 = 1501 < 1800 ; 2100 − 299 = 1801 ≥ 1800 ; 7200 − 299 < 7200
+  expect(m.comp_pct_sum_high).toBe(25 + 25 + 50 + 75 + 0) // 1800 + 299 ≥ 1800 ; 10800 + 299 ≥ 10860
 })
 
 test('barème OUIGO : le bas retire le palier à 3 600 s publiées', async () => {
@@ -74,5 +74,5 @@ test('les nouvelles mesures sont aussi enregistrées par jour et retrouvées par
   await db.query('select public.snapshot_day($1, $2)', ['2026-11-01', NOW])
   const t = (await db.query<{ metric: string; n: string }>(`select metric, n::text from public.cumul_totals() where brand = 'INOUI'`)).rows
   const byMetric = Object.fromEntries(t.map((x) => [x.metric, Number(x.n)]))
-  expect(byMetric).toMatchObject({ aberrant: 1, comp_pct_sum: 25, comp_pct_sum_low: 0, comp_pct_sum_high: 25, skipped_stop: 0 })
+  expect(byMetric).toMatchObject({ aberrant: 1, comp_pct_sum: 25, comp_pct_sum_low: 25, comp_pct_sum_high: 25, skipped_stop: 0 })
 })

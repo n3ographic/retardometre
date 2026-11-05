@@ -7,5 +7,5 @@ export const prices: Price[] = [
 export const scale: Scale[] = [
   { brand: 'OUIGO', from_s: 3600, pct: 25, source_url: 'u', source_as_of: '2026-09-04' },
   { brand: 'INOUI', from_s: 7200, pct: 50, source_url: 'u', source_as_of: '2026-06-17' },
-  { brand: 'INOUI', from_s: 1860, pct: 25, source_url: 'u', source_as_of: '2026-06-17' },
+  { brand: 'INOUI', from_s: 1800, pct: 25, source_url: 'u', source_as_of: '2026-06-17' },
 ];
