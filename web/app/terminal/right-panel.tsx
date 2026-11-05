@@ -42,6 +42,7 @@ export default function RightPanel({ cumul, cumulFailed, stats, statsFailed, sta
         <div className="panel-head">
           <h2 className="term-panel-title" id="today-title">Aujourd&apos;hui</h2>
           <span className="live-badge"><span className="live-dot" aria-hidden="true" />LIVE</span>
+          {day && <span className="today-count term-dim" title="Trains terminés depuis minuit (heure de Paris) : la base de la régularité du jour.">· {nf(day.circulated)} TERMINÉS</span>}
           {day && (
             <InfoTip label="Détails du jour">
               <p>TRAINS TERMINÉS DEPUIS MINUIT (HEURE DE PARIS), RECALCULÉ TOUTES LES 5 MINUTES.</p>
@@ -54,7 +55,7 @@ export default function RightPanel({ cumul, cumulFailed, stats, statsFailed, sta
           )}
         </div>
         {!day ? <p className="term-dim">{cumulFailed ? 'INDISPONIBLE' : '…'}</p> : (
-          <dl className="kpi-row kpi-today">
+          <dl className="kpi-row kpi-grid kpi-today">
             <div>
               <dt>RÉGUL.</dt><dd className={regTone(day.official_regularity_pct)}>{pct(day.official_regularity_pct)}</dd>
               {t && deltaPts(day.official_regularity_pct, t.official_regularity_pct) && (
@@ -69,7 +70,6 @@ export default function RightPanel({ cumul, cumulFailed, stats, statsFailed, sta
             </div>
           </dl>
         )}
-        {day && <p className="kpi-foot term-dim">SUR {nf(day.circulated)} TRAINS TERMINÉS</p>}
       </section>
 
       <section className={`term-panel period-panel${t && isSmallSample(t) ? ' term-small' : ''}`} aria-labelledby="period-title">
