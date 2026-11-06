@@ -83,6 +83,11 @@ test('causes : phrase selon l’écart de rang ; indemnité par train ; part en 
   expect(w.takeaways).toContain('17 k€ sur 19 k€ d’indemnités théoriques (90 %) sont dus en bons d’achat, et non en argent.');
 });
 
+test('grille : heures de nuit vides masquées, trous de journée gardés', () => {
+  const p = { ...payload(7, { EST: [100, 90] }), heatmap: [[1, 0, 2, 60], [1, 5, 1, 0], [2, 7, 10, 60], [3, 10, 4, 120]] as WeekPayload['heatmap'] };
+  expect(shapeWeek(row('2026-W44', p), null).heat[0].cells.map((c) => c.hour)).toEqual([0, 5, 7, 8, 9, 10]);
+});
+
 test('weekDays : lundi et dimanche de la semaine ISO', () => {
   expect(weekDays('2026-W44')).toEqual(['26/10', '01/11']);
   expect(weekDays('2027-W01')).toEqual(['04/01', '10/01']);

@@ -78,7 +78,8 @@ export default async function Page({ params }: Props) {
           <nav className="wk-nav" aria-label="Semaines">
             {prevWeek ? <a href={`/semaine/${prevWeek}`}>← S{weekNum(prevWeek)}</a> : <span className="term-dim">← —</span>}
             <span className="term-dim">BILAN HEBDO</span>
-            {nextWeek ? <a href={`/semaine/${nextWeek}`}>S{weekNum(nextWeek)} →</a> : <span className="term-dim">— →</span>}
+            {/* Dernière semaine figée : la semaine en cours n'a pas de bilan, l'accueil montre les 7 derniers jours en direct. */}
+            {nextWeek ? <a href={`/semaine/${nextWeek}`}>S{weekNum(nextWeek)} →</a> : <a href="/" title="Semaine en cours : statistiques des 7 derniers jours sur l’accueil, mises à jour en continu">7 DERNIERS JOURS →</a>}
           </nav>
           <h1><span className="term-logo">SEMAINE {v.num}</span> DU {v.title.split(' DU ')[1]}</h1>
           <p className="term-dim">

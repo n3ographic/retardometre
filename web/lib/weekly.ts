@@ -123,9 +123,10 @@ export function shapeWeek(row: WeekRow, prev: WeekRow | null, extra: WeekExtra |
     return { ...c, label: causeShort(c.category), share, euroRank, trainRank, sentence };
   });
 
-  // Heatmap : heures présentes dans la semaine ; une case sous 5 trains est estompée.
+  // Heatmap : heures présentes dans la semaine, sans les heures de nuit (1 h à 6 h) restées vides ; une case sous 5 trains est estompée.
   const cells = p.heatmap ?? [];
-  const hours = cells.length ? Array.from({ length: Math.max(...cells.map((c) => c[1])) - Math.min(...cells.map((c) => c[1])) + 1 }, (_, i) => Math.min(...cells.map((c) => c[1])) + i) : [];
+  const lo = Math.min(...cells.map((c) => c[1])), hi = Math.max(...cells.map((c) => c[1]));
+  const hours = cells.length ? Array.from({ length: hi - lo + 1 }, (_, i) => lo + i).filter((h) => h < 1 || h > 6 || cells.some((c) => c[1] === h)) : [];
   const heat = DOW.map((label, i) => ({ label, cells: hours.map((h) => {
     const c = cells.find((x) => x[0] === i + 1 && x[1] === h);
     return c ? { hour: h, n: c[2], avg_min: Math.round(c[3] / 60), avg_s: c[3] } : { hour: h, n: 0, avg_min: null, avg_s: null };
