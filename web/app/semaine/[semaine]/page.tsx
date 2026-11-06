@@ -70,20 +70,18 @@ export default async function Page({ params }: Props) {
     <>
       <StatusBar />
       <main className="tp wk">
-        <header className="tp-head wk-head">
-          <div>
-            <nav className="wk-nav" aria-label="Semaines">
-              {prevWeek ? <a href={`/semaine/${prevWeek}`}>← S{weekNum(prevWeek)}</a> : <span className="term-dim" aria-hidden="true">←</span>}
-              <span className="term-dim">BILAN HEBDO</span>
-              {/* Dernière semaine figée : la semaine en cours n'a pas de bilan, l'accueil montre les 7 derniers jours en direct. */}
-              {nextWeek ? <a href={`/semaine/${nextWeek}`}>S{weekNum(nextWeek)} →</a> : <a href="/" title="Semaine en cours : statistiques des 7 derniers jours sur l’accueil, mises à jour en continu">7 DERNIERS JOURS →</a>}
-            </nav>
-            <h1><span className="term-logo">SEMAINE {v.num}</span> DU {v.title.split(' DU ')[1]}</h1>
-            <p className="term-dim">
-              FIGÉ LE {STAMP.format(new Date(v.computed_at)).replace(' ', ' À ')}
-              {v.complete ? ' · 7 JOURS' : <> · <span className="tone-late">SEMAINE INCOMPLÈTE · {v.days} JOURS (COLLECTE DEPUIS LE 20/10)</span></>}
-            </p>
-          </div>
+        <header className="tp-head">
+          <nav className="wk-nav" aria-label="Semaines">
+            {prevWeek ? <a href={`/semaine/${prevWeek}`}>← S{weekNum(prevWeek)}</a> : <span className="term-dim" aria-hidden="true">←</span>}
+            <span className="term-dim">BILAN HEBDO</span>
+            {/* Dernière semaine figée : la semaine en cours n'a pas de bilan, l'accueil montre les 7 derniers jours en direct. */}
+            {nextWeek ? <a href={`/semaine/${nextWeek}`}>S{weekNum(nextWeek)} →</a> : <a href="/" title="Semaine en cours : statistiques des 7 derniers jours sur l’accueil, mises à jour en continu">7 DERNIERS JOURS →</a>}
+          </nav>
+          <h1><span className="term-logo">SEMAINE {v.num}</span> DU {v.title.split(' DU ')[1]}</h1>
+          <p className="term-dim">
+            FIGÉ LE {STAMP.format(new Date(v.computed_at)).replace(' ', ' À ')}
+            {v.complete ? ' · 7 JOURS' : <> · <span className="tone-late">SEMAINE INCOMPLÈTE · {v.days} JOURS (COLLECTE DEPUIS LE 20/10)</span></>}
+          </p>
           {/* L'adresse est ajoutée côté navigateur : la même page sert en local et en production. */}
           <ShareBar text={summaryText(v, '').trimEnd()} week={v.week} />
         </header>
