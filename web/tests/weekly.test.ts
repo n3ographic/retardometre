@@ -21,28 +21,36 @@ test('chiffres clés, variations et mention de la semaine précédente incomplè
   const prev = row('2026-W43', payload(6, { EST: [80, 76], NORD: [80, 76] }));
   const w = shapeWeek(cur, prev);
   expect(w.title).toBe('SEMAINE 44 · DU 26/10 AU 01/11');
-  // 200 trains en 7 jours contre 160 en 6 : comparés par jour (28,6 contre 26,7), soit +7,1 %.
-  expect(w.kpis.trains).toEqual({ value: 200, delta: { value: 7.1, unit: '%', good: true, perDay: true } });
+  // S43 incomplète (6 jours) : aucune variation, ni sur la page ni dans « À retenir » ; jamais de variation du nombre de trains.
+  expect(w.kpis.trains).toEqual({ value: 200 });
   expect(w.kpis.regularity.value).toBe(80);
-  expect(w.kpis.regularity.delta).toEqual({ value: -15, unit: 'PT', good: false });
+  expect([w.kpis.regularity.delta, w.kpis.cost.delta, w.kpis.suppressions.delta]).toEqual([null, null, null]);
   expect(w.prev).toMatchObject({ num: 43, incomplete: true, days: 6 });
-  expect(w.takeaways[0]).toBe('La régularité perd 15,0 points par rapport à la semaine 43 (incomplète, 6 jours), à 80,0 %.');
-  // Pire et meilleur jour : le 28/10 (20 trains) est écarté ; la cause « sans cause » ne compte pas.
-  expect(w.worstDay).toMatchObject({ label: 'LUN 26/10', pct: 66.7, cause: 'obstacle' });
+  expect(w.takeaways.some((s) => s.startsWith('La régularité'))).toBe(false);
+  // Deux semaines complètes : variations affichées.
+  const full = shapeWeek(cur, row('2026-W43', payload(7, { EST: [80, 76], NORD: [80, 76] })));
+  expect(full.kpis.regularity.delta).toEqual({ value: -15, unit: 'PT', good: false });
+  expect(full.takeaways[0]).toBe('La régularité perd 15,0 points par rapport à la semaine 43, à 80,0 %.');
+  // Meilleur jour : le 28/10 (20 trains) est écarté ; la cause « sans cause » ne compte pas.
   expect(w.bestDay).toMatchObject({ label: 'MAR 27/10', pct: 90 });
+  // Créneau le plus touché : la case de 9 h (20′) n'a que 3 trains, celle de 7 h (10 trains, 1′) l'emporte.
+  expect(w.worstSlot).toEqual({ dow: 1, hour: 7, n: 10, avg_min: 1, label: 'LUN 26/10' });
+  expect(w.takeaways).toContain('Créneau le plus touché : lundi 7 h, 1′ de retard moyen sur 10 trains arrivés.');
   expect([w.bestAxis, w.worstAxis]).toEqual(['EST', 'NORD']);
-  // Obstacle : 3 trains, 2e en nombre, mais 1re cause en euros.
-  expect(w.causes[0].sentence).toMatch(/^Obstacle, animal, choc : 3 trains seulement \(2e en nombre\), mais première cause en euros/);
+  // Obstacle : 3 trains, 2e en nombre, 1re en euros ; un seul rang d'écart, pas de « seulement ».
+  expect(w.causes.map((c) => [c.category, c.euroRank, c.trainRank])).toEqual([['obstacle', 1, 2], ['enchainement', 2, 1]]);
+  expect(w.causes[0].sentence).toMatch(/^Obstacle, animal, choc : 3 trains, \d+′ de retard moyen, \d+ % des indemnités/);
+  expect(w.axes.map((a) => [a.axis, a.circulated, a.per_train])).toEqual([['EST', 100, 0], ['NORD', 100, 0]]);
   expect(w.heat[0].cells.map((c) => c.n)).toEqual([10, 0, 3]);
   expect(w.train?.days.map((d) => d.state)).toEqual(['ran', 'unobserved']);
 });
 
 test('résumé à copier : 5 lignes au plus, chiffres de la page et lien', () => {
-  const w = shapeWeek(row('2026-W44', payload(7, { EST: [100, 90], NORD: [100, 70] })), row('2026-W43', payload(6, { EST: [80, 76], NORD: [80, 76] })));
+  const w = shapeWeek(row('2026-W44', payload(7, { EST: [100, 90], NORD: [100, 70] })), row('2026-W43', payload(7, { EST: [80, 76], NORD: [80, 76] })));
   const lines = summaryText(w, 'https://x/semaine/2026-W44').split('\n');
   expect(lines).toEqual([
     'TGV · semaine 44 (26/10 → 01/11)',
-    'Régularité : 80,0 % (−15,0 pt vs S43, incomplète)',
+    'Régularité : 80,0 % (−15,0 pt vs S43)',
     'Indemnités théoriques : 0 k€ HT · 200 trains',
     'Train de la semaine : 9255 Paris → Milano, à l’heure 0/7 jours',
     'https://x/semaine/2026-W44',
@@ -51,7 +59,7 @@ test('résumé à copier : 5 lignes au plus, chiffres de la page et lien', () =>
 
 test('sans semaine précédente : aucune variation', () => {
   const w = shapeWeek(row('2026-W43', payload(6, { EST: [100, 90] })), null);
-  expect(w.kpis.trains.delta).toBeNull();
+  expect(w.kpis.regularity.delta).toBeNull();
   expect(w.complete).toBe(false);
 });
 
@@ -62,6 +70,28 @@ test('dernière semaine complète : le bilan du lundi n’existe qu’après 07:
   expect(lastCompleteWeekId(new Date('2026-11-04T12:00:00Z'))).toBe('2026-W44');
   expect(lastCompleteWeekId(new Date('2027-01-12T12:00:00Z'))).toBe('2027-W01'); // année ISO, pas calendaire
   expect(lastCompleteWeek(new Date('2027-01-05T12:00:00Z'))).toBe(53); // 2026 compte 53 semaines ISO
+});
+
+test('causes : phrase selon l’écart de rang ; indemnité par train ; part en bons', () => {
+  const c = (cat: string, trains: number, comp: number): WeekPayload['stats'] =>
+    [['INOUI', 'NORD', `cause:${cat}`, trains], ['INOUI', 'NORD', `cause_delay_s:${cat}`, trains * 600], ['INOUI', 'NORD', `cause_comp:${cat}`, comp]];
+  const w = shapeWeek(row('2026-W44', payload(7, { NORD: [100, 70] }, [
+    ...c('obstacle', 2, 300), ...c('infra', 5, 200), ...c('enchainement', 9, 50),
+    ['INOUI', 'NORD', 'comp_pct_sum', 100], ['INOUI', 'NORD', 'comp_pct_sum_bon', 90],
+  ])), null);
+  // En euros : obstacle, infra, enchaînement ; en nombre : enchaînement, infra, obstacle.
+  expect(w.causes.map((x) => [x.euroRank, x.trainRank])).toEqual([[1, 3], [2, 2], [3, 1]]);
+  expect(w.causes[0].sentence).toMatch(/: 2 trains seulement \(3e en nombre\), mais première cause en euros avec 10′/);
+  expect(w.causes[1].sentence).toMatch(/: 5 trains, 10′ de retard moyen, 36 % des indemnités liées à une cause\.$/);
+  expect(w.causes[2].sentence).toMatch(/: 9 trains \(1re en nombre\), mais des retards plus courts, 10′ en moyenne\.$/);
+  // 100 % × 50 € × 500 places × 0,75 = 18 750 € pour 100 trains.
+  expect(w.axes[0].per_train).toBe(188);
+  expect(w.takeaways).toContain('17 k€ sur 19 k€ d’indemnités théoriques (90 %) sont dus en bons d’achat, et non en argent.');
+});
+
+test('grille : heures de nuit vides masquées, trous de journée gardés', () => {
+  const p = { ...payload(7, { EST: [100, 90] }), heatmap: [[1, 0, 2, 60], [1, 5, 1, 0], [2, 7, 10, 60], [3, 10, 4, 120]] as WeekPayload['heatmap'] };
+  expect(shapeWeek(row('2026-W44', p), null).heat[0].cells.map((c) => c.hour)).toEqual([0, 5, 7, 8, 9, 10]);
 });
 
 test('weekDays : lundi et dimanche de la semaine ISO', () => {

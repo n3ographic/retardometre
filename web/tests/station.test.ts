@@ -1,6 +1,6 @@
 import { expect, test, vi } from 'vitest';
 import { createStationHandler } from '../lib/handlers';
-import { boardLines, boardTitle, knownArea, parseGares, readBoard, regPct, shapeBoard, type BoardRow } from '../lib/station';
+import { boardLines, boardTitle, knownArea, parseGares, readBoard, regPct, shapeBoard, stationName, type BoardRow } from '../lib/station';
 
 const row = (o: Partial<BoardRow>): BoardRow => ({
   trip_id: 't', train_number: '8537', brand: 'INOUI', axis: 'ATLANTIQUE', uic: '87581009', cancelled: false, first: false, last: false,
@@ -76,4 +76,11 @@ test('handler : 400 sans code valide ; 404 sans lecture si gare inconnue ou vill
   expect(() => readBoard({ rows: [] })).toThrow();
   expect(rpc).toHaveBeenCalledWith('station_board', { p_uics: ['87773002', '87688887'] });
   expect(keys.filter((k) => k.startsWith('gare|'))[0]).toMatch(/^gare\|v1\|87688887,87773002\|\d+$/);
+});
+
+test('nom de gare affiché : sans « Hall 1 - 2 », casse normale pour les noms en capitales', () => {
+  expect(stationName('Paris Gare de Lyon Hall 1 - 2')).toBe('Paris Gare de Lyon');
+  expect(stationName('MILANO PORTA GARIBALDI')).toBe('Milano Porta Garibaldi');
+  expect(stationName('FIGUERES-VILAFANT')).toBe('Figueres-Vilafant');
+  expect(stationName('Saint-Jean-de-Luz - Ciboure')).toBe('Saint-Jean-de-Luz - Ciboure');
 });

@@ -4,6 +4,7 @@ import { CAUSE_LABELS } from '../../../lib/causes';
 import { COUNT_LABELS } from '../../../lib/counts';
 import { TERMINUS_BUCKETS } from '../../../lib/dashboard-model';
 import { loadGares, loadTrainProfile } from '../../../lib/handlers';
+import { stationName } from '../../../lib/station';
 import { ruleLabel, splitLabel } from '../../../lib/stats';
 import { supabaseDeps } from '../../../lib/supabase';
 import { bucketIndex, delayTone } from '../../../lib/terminal-model';
@@ -63,7 +64,7 @@ export default async function Page({ params }: Props) {
   const uicByName = new Map((await loadGares(supabaseDeps).catch(() => [])).map((g) => [g[1], g[0]]));
   const station = (nom: string | null) => {
     const uic = nom ? uicByName.get(nom) : undefined;
-    return uic ? <a className="to-marey" href={`/?gare=${uic}`}>{nom}</a> : (nom ?? '?');
+    return uic ? <a className="to-marey" href={`/?gare=${uic}`}>{stationName(nom!)}</a> : (nom ? stationName(nom) : '?');
   };
   const pct = p.score.n ? Math.round((p.score.ok / p.score.n) * 100) : null;
   const maxStop = Math.max(1, ...p.stops.map((s) => s.avg_min ?? 0));

@@ -37,12 +37,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return { title: `Semaine ${v.num} · Retardomètre`, description, openGraph: { title: `Bilan TGV · semaine ${v.num}`, description } };
 }
 
-function Delta({ d, v }: { d: { value: number; unit: '%' | 'PT'; good: boolean; perDay?: boolean } | null; v: WeekView }) {
+function Delta({ d, v }: { d: { value: number; unit: '%' | 'PT'; good: boolean } | null; v: WeekView }) {
   if (!d || !v.prev) return null;
   const sign = d.value > 0 ? '+' : d.value < 0 ? '−' : '±';
   return (
     <p className={d.value === 0 ? 'term-dim' : d.good ? 'tone-ontime' : 'tone-severe'}>
-      {d.value > 0 ? '▲' : d.value < 0 ? '▼' : '='} {sign}{fr1(Math.abs(d.value))} {d.unit === '%' ? '%' : 'PT'}{d.perDay ? ' /JOUR' : ''}{v.prev.incomplete ? '*' : ''}
+      {d.value > 0 ? '▲' : d.value < 0 ? '▼' : '='} {sign}{fr1(Math.abs(d.value))} {d.unit === '%' ? '%' : 'PT'}
       <span className="term-dim"> VS S{v.prev.num}</span>
     </p>
   );
@@ -78,7 +78,8 @@ export default async function Page({ params }: Props) {
           <nav className="wk-nav" aria-label="Semaines">
             {prevWeek ? <a href={`/semaine/${prevWeek}`}>← S{weekNum(prevWeek)}</a> : <span className="term-dim">← —</span>}
             <span className="term-dim">BILAN HEBDO</span>
-            {nextWeek ? <a href={`/semaine/${nextWeek}`}>S{weekNum(nextWeek)} →</a> : <span className="term-dim">— →</span>}
+            {/* Dernière semaine figée : la semaine en cours n'a pas de bilan, l'accueil montre les 7 derniers jours en direct. */}
+            {nextWeek ? <a href={`/semaine/${nextWeek}`}>S{weekNum(nextWeek)} →</a> : <a href="/" title="Semaine en cours : statistiques des 7 derniers jours sur l’accueil, mises à jour en continu">7 DERNIERS JOURS →</a>}
           </nav>
           <h1><span className="term-logo">SEMAINE {v.num}</span> DU {v.title.split(' DU ')[1]}</h1>
           <p className="term-dim">
@@ -91,13 +92,14 @@ export default async function Page({ params }: Props) {
           <div className="term-panel">
             <h2 className="term-panel-title" title={COUNT_LABELS.circulated.long}>Trains (ont roulé)</h2>
             <p className="wk-big">{nf(k.trains.value)}</p>
-            <Delta d={k.trains.delta} v={v} />
             <p className="term-dim wk-small" title={COUNTS_HINT}>{breakdownText(v.counts)}</p>
           </div>
           <div className="term-panel">
             <h2 className="term-panel-title">Régularité</h2>
             <p className="wk-big">{k.regularity.value === null ? '—' : `${fr1(k.regularity.value)} %`}</p>
             <Delta d={k.regularity.delta} v={v} />
+            {/* Seuils de regularity_rule (base) : moins de 5′ sous 1 h 30 de trajet, 10′ jusqu'à 3 h, 15′ au-delà. */}
+            <p className="term-dim wk-small" title="À l’heure : retard au terminus de moins de 5′ (trajet de moins de 1 h 30), 10′ (jusqu’à 3 h) ou 15′ (au-delà), comme la régularité officielle">À L’HEURE : MOINS DE 5′, 10′ OU 15′ SELON LA DURÉE</p>
             <p className="term-dim wk-small">APPROCHÉE · RETARDS PAR PAS DE 5′</p>
           </div>
           <div className="term-panel">
@@ -114,7 +116,7 @@ export default async function Page({ params }: Props) {
             <p className="term-dim wk-small">{nf(k.suppressions.n)} TRAINS SUPPRIMÉS</p>
           </div>
         </section>
-        {v.prev?.incomplete && <p className="term-dim wk-small">* S{v.prev.num} INCOMPLÈTE ({v.prev.days} JOURS) : VOLUMES COMPARÉS PAR JOUR, VARIATIONS À LIRE AVEC PRÉCAUTION</p>}
+        {(v.prev?.incomplete || (v.prev && !v.complete)) && <p className="term-dim wk-small">PAS DE COMPARAISON AVEC S{v.prev.num} : {v.prev.incomplete ? `SEMAINE INCOMPLÈTE (${v.prev.days} JOURS)` : 'CETTE SEMAINE EST INCOMPLÈTE'}</p>}
         {v.small && <p className="tone-late">ÉCHANTILLON FAIBLE (MOINS DE 30 TRAINS)</p>}
 
         {v.train && (
@@ -123,11 +125,12 @@ export default async function Page({ params }: Props) {
             <p className="tp-big"><a href={`/train/${v.train.number}`}>{v.train.brand === 'OUIGO' ? 'OUIGO' : 'TGV INOUI'} {v.train.number}</a> <span className="wk-route">{v.train.origin ?? '?'} → {v.train.dest ?? '?'}</span></p>
             <ol className="tp-cal" aria-label="Retard au terminus par jour">
               {v.train.days.map((d) => {
-                const title = `${d.label} · ${d.state === 'unobserved' ? 'non observé' : d.state === 'cancelled' ? 'supprimé' : d.delay_s === null ? COUNT_LABELS.no_terminus.short.toLowerCase() : d.delay_s < 300 ? 'à l’heure' : `+${Math.round(d.delay_s / 60)} min`}`;
+                const title = `${d.label.toLowerCase()} : ${d.state === 'unobserved' ? 'non observé' : d.state === 'cancelled' ? 'supprimé' : d.delay_s === null ? COUNT_LABELS.no_terminus.short.toLowerCase() : d.delay_s < 300 ? 'à l’heure' : `+${Math.round(d.delay_s / 60)}′`}`;
                 return (
-                  <li key={d.date} title={title} aria-label={title}
+                  <li key={d.date} title={title}
                     className={d.state === 'unobserved' ? 'tp-unobs' : d.state === 'cancelled' ? 'tp-cancel' : d.delay_s === null ? 'tp-unobs' : `tp-s${bucketIndex(d.delay_s)}`}>
-                    {d.state === 'cancelled' ? '×' : d.state === 'ran' && d.delay_s === null ? '–' : ''}
+                    <span aria-hidden="true">{d.state === 'cancelled' ? '×' : d.state === 'ran' && d.delay_s === null ? '–' : ''}</span>
+                    <span className="sr-only">{title}</span>
                   </li>
                 );
               })}
@@ -138,7 +141,16 @@ export default async function Page({ params }: Props) {
         )}
 
         <div className="tp-row">
-          {([['Pire jour', v.worstDay], ['Meilleur jour', v.bestDay]] as const).map(([label, d]) => (
+          <section className="term-panel">
+            <h2 className="term-panel-title">Créneau le plus touché</h2>
+            {!v.worstSlot ? <p className="term-dim">—</p> : (
+              <>
+                <p className="tp-big">{v.worstSlot.label} · {v.worstSlot.hour} H · <strong>{v.worstSlot.avg_min}′</strong></p>
+                <p className="term-dim">RETARD MOYEN AU TERMINUS · {nf(v.worstSlot.n)} TRAINS ARRIVÉS ENTRE {v.worstSlot.hour} H ET {v.worstSlot.hour + 1} H · CASES D’AU MOINS 5 TRAINS</p>
+              </>
+            )}
+          </section>
+          {([['Meilleur jour', v.bestDay]] as const).map(([label, d]) => (
             <section key={label} className="term-panel">
               <h2 className="term-panel-title">{label}</h2>
               {!d ? <p className="term-dim">—</p> : (
@@ -155,21 +167,23 @@ export default async function Page({ params }: Props) {
           <h2 className="term-panel-title" id="wk-axes">Axes</h2>
           <div className="wk-scroll">
           <table className="wk-table">
-            <thead><tr><th scope="col">Axe</th><th scope="col" colSpan={2}>Régularité</th><th scope="col" colSpan={2}>Indemnités HT</th></tr></thead>
+            <thead><tr><th scope="col">Axe</th><th scope="col">Trains</th><th scope="col" colSpan={2}>Régularité</th><th scope="col" colSpan={2}>Indemnités HT</th><th scope="col">Par train</th></tr></thead>
             <tbody>
               {v.axes.map((a) => (
                 <tr key={a.axis} className={a.small ? 'term-small' : undefined}>
                   <th scope="row">{axisName(a.axis)} {a.axis === v.bestAxis ? <span className="tone-ontime" title="Axe le plus régulier">★</span> : a.axis === v.worstAxis ? <span className="tone-severe" title="Axe le moins régulier">▼</span> : ''}</th>
+                  <td>{nf(a.circulated)}</td>
                   <td className="wk-bar" aria-hidden="true">{charBar(a.pct, 12)}</td>
                   <td>{a.pct === null ? '—' : `${fr1(a.pct)} %`}{a.small && <span className="tone-late"> ÉCHANTILLON FAIBLE</span>}</td>
                   <td className="wk-bar" aria-hidden="true">{charBar((a.cost / maxCost) * 100, 12)}</td>
                   <td>{eur(a.cost)}</td>
+                  <td>{a.per_train === null ? '—' : `${nf(a.per_train)} €`}</td>
                 </tr>
               ))}
             </tbody>
           </table>
           </div>
-          <p className="term-dim wk-small">★ LE PLUS RÉGULIER · ▼ LE MOINS RÉGULIER · AXES D’AU MOINS 30 TRAINS</p>
+          <p className="term-dim wk-small">★ LE PLUS RÉGULIER · ▼ LE MOINS RÉGULIER · AXES D’AU MOINS 30 TRAINS · PAR TRAIN : INDEMNITÉS / TRAINS QUI ONT ROULÉ</p>
         </section>
 
         {v.causes.length > 0 && (
@@ -179,6 +193,7 @@ export default async function Page({ params }: Props) {
               {v.causes.map((c) => (
                 <li key={c.category}>
                   <p><strong>{c.label}</strong> <span className="wk-bar" aria-hidden="true">{charBar((c.cost_eur_ht / maxCause) * 100, 16)}</span> {eur(c.cost_eur_ht)}{c.trains < SAMPLE_MIN && <span className="tone-late"> · ÉCHANTILLON FAIBLE</span>}</p>
+                  <p className="wk-small">RANG {c.euroRank} EN EUROS · RANG {c.trainRank} EN NOMBRE DE TRAINS</p>
                   <p className="term-dim">{c.sentence}</p>
                 </li>
               ))}
@@ -198,7 +213,7 @@ export default async function Page({ params }: Props) {
                     <tr key={d.label}>
                       <th scope="row">{d.label}</th>
                       {d.cells.map((c) => {
-                        const title = c.n === 0 ? `${d.label} ${c.hour} h : aucun train` : `${d.label} ${c.hour} h : ${c.n} trains, retard moyen ${c.avg_min}′`;
+                        const title = c.n === 0 ? `${d.label} ${c.hour} h : aucun train` : `${d.label} ${c.hour} h : ${c.n} train${c.n > 1 ? 's' : ''}, retard moyen ${c.avg_min}′`;
                         return <td key={c.hour} title={title} className={c.n === 0 ? 'wk-empty' : `tp-s${bucketIndex(c.avg_s!)}${c.n < 5 ? ' wk-faint' : ''}`}><span className="sr-only">{title}</span></td>;
                       })}
                     </tr>

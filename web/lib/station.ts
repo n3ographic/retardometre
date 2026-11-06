@@ -4,6 +4,12 @@ import { distKm } from './marey-lines';
 // Panneau gare de l'accueil (?gare=UIC[,UIC]) : tableau des départs et arrivées lu par station_board.
 export const MAX_GARES = 8; // la fonction SQL n'en lit pas plus
 
+// Nom de gare à afficher : « Hall 1 - 2 » retiré, noms étrangers tout en capitales (MILANO PORTA GARIBALDI) remis en casse normale.
+export function stationName(nom: string): string {
+  const n = nom.replace(/ Hall .*$/, '');
+  return /\p{Ll}/u.test(n) ? n : n.toLowerCase().replace(/(^|[\s'-])(\p{L})/gu, (_, sep: string, c: string) => sep + c.toUpperCase());
+}
+
 export type BoardRow = {
   trip_id: string; train_number: string; brand: string; axis: string; uic: string;
   arr?: string; dep?: string; delay_s?: number; cancelled: boolean; origin?: string; dest?: string; first: boolean; last: boolean;
