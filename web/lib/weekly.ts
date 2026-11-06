@@ -3,7 +3,7 @@ import type { Counts } from './counts';
 import { isSmallSample, suppressionPct } from './dashboard-model';
 import { stationName } from './station';
 import { shapeStats, type Price, type Scale, type StatRow } from './stats';
-import { axisRegularity, brandSplit } from './terminal-model';
+import { axisRegularity } from './terminal-model';
 
 // Bilan hebdomadaire (/semaine/2026-W44) : ligne figée de weekly_reports mise en forme côté serveur.
 // Toutes les phrases sont tirées de chiffres affichés sur la page, jamais inventées.
@@ -21,13 +21,12 @@ export type WeekRow = { week: string; monday: string; payload: WeekPayload; comp
 export const WEEK_RE = /^\d{4}-W\d{2}$/;
 export const weekNum = (week: string) => Number(week.slice(-2));
 const DOW = ['LUN', 'MAR', 'MER', 'JEU', 'VEN', 'SAM', 'DIM'];
-const DOW_LONG = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'];
 const ddmm = (d: string) => `${d.slice(8, 10)}/${d.slice(5, 7)}`;
 const dayLabel = (d: string) => `${DOW[(new Date(`${d}T12:00:00Z`).getUTCDay() + 6) % 7]} ${ddmm(d)}`;
 const pct1 = (a: number, b: number) => (b === 0 ? null : Math.round((a / b) * 1000) / 10);
 const fr1 = (n: number) => n.toLocaleString('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const nf = (n: number) => n.toLocaleString('fr-FR');
-const ordinal = (n: number) => (n === 1 ? '1re' : `${n}e`); // « cause » : féminin
+export const ordinal = (n: number) => (n === 1 ? '1re' : `${n}e`); // « cause » : féminin
 // 1,3 M€ ou 58 k€ ; `digits` décimales au-delà du million.
 const eur = (n: number, digits = 1) => (n >= 1e6 ? `${(n / 1e6).toLocaleString('fr-FR', { minimumFractionDigits: digits, maximumFractionDigits: digits })} M€` : `${nf(Math.round(n / 1000))} k€`);
 const causeShort = (c: string) => CAUSE_LABELS[c]?.short ?? c.toUpperCase();
@@ -67,7 +66,6 @@ function totalsOf(p: WeekPayload) {
 // Bilan figé avant le 04/11/2026 : part en bons et écart du plafond international, recalculés à part sans toucher aux totaux.
 export type WeekExtra = { bon: number | null; intl_cap: number | null };
 export const INTL_CAP_FROM = '04/11';
-export const BON_SHARE_KEY = 30; // au-delà, phrase « À RETENIR » sur la part en bons
 
 export function shapeWeek(row: WeekRow, prev: WeekRow | null, extra: WeekExtra | null = null) {
   const p = row.payload;
@@ -78,12 +76,13 @@ export function shapeWeek(row: WeekRow, prev: WeekRow | null, extra: WeekExtra |
   const supp = suppressionPct(t);
   const counts: Counts = { observed: t.observed, circulated: t.circulated, cancelled: t.cancelled, no_terminus: t.no_terminus, aberrant: t.aberrant };
 
+  const bon = t.estimated_cost_eur_ht_bon ?? extra?.bon ?? null;
   const kpis = {
     // Nombre de trains sans variation : il suit surtout la couverture de la collecte, pas le trafic.
     trains: { value: t.circulated },
     regularity: { value: t.official_regularity_pct, delta: deltaPt(t.official_regularity_pct, pt?.official_regularity_pct, true) },
     cost: { value: t.estimated_cost_eur_ht, low: t.estimated_cost_eur_ht_low, high: t.estimated_cost_eur_ht_high, delta: deltaPct(t.estimated_cost_eur_ht, pt?.estimated_cost_eur_ht, false),
-      bon: t.estimated_cost_eur_ht_bon ?? extra?.bon ?? null },
+      bon, bonShare: bon === null || t.estimated_cost_eur_ht === 0 ? null : Math.round((bon / t.estimated_cost_eur_ht) * 100) },
     suppressions: { value: supp, n: t.cancelled, delta: deltaPt(supp, pt ? suppressionPct(pt) : undefined, false) },
   };
 
@@ -92,9 +91,10 @@ export function shapeWeek(row: WeekRow, prev: WeekRow | null, extra: WeekExtra |
     const get = (k: string) => Number(m?.[k] ?? 0);
     const causes = Object.keys(m ?? {}).filter((k) => k.startsWith('cause:') && k !== 'cause:sans_cause')
       .sort((a, b) => get(b) - get(a) || a.localeCompare(b));
-    return { date, label: dayLabel(date), circulated: get('circulated'), pct: pct1(get('on_time_official'), get('circulated')), cause: causes[0]?.slice(6) ?? null };
+    const circulated = get('circulated');
+    return { date, label: dayLabel(date), circulated, small: isSmallSample({ circulated }), pct: pct1(get('on_time_official'), circulated), cause: causes[0]?.slice(6) ?? null };
   });
-  const ranked = days.filter((d) => d.pct !== null && !isSmallSample(d)).sort((a, b) => a.pct! - b.pct! || a.date.localeCompare(b.date));
+  const ranked = days.filter((d) => d.pct !== null && !d.small).sort((a, b) => a.pct! - b.pct! || a.date.localeCompare(b.date));
   const bestDay = ranked.length > 1 ? ranked[ranked.length - 1] : null;
 
   // Axes : régularité, indemnités et indemnité moyenne par train ; meilleur et pire parmi les axes d'au moins 30 trains.
@@ -130,10 +130,10 @@ export function shapeWeek(row: WeekRow, prev: WeekRow | null, extra: WeekExtra |
   }) }));
   // Créneau le plus touché : case de la grille au plus fort retard moyen, parmi celles d'au moins 5 trains (cases non estompées).
   const top = cells.filter((c) => c[2] >= 5).sort((a, b) => b[3] - a[3] || b[2] - a[2] || a[0] - b[0] || a[1] - b[1])[0];
+  const slotDay = top && days.find((d) => d.label.startsWith(DOW[top[0] - 1]));
   const worstSlot = top ? { dow: top[0], hour: top[1], n: top[2], avg_min: Math.round(top[3] / 60),
-    label: days.find((d) => d.label.startsWith(DOW[top[0] - 1]))?.label ?? DOW[top[0] - 1] } : null;
+    label: slotDay?.label ?? DOW[top[0] - 1], date: slotDay?.date ?? null } : null;
 
-  const brands = brandSplit(s.groups);
   const train = p.train && {
     ...p.train, delay_sum_min: Math.round(p.train.delay_sum_s / 60),
     origin: p.train.origin && stationName(p.train.origin), dest: p.train.dest && stationName(p.train.dest),
@@ -143,26 +143,12 @@ export function shapeWeek(row: WeekRow, prev: WeekRow | null, extra: WeekExtra |
   };
 
   const prevIncomplete = prev !== null && prev.payload.days < 7;
-  const vs = prev ? ` par rapport à la semaine ${weekNum(prev.week)}` : '';
-  const takeaways: string[] = [];
-  const dr = kpis.regularity.delta;
-  if (dr && dr.value !== 0) takeaways.push(`La régularité ${dr.value > 0 ? 'gagne' : 'perd'} ${fr1(Math.abs(dr.value))} point${Math.abs(dr.value) >= 2 ? 's' : ''}${vs}, à ${fr1(t.official_regularity_pct!)} %.`);
-  if (worstAxis && bestAxis) {
-    const w = axes.find((a) => a.axis === worstAxis)!, b = axes.find((a) => a.axis === bestAxis)!;
-    takeaways.push(`${axisName(worstAxis)} est l’axe le moins régulier (${fr1(w.pct!)} %), ${fr1(b.pct! - w.pct!)} points derrière ${axisName(bestAxis)} (${fr1(b.pct!)} %).`);
-  }
-  if (worstSlot) takeaways.push(`Créneau le plus touché : ${DOW_LONG[worstSlot.dow - 1]} ${worstSlot.hour} h, ${worstSlot.avg_min}′ de retard moyen sur ${worstSlot.n} trains arrivés.`);
-  if (causes[0]) takeaways.push(`${causes[0].label.charAt(0) + causes[0].label.slice(1).toLowerCase()} pèse ${causes[0].share} % des indemnités liées à une cause.`);
-  const bon = kpis.cost.bon;
-  const bonShare = bon === null || t.estimated_cost_eur_ht === 0 ? null : Math.round((bon / t.estimated_cost_eur_ht) * 100);
-  if (bonShare !== null && bonShare > BON_SHARE_KEY) takeaways.push(`${eur(bon!, 2)} sur ${eur(t.estimated_cost_eur_ht)} d’indemnités théoriques (${bonShare} %) sont dus en bons d’achat, et non en argent.`);
-  if (train) takeaways.push(`Le ${train.number} ${train.origin ?? '?'} → ${train.dest ?? '?'} n’a été à l’heure ${train.ok === 0 ? 'aucun jour' : `que ${train.ok} jour${train.ok > 1 ? 's' : ''}`} sur ${train.counted}.`);
 
   return {
     week: row.week, num: weekNum(row.week), from: p.from, to: p.to, days: p.days, complete: p.days === 7, computed_at: row.computed_at,
     title: `SEMAINE ${weekNum(row.week)} · DU ${ddmm(p.from)} AU ${ddmm(p.to)}`,
     prev: prev && { week: prev.week, num: weekNum(prev.week), incomplete: prevIncomplete, days: prev.payload.days },
-    counts, kpis, train, byDay: days, worstSlot, bestDay, axes, bestAxis, worstAxis, causes, heat, brands, takeaways: takeaways.slice(0, 6),
+    counts, kpis, train, byDay: days, worstSlot, bestDay, axes, bestAxis, worstAxis, causes, heat,
     // Bilan figé avant le plafond international : écart estimé, les totaux restent ceux publiés.
     intlCapNote: t.estimated_cost_eur_ht_bon === null && extra?.intl_cap != null ? { from: INTL_CAP_FROM, eur: extra.intl_cap } : null,
     small: isSmallSample(t), occupancy: s.assumptions.occupancy,
@@ -178,7 +164,7 @@ export function summaryText(v: WeekView, url: string): string {
   const cost = eur(k.cost.value);
   return [
     `TGV · semaine ${v.num} (${ddmm(v.from)} → ${ddmm(v.to)})${v.complete ? '' : `, ${v.days} jours`}`,
-    `Régularité : ${k.regularity.value === null ? '—' : `${fr1(k.regularity.value)} %`}${vs}`,
+    `Régularité : ${k.regularity.value === null ? 'n.d.' : `${fr1(k.regularity.value)} %`}${vs}`,
     `Indemnités théoriques : ${cost} HT · ${nf(k.trains.value)} trains`,
     ...(v.train ? [`Train de la semaine : ${v.train.number} ${v.train.origin ?? '?'} → ${v.train.dest ?? '?'}, à l’heure ${v.train.ok}/${v.train.counted} jours`] : []),
     url,
