@@ -7,7 +7,8 @@ import { axisRegularity } from './terminal-model';
 
 // Bilan hebdomadaire (/semaine/2026-W44) : ligne figée de weekly_reports mise en forme côté serveur.
 // Toutes les phrases sont tirées de chiffres affichés sur la page, jamais inventées.
-export type TrainDay = [date: string, observed: boolean, cancelled: boolean | null, delay_s: number | null];
+// max_delay_s : seuil « à l'heure » du jour (regularity_max_delay_s) ; absent des bilans figés avant le 06/11 à 16 h 46, qui comptaient 5′.
+export type TrainDay = [date: string, observed: boolean, cancelled: boolean | null, delay_s: number | null, max_delay_s?: number | null];
 export type WeekPayload = {
   from: string; to: string; monday: string; days: number;
   stats: [string, string, string, number | string][];
@@ -30,7 +31,6 @@ export const ordinal = (n: number) => (n === 1 ? '1re' : `${n}e`); // « cause �
 // 1,3 M€ ou 58 k€ ; `digits` décimales au-delà du million.
 const eur = (n: number, digits = 1) => (n >= 1e6 ? `${(n / 1e6).toLocaleString('fr-FR', { minimumFractionDigits: digits, maximumFractionDigits: digits })} M€` : `${nf(Math.round(n / 1000))} k€`);
 const causeShort = (c: string) => CAUSE_LABELS[c]?.short ?? c.toUpperCase();
-const causeLong = (c: string) => CAUSE_LABELS[c]?.long ?? c;
 
 // Semaine ISO complète la plus récente à l'heure de Paris, décalée de 7 h : le bilan du lundi n'existe qu'après la tâche
 // de 05:00 UTC (06:00 l'hiver, 07:00 l'été).
@@ -106,17 +106,16 @@ export function shapeWeek(row: WeekRow, prev: WeekRow | null, extra: WeekExtra |
   // Causes : les 3 premières en euros, avec leur rang en nombre de trains pour la phrase.
   const causeTotal = s.cause_breakdown.reduce((a, c) => a + c.cost_eur_ht, 0);
   const byTrains = [...s.cause_breakdown].sort((a, b) => b.trains - a.trains || a.category.localeCompare(b.category)).map((c) => c.category);
-  // Phrase selon l'écart des deux rangs : « seulement » si la cause est au moins 2 rangs plus bas en nombre qu'en euros.
+  // Phrase : seulement ce que la ligne du dessus (rang et nombre de trains) ne dit pas ; le contexte selon l'écart des deux rangs.
   const causes = s.cause_breakdown.slice(0, 3).map((c, i) => {
     const share = causeTotal === 0 ? 0 : Math.round((c.cost_eur_ht / causeTotal) * 100);
     const euroRank = i + 1, trainRank = byTrains.indexOf(c.category) + 1;
-    const rank = i === 0 ? 'première' : i === 1 ? 'deuxième' : 'troisième';
-    const trains = `${nf(c.trains)} train${c.trains > 1 ? 's' : ''}`;
+    const tail = `${share} % des indemnités liées à une cause.`;
     const sentence = trainRank - euroRank >= 2
-      ? `${causeLong(c.category)} : ${trains} seulement (${ordinal(trainRank)} en nombre), mais ${rank} cause en euros avec ${c.avg_delay_min}′ de retard moyen.`
+      ? `Retards longs : ${c.avg_delay_min}′ en moyenne, ${tail}`
       : euroRank - trainRank >= 2
-        ? `${causeLong(c.category)} : ${trains} (${ordinal(trainRank)} en nombre), mais des retards plus courts, ${c.avg_delay_min}′ en moyenne.`
-        : `${causeLong(c.category)} : ${trains}, ${c.avg_delay_min}′ de retard moyen, ${share} % des indemnités liées à une cause.`;
+        ? `Retards plus courts : ${c.avg_delay_min}′ en moyenne, ${tail}`
+        : `${c.avg_delay_min}′ de retard moyen, ${tail}`;
     return { ...c, label: causeShort(c.category), share, euroRank, trainRank, sentence };
   });
 
@@ -137,8 +136,9 @@ export function shapeWeek(row: WeekRow, prev: WeekRow | null, extra: WeekExtra |
   const train = p.train && {
     ...p.train, delay_sum_min: Math.round(p.train.delay_sum_s / 60),
     origin: p.train.origin && stationName(p.train.origin), dest: p.train.dest && stationName(p.train.dest),
-    days: p.train.days.map(([date, observed, cancelled, delay_s]) => ({
+    days: p.train.days.map(([date, observed, cancelled, delay_s, max_delay_s]) => ({
       date, label: dayLabel(date), state: !observed ? 'unobserved' as const : cancelled ? 'cancelled' as const : 'ran' as const, delay_s,
+      max_delay_s: max_delay_s ?? 300,
     })),
   };
 

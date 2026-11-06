@@ -1,5 +1,5 @@
 import { COUNT_LABELS } from '../../../lib/counts';
-import { dayCell, dowOf, lateBars, lateHeadline, type TrainDay } from '../../../lib/week-charts';
+import { dayCell, dowOf, lateBars, lateHeadline, onTime, type TrainDay } from '../../../lib/week-charts';
 import type { WeekView } from '../../../lib/weekly';
 
 // Graphiques du bilan hebdo, rendus côté serveur, couleurs dans semaine.css.
@@ -55,7 +55,7 @@ export function HBar({ pct, faint = false, label }: { pct: number; faint?: boole
 
 const cellText = (d: TrainDay) =>
   `${d.label.toLowerCase()} : ${d.state === 'unobserved' ? 'non observé' : d.state === 'cancelled' ? 'supprimé'
-    : d.delay_s === null ? COUNT_LABELS.no_terminus.short.toLowerCase() : d.delay_s < 300 ? 'à l’heure' : `+${Math.round(d.delay_s / 60)}′`}`;
+    : d.delay_s === null ? COUNT_LABELS.no_terminus.short.toLowerCase() : onTime(d) ? 'à l’heure' : `+${Math.round(d.delay_s / 60)}′`}`;
 
 // Train de la semaine : une case par jour, jour, date et retard écrits dedans.
 export function TrainDays({ days }: { days: TrainDay[] }) {

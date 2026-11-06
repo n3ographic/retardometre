@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { dayCell, lateBars, lateHeadline, weekSlots } from '../lib/week-charts';
+import { dayCell, lateBars, lateHeadline, onTimeLabel, weekSlots } from '../lib/week-charts';
 
 // Jours du lundi 26/10 au dimanche 01/11 avec leur régularité ; null = aucune mesure.
 const week = (pcts: (number | null)[], from = 26) =>
@@ -40,13 +40,21 @@ test('phrase titre : « 1 train sur N », pourcentage à partir de la moitié, a
   expect(lateHeadline(0)).toBe('AUCUN TRAIN EN RETARD');
 });
 
-// Cases du train de la semaine : jour, date et retard écrits dedans ; ✓ seulement sous 5′.
-const cell = (state: 'ran' | 'cancelled' | 'unobserved', delay_s: number | null) => dayCell({ date: '2026-10-26', label: 'LUN 26/10', state, delay_s });
+// Cases du train de la semaine : jour, date et retard écrits dedans ; ✓ sous le seuil de la régularité du jour.
+const cell = (state: 'ran' | 'cancelled' | 'unobserved', delay_s: number | null, max_delay_s = 300) =>
+  dayCell({ date: '2026-10-26', label: 'LUN 26/10', state, delay_s, max_delay_s });
 
-test('case du train : à l’heure sous 5′ seulement', () => {
+test('case du train : à l’heure sous le seuil du trajet (5′, 10′ ou 15′)', () => {
   expect(cell('ran', 299)).toEqual({ top: 'LUN', date: '26/10', text: '✓', cls: 'tp-s0', ok: true });
   expect(cell('ran', 300)).toEqual({ top: 'LUN', date: '26/10', text: '+5′', cls: 'tp-s1', ok: false });
+  expect(cell('ran', 600, 900)).toMatchObject({ text: '✓', ok: true }); // trajet de plus de 3 h : 10′ est à l'heure
+  expect(cell('ran', 900, 900)).toMatchObject({ text: '+15′', ok: false });
   expect(cell('ran', 2700)).toMatchObject({ text: '+45′', ok: false });
+});
+
+test('légende du seuil : un seul seuil, ou ceux de la semaine', () => {
+  expect(onTimeLabel([{ max_delay_s: 900 }, { max_delay_s: 900 }])).toBe('MOINS DE 15′');
+  expect(onTimeLabel([{ max_delay_s: 900 }, { max_delay_s: 600 }])).toBe('MOINS DE 10′ OU 15′ SELON LE JOUR');
 });
 
 test('case du train : retard non mesuré, supprimé, non observé', () => {
