@@ -12,6 +12,7 @@ import { SMALL_DAYS, todayLabel, type Day, type Profile } from '../../../lib/tra
 import FootBar from '../../terminal/foot-bar';
 import StatusBar from '../../terminal/status-bar';
 import TrainActions from '../../terminal/train-actions';
+import FollowBell from '../../terminal/follow-bell';
 
 // Rendue à chaque requête ; la base n'est lue qu'une fois par numéro et par cycle de collecte (cache de loadTrainProfile).
 export const dynamic = 'force-dynamic';
@@ -82,6 +83,8 @@ export default async function Page({ params }: Props) {
           <p>
             AUJOURD’HUI : <span className={`tone-${delayTone(today.delay_s ?? undefined, p.today?.cancelled ?? false)}`}>{today.text}</span>
           </p>
+          {/* Suivi possible tant que le train du jour n'est pas arrivé (la base revérifie). */}
+          {(today.en_route || today.text === 'PAS ENCORE PARTI') && <FollowBell number={numero} />}
         </header>
 
         <section className="term-panel tp-score" aria-labelledby="tp-score">

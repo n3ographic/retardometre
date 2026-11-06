@@ -81,6 +81,13 @@ button.to-gare:focus-visible { outline: 1px solid var(--t-amber); }
 a.ta-btn:hover, a.ta-btn:focus-visible, .ta-btn.on { background: var(--t-amber); color: var(--t-bg); border-color: var(--t-amber); }
 .ta-btn.on { cursor: default; }
 .ta-btn.off { color: var(--t-cancelled); border-style: dashed; cursor: not-allowed; }
+/* Cloche « suivre ce train » (follow-bell.tsx) : bouton de la barre d'actions, puis la gare suivie. */
+.follow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 6px 0; font-size: 12px; }
+.follow button.ta-btn { background: none; color: inherit; font: inherit; cursor: pointer; }
+.follow button.ta-btn.on { background: var(--t-amber); color: var(--t-bg); cursor: pointer; }
+.follow button.ta-btn:disabled { cursor: progress; }
+.follow-stop select { background: var(--t-bg); color: var(--t-amber); border: 1px solid var(--t-line); font: inherit; max-width: 100%; }
+.follow-msg { flex-basis: 100%; margin: 0; }
 .station-panel .train-actions { grid-template-columns: repeat(3, 1fr); }
 .st-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin: 8px 0 4px; }
 .st-tabs button { font: inherit; background: none; color: inherit; cursor: pointer; justify-content: center; }

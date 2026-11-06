@@ -26,6 +26,7 @@ export const MIGRATIONS_UNDER_TEST = [
   '20261107000003_stats_period_fast.sql',
   '20261109000001_inoui_threshold_30.sql',
   '20261109000002_cause_rules_greve.sql',
+  '20261111000001_train_follows.sql',
 ]
 
 const BOOTSTRAP = `
@@ -51,7 +52,7 @@ export async function makeDb(): Promise<PGlite> {
 }
 
 export async function resetData(db: PGlite): Promise<void> {
-  await db.exec(`truncate trips_planned, stop_times_planned, stops, circulations, events, collector_state, exports restart identity cascade`)
+  await db.exec(`truncate trips_planned, stop_times_planned, stops, circulations, events, collector_state, exports, train_follows restart identity cascade`)
 }
 
 export type SeedTrip = {
