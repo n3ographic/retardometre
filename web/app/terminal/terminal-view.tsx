@@ -61,6 +61,7 @@ export default function TerminalView() {
     fetch('/api/gares').then((r) => (r.ok ? r.json() : null)).then((d: { gares?: GareRow[] } | null) => { if (Array.isArray(d?.gares)) setGares(d.gares); }).catch(() => {});
   }, []);
   const uicByName = useMemo(() => new Map(gares.map((g) => [g[1], g[0]])), [gares]);
+  const commandData = useMemo(() => ({ trains, gares }), [trains, gares]);
   // Train sélectionné gardé dans l'URL (?sel=) : un retour depuis le Marey le retrouve.
   const initialSel = useRef<string | null>(null);
 
@@ -234,7 +235,7 @@ export default function TerminalView() {
         <RightPanel cumul={cumul} cumulFailed={cumulFailed} stats={stats} statsFailed={statsFailed} statsLoading={statsLoading} period={period} inFeed={trains.length}
           vue={vue} onVue={setVue} keys={!gare && !selected && !missing} onRetry={reloadStats} />
       </main>
-      <FootBar />
+      <FootBar data={commandData} />
     </div>
   );
 }

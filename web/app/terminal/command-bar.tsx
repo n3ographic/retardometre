@@ -16,8 +16,8 @@ export const typing = (el: EventTarget | null) =>
   el instanceof HTMLElement && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable);
 
 // Barre de commande façon terminal : « / » (hors champ texte) ou Ctrl+K / Cmd+K, sur toutes les pages (montée dans le pied).
-// Données chargées à la première ouverture : trains du flux (/api/live) et gares (/api/gares).
-export default function CommandBar() {
+// Données chargées à la première ouverture : trains du flux (/api/live) et gares (/api/gares), sauf si la page les fournit déjà.
+export default function CommandBar({ data: given }: { data?: CommandData }) {
   const [open, setOpen] = useState(false);
   const [value, setValue] = useState('');
   const [sel, setSel] = useState(0);
@@ -46,13 +46,14 @@ export default function CommandBar() {
     if (!open) return;
     input.current?.focus();
     setRecents(readRecents());
-    if (loaded.current) return;
+    if (loaded.current || given) return;
     loaded.current = true;
     fetch('/api/live').then((r) => (r.ok ? r.json() : null)).then((d: { trains: LiveItem[] } | null) => d && setTrains(d.trains)).catch(() => {});
     fetch('/api/gares').then((r) => (r.ok ? r.json() : null)).then((d: { gares: GareRow[] } | null) => d && setGares(d.gares)).catch(() => {});
-  }, [open]);
+  }, [open, given]);
 
-  const data = useMemo<CommandData>(() => ({ trains, gares }), [trains, gares]);
+  const own = useMemo<CommandData>(() => ({ trains, gares }), [trains, gares]);
+  const data = given ?? own;
   const list: Suggestion[] = mode === 'top' ? topSuggestions(trains) : mode === 'help' ? [] : value.trim() === '' ? emptySuggestions(trains, recents) : suggest(value, data);
   const choose = (i: number) => { setSel(i); setAct(0); };
   const close = () => { setOpen(false); setValue(''); choose(0); setMode('suggest'); setMsg(null); };

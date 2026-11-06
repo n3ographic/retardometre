@@ -12,11 +12,13 @@ const OUT = 'web/public/trace-paires.json'
 // Complément : tronçons Train Nomade (OpenStreetMap, ODbL), seulement pour les paires que SNCF Réseau ne trace pas.
 const TN_SOURCE = 'https://api.trainnomade.fr/donnees/v1/traces-ferroviaires.geojson'
 const TN_CACHE = 'tmp/traces-train-nomade.geojson'
+// Délais : un serveur muet fait échouer le script au lieu de le bloquer (gros fichiers : 5 min, pages d'API : 1 min).
+const BIG = () => AbortSignal.timeout(300_000), API = () => AbortSignal.timeout(60_000)
 const url = process.env.SUPABASE_URL, key = process.env.SUPABASE_ANON_KEY
 if (!url || !key) throw new Error('SUPABASE_URL et SUPABASE_ANON_KEY requis (clé publique)')
 
 async function page<T>(table: string, select: string, order: string, offset: number): Promise<T[]> {
-  const r = await fetch(`${url}/rest/v1/${table}?select=${select}&order=${order}&limit=1000&offset=${offset}`, { headers: { apikey: key! } })
+  const r = await fetch(`${url}/rest/v1/${table}?select=${select}&order=${order}&limit=1000&offset=${offset}`, { headers: { apikey: key! }, signal: API() })
   if (!r.ok) throw new Error(`${table} : ${r.status}`)
   return (await r.json()) as T[]
 }
@@ -33,7 +35,7 @@ async function all<T>(table: string, select: string, order: string): Promise<T[]
 if (!existsSync(CACHE)) {
   mkdirSync('tmp', { recursive: true })
   console.log('téléchargement des formes de lignes…')
-  const r = await fetch(SOURCE)
+  const r = await fetch(SOURCE, { signal: BIG() })
   if (!r.ok) throw new Error(`formes de lignes : ${r.status}`)
   writeFileSync(CACHE, Buffer.from(await r.arrayBuffer()))
 }
@@ -55,7 +57,7 @@ console.log(`${features.length} tronçons (${neutralised} neutralisés exclus), 
 if (!existsSync(TN_CACHE)) {
   mkdirSync('tmp', { recursive: true })
   console.log('téléchargement des tracés Train Nomade…')
-  const r = await fetch(TN_SOURCE, { headers: { 'User-Agent': 'observatoire-tgv (https://github.com/n3ographic/sncf-tracking)' } })
+  const r = await fetch(TN_SOURCE, { headers: { 'User-Agent': 'observatoire-tgv (https://github.com/n3ographic/sncf-tracking)' }, signal: BIG() })
   if (!r.ok) throw new Error(`tracés Train Nomade : ${r.status}`)
   writeFileSync(TN_CACHE, Buffer.from(await r.arrayBuffer()))
 }
