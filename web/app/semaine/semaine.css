@@ -13,10 +13,15 @@
 .wk-causes { margin: 0; padding: 0 8px 0 calc(2ch + 8px); }
 .wk-causes li { margin-bottom: 6px; }
 .wk-scroll { overflow-x: auto; }
-.wk-heat { border-collapse: separate; border-spacing: 2px; font-size: 11px; }
+/* Grille sur toute la largeur du panneau ; sur petit écran, cases plus petites. */
+.wk-heat-wrap { margin-bottom: 10px; }
+.wk-heat { border-collapse: separate; border-spacing: 3px; font-size: 11px; width: 100%; table-layout: fixed; }
+@media (max-width: 480px) { .wk-heat { border-spacing: 1px; font-size: 9px; } .wk-heat td { height: 16px; } }
 .wk-heat th { color: var(--t-amber-dim); font-weight: 400; padding: 0 4px 0 0; text-align: left; }
+.wk-heat tbody th { width: 4ch; }
 .wk-heat thead th { text-align: center; padding: 0; }
-.wk-heat td { width: 18px; height: 16px; }
+.wk-heat thead th:first-child { width: 4ch; }
+.wk-heat td { height: 24px; }
 .wk-empty { background: transparent; outline: 1px solid var(--t-line); outline-offset: -1px; }
 .wk-faint { opacity: 0.35; }
 

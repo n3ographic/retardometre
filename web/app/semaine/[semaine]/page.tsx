@@ -167,7 +167,7 @@ export default async function Page({ params }: Props) {
         {v.heat[0].cells.length > 0 && (
           <section className="term-panel" aria-labelledby="wk-heat">
             <h2 className="term-panel-title" id="wk-heat">Retard moyen · jour × heure d’arrivée prévue</h2>
-            <div className="wk-scroll">
+            <div className="wk-scroll wk-heat-wrap">
               <table className="wk-heat">
                 <thead><tr><th scope="col"><span className="sr-only">Jour</span></th>{v.heat[0].cells.map((c) => <th key={c.hour} scope="col">{String(c.hour).padStart(2, '0')}</th>)}</tr></thead>
                 <tbody>
