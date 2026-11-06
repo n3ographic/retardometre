@@ -9,3 +9,8 @@ web/.env*
 web/*.tsbuildinfo
 .claude/settings.local.json
 .claude/handoffs/
+
+# Notes de travail et outillage local (hors dépôt public)
+CLAUDE.md
+.claude/
+docs/superpowers/

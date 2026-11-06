@@ -1,8 +1,0 @@
-{
-  "version": "0.0.1",
-  "configurations": [
-    { "name": "web", "runtimeExecutable": "npm", "runtimeArgs": ["run", "dev", "--prefix", "web"], "port": 3000 },
-    { "name": "web-outage", "runtimeExecutable": "env", "runtimeArgs": ["SUPABASE_URL=http://127.0.0.1:9", "npm", "run", "dev", "--prefix", "web", "--", "-p", "3001"], "port": 3001 },
-    { "name": "web-prod", "runtimeExecutable": "npx", "runtimeArgs": ["--prefix", "web", "next", "start", "web", "-p", "3002"], "port": 3002 }
-  ]
-}
