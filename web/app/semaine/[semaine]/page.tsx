@@ -98,6 +98,8 @@ export default async function Page({ params }: Props) {
             <h2 className="term-panel-title">Régularité</h2>
             <p className="wk-big">{k.regularity.value === null ? '—' : `${fr1(k.regularity.value)} %`}</p>
             <Delta d={k.regularity.delta} v={v} />
+            {/* Seuils de regularity_rule (base) : moins de 5′ sous 1 h 30 de trajet, 10′ jusqu'à 3 h, 15′ au-delà. */}
+            <p className="term-dim wk-small" title="À l’heure : retard au terminus de moins de 5′ (trajet de moins de 1 h 30), 10′ (jusqu’à 3 h) ou 15′ (au-delà), comme la régularité officielle">À L’HEURE : MOINS DE 5′, 10′ OU 15′ SELON LA DURÉE</p>
             <p className="term-dim wk-small">APPROCHÉE · RETARDS PAR PAS DE 5′</p>
           </div>
           <div className="term-panel">
@@ -123,11 +125,12 @@ export default async function Page({ params }: Props) {
             <p className="tp-big"><a href={`/train/${v.train.number}`}>{v.train.brand === 'OUIGO' ? 'OUIGO' : 'TGV INOUI'} {v.train.number}</a> <span className="wk-route">{v.train.origin ?? '?'} → {v.train.dest ?? '?'}</span></p>
             <ol className="tp-cal" aria-label="Retard au terminus par jour">
               {v.train.days.map((d) => {
-                const title = `${d.label} · ${d.state === 'unobserved' ? 'non observé' : d.state === 'cancelled' ? 'supprimé' : d.delay_s === null ? COUNT_LABELS.no_terminus.short.toLowerCase() : d.delay_s < 300 ? 'à l’heure' : `+${Math.round(d.delay_s / 60)} min`}`;
+                const title = `${d.label.toLowerCase()} : ${d.state === 'unobserved' ? 'non observé' : d.state === 'cancelled' ? 'supprimé' : d.delay_s === null ? COUNT_LABELS.no_terminus.short.toLowerCase() : d.delay_s < 300 ? 'à l’heure' : `+${Math.round(d.delay_s / 60)}′`}`;
                 return (
-                  <li key={d.date} title={title} aria-label={title}
+                  <li key={d.date} title={title}
                     className={d.state === 'unobserved' ? 'tp-unobs' : d.state === 'cancelled' ? 'tp-cancel' : d.delay_s === null ? 'tp-unobs' : `tp-s${bucketIndex(d.delay_s)}`}>
-                    {d.state === 'cancelled' ? '×' : d.state === 'ran' && d.delay_s === null ? '–' : ''}
+                    <span aria-hidden="true">{d.state === 'cancelled' ? '×' : d.state === 'ran' && d.delay_s === null ? '–' : ''}</span>
+                    <span className="sr-only">{title}</span>
                   </li>
                 );
               })}
@@ -198,7 +201,7 @@ export default async function Page({ params }: Props) {
                     <tr key={d.label}>
                       <th scope="row">{d.label}</th>
                       {d.cells.map((c) => {
-                        const title = c.n === 0 ? `${d.label} ${c.hour} h : aucun train` : `${d.label} ${c.hour} h : ${c.n} trains, retard moyen ${c.avg_min}′`;
+                        const title = c.n === 0 ? `${d.label} ${c.hour} h : aucun train` : `${d.label} ${c.hour} h : ${c.n} train${c.n > 1 ? 's' : ''}, retard moyen ${c.avg_min}′`;
                         return <td key={c.hour} title={title} className={c.n === 0 ? 'wk-empty' : `tp-s${bucketIndex(c.avg_s!)}${c.n < 5 ? ' wk-faint' : ''}`}><span className="sr-only">{title}</span></td>;
                       })}
                     </tr>
