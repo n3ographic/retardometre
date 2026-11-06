@@ -1,5 +1,6 @@
 import { ImageResponse } from 'next/og';
 import { loadTrainProfile } from '../../../lib/handlers';
+import { stationName } from '../../../lib/station';
 import { supabaseDeps } from '../../../lib/supabase';
 import { bucketIndex } from '../../../lib/terminal-model';
 
@@ -15,7 +16,7 @@ const SEG = ['#3ad13a', '#ffd24d', '#ffb000', '#ff8c00', '#ff4d4d', '#d12f2f', '
 export default async function Image({ params }: { params: Promise<{ numero: string }> }) {
   const { numero } = await params;
   const p = await loadTrainProfile(supabaseDeps, numero).catch(() => null);
-  const route = p ? [p.info.origin, p.info.dest].filter(Boolean).join(' → ').toUpperCase() : 'TRAIN INCONNU';
+  const route = p ? [p.info.origin, p.info.dest].filter((x): x is string => !!x).map(stationName).join(' → ').toUpperCase() : 'TRAIN INCONNU';
   const days = p?.days.slice(-27) ?? []; // 27 derniers jours au plus, sur une ligne
   return new ImageResponse(
     (

@@ -1,6 +1,7 @@
 import { CAUSE_LABELS } from './causes';
 import type { Counts } from './counts';
 import { isSmallSample, suppressionPct } from './dashboard-model';
+import { stationName } from './station';
 import { shapeStats, type Price, type Scale, type StatRow } from './stats';
 import { axisRegularity, brandSplit } from './terminal-model';
 
@@ -127,6 +128,7 @@ export function shapeWeek(row: WeekRow, prev: WeekRow | null, extra: WeekExtra |
   const brands = brandSplit(s.groups);
   const train = p.train && {
     ...p.train, delay_sum_min: Math.round(p.train.delay_sum_s / 60),
+    origin: p.train.origin && stationName(p.train.origin), dest: p.train.dest && stationName(p.train.dest),
     days: p.train.days.map(([date, observed, cancelled, delay_s]) => ({
       date, label: dayLabel(date), state: !observed ? 'unobserved' as const : cancelled ? 'cancelled' as const : 'ran' as const, delay_s,
     })),
