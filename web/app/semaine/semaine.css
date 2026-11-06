@@ -18,8 +18,51 @@
 .wk-heat td { width: 18px; height: 16px; }
 .wk-empty { background: transparent; outline: 1px solid var(--t-line); outline-offset: -1px; }
 .wk-faint { opacity: 0.35; }
-.wk-keys { margin: 0; padding-left: 2ch; }
-.wk-keys li { margin-bottom: 4px; }
+
+/* Tableau de bord : contenu plus large, en-tête avec partage à droite, axes et causes côte à côte. */
+.tp.wk { max-width: 1100px; }
+.wk-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+.wk-head > div { flex: 1 1 420px; min-width: 0; }
+.wk-duo { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 760px) { .wk-duo { grid-template-columns: 1fr; } }
+
+/* Courbe jour par jour (charts.tsx). */
+.wk-curve { margin: 4px 0; }
+.wk-curve svg { display: block; overflow: visible; }
+.wk-c-line { fill: none; stroke: var(--t-amber); stroke-width: 2; }
+.wk-c-mean { stroke: var(--t-amber-dim); stroke-width: 1; stroke-dasharray: 4 4; }
+.wk-c-dot { fill: var(--t-amber); }
+.wk-c-hollow { fill: var(--t-bg); stroke: var(--t-amber); stroke-width: 2; }
+.wk-c-best { fill: var(--t-ontime); }
+.wk-c-flag { fill: var(--t-severe); font-size: 13px; }
+.wk-c-label { fill: var(--t-amber-dim); font-size: 12px; }
+/* Sur mobile le SVG est réduit environ 3 fois : libellés et points agrandis en unités du dessin. */
+@media (max-width: 600px) {
+  .wk-c-label { font-size: 30px; }
+  .wk-c-flag { font-size: 30px; }
+  .wk-c-dot, .wk-c-hollow { r: 10px; }
+  .wk-c-line { stroke-width: 4; }
+}
+
+/* Barres horizontales des axes et des causes. */
+.wk-hbar { display: block; width: 100%; height: 8px; }
+.wk-c-track { fill: var(--t-line); opacity: 0.4; }
+.wk-c-bar { fill: var(--t-amber); }
+.wk-barcell { width: 40%; min-width: 80px; }
+.wk-cause-head { display: flex; justify-content: space-between; gap: 8px; }
+.wk-causes .wk-hbar { margin: 2px 0 4px; }
+
+/* Grille : case du créneau le plus touché. */
+.wk-flag { outline: 2px solid var(--t-amber); outline-offset: -1px; }
+
+/* Train de la semaine : une case par jour, jour, date et retard écrits. */
+.wk-days { list-style: none; margin: 6px 0 8px; padding: 0; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.wk-days li { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 52px; padding: 2px; line-height: 1.15; color: var(--t-bg); }
+.wk-days li.tp-unobs, .wk-days li.tp-cancel { color: var(--t-amber); }
+.wk-d-top { font-size: 11px; }
+.wk-d-date { font-size: 10px; opacity: 0.8; }
+.wk-d-text { font-size: 15px; font-weight: 700; }
+@media (max-width: 480px) { .wk-d-date { display: none; } .wk-d-text { font-size: 13px; } }
 .wk-share { display: flex; flex-wrap: wrap; gap: 8px; }
 .wk-share button.ta-btn { font: inherit; font-size: 12px; color: inherit; background: none; cursor: pointer; }
 .wk-share button.ta-btn:hover, .wk-share button.ta-btn:focus-visible { background: var(--t-amber); color: var(--t-bg); border-color: var(--t-amber); }

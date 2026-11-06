@@ -8,7 +8,7 @@ const fr1 = (n: number) => n.toLocaleString('fr-FR', { minimumFractionDigits: 1,
 const nf = (n: number) => n.toLocaleString('fr-FR');
 const DOW = ['LUN', 'MAR', 'MER', 'JEU', 'VEN', 'SAM', 'DIM'];
 
-const W = 700, H = 200, PAD = 30;
+const W = 900, H = 180, PAD = 30; // environ 220 px de haut sur 1 100 px de large
 const dayText = (d: WeekView['byDay'][number]) =>
   `${d.label} : ${d.pct === null ? 'aucune mesure' : `${fr1(d.pct)} % (${nf(d.circulated)} trains)`}`;
 
@@ -77,7 +77,7 @@ export function TrainDays({ days }: { days: TrainDay[] }) {
       {days.map((d) => {
         const c = dayCell(d);
         return (
-          <li key={d.date} className={c.cls} title={cellText(d)}>
+          <li key={d.date} className={c.cls} title={cellText(d)} style={{ gridColumnStart: dowOf(d.date) + 1 }}>
             <span aria-hidden="true" className="wk-d-top">{c.top}</span>
             <span aria-hidden="true" className="wk-d-date">{c.date}</span>
             <span aria-hidden="true" className="wk-d-text">{c.text}</span>
