@@ -74,7 +74,7 @@ test('bilan figé : part en bons recalculée à part, phrase au-delà de 30 %, n
   expect(v.kpis.cost.value).toBeCloseTo((100 * 46.6 * 556 * 0.75) / 100, 1); // total figé
   expect(v.kpis.cost.bon).toBe(12000);
   expect(v.intlCapNote).toEqual({ from: '04/11', eur: 4858 });
-  expect(v.takeaways.some((s) => s.startsWith('62 % des indemnités théoriques'))).toBe(true);
+  expect(v.takeaways).toContain('12 k€ sur 19 k€ d’indemnités théoriques (62 %) sont dus en bons d’achat, et non en argent.');
   // Bilan calculé avec le nouveau barème : part en bons dans le bilan lui-même, pas de note.
   const fresh = shapeWeek(week([['INOUI', 'SUD_EST', 'circulated', 100], ['INOUI', 'SUD_EST', 'comp_pct_sum', 100], ['INOUI', 'SUD_EST', 'comp_pct_sum_bon', 20]]), null);
   expect(fresh.intlCapNote).toBeNull();

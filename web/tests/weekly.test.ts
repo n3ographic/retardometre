@@ -31,8 +31,10 @@ test('chiffres clés, variations et mention de la semaine précédente incomplè
   expect(w.worstDay).toMatchObject({ label: 'LUN 26/10', pct: 66.7, cause: 'obstacle' });
   expect(w.bestDay).toMatchObject({ label: 'MAR 27/10', pct: 90 });
   expect([w.bestAxis, w.worstAxis]).toEqual(['EST', 'NORD']);
-  // Obstacle : 3 trains, 2e en nombre, mais 1re cause en euros.
-  expect(w.causes[0].sentence).toMatch(/^Obstacle, animal, choc : 3 trains seulement \(2e en nombre\), mais première cause en euros/);
+  // Obstacle : 3 trains, 2e en nombre, 1re en euros ; un seul rang d'écart, pas de « seulement ».
+  expect(w.causes.map((c) => [c.category, c.euroRank, c.trainRank])).toEqual([['obstacle', 1, 2], ['enchainement', 2, 1]]);
+  expect(w.causes[0].sentence).toMatch(/^Obstacle, animal, choc : 3 trains, \d+′ de retard moyen, \d+ % des indemnités/);
+  expect(w.axes.map((a) => [a.axis, a.circulated, a.per_train])).toEqual([['EST', 100, 0], ['NORD', 100, 0]]);
   expect(w.heat[0].cells.map((c) => c.n)).toEqual([10, 0, 3]);
   expect(w.train?.days.map((d) => d.state)).toEqual(['ran', 'unobserved']);
 });
@@ -62,6 +64,23 @@ test('dernière semaine complète : le bilan du lundi n’existe qu’après 07:
   expect(lastCompleteWeekId(new Date('2026-11-04T12:00:00Z'))).toBe('2026-W44');
   expect(lastCompleteWeekId(new Date('2027-01-12T12:00:00Z'))).toBe('2027-W01'); // année ISO, pas calendaire
   expect(lastCompleteWeek(new Date('2027-01-05T12:00:00Z'))).toBe(53); // 2026 compte 53 semaines ISO
+});
+
+test('causes : phrase selon l’écart de rang ; indemnité par train ; part en bons', () => {
+  const c = (cat: string, trains: number, comp: number): WeekPayload['stats'] =>
+    [['INOUI', 'NORD', `cause:${cat}`, trains], ['INOUI', 'NORD', `cause_delay_s:${cat}`, trains * 600], ['INOUI', 'NORD', `cause_comp:${cat}`, comp]];
+  const w = shapeWeek(row('2026-W44', payload(7, { NORD: [100, 70] }, [
+    ...c('obstacle', 2, 300), ...c('infra', 5, 200), ...c('enchainement', 9, 50),
+    ['INOUI', 'NORD', 'comp_pct_sum', 100], ['INOUI', 'NORD', 'comp_pct_sum_bon', 90],
+  ])), null);
+  // En euros : obstacle, infra, enchaînement ; en nombre : enchaînement, infra, obstacle.
+  expect(w.causes.map((x) => [x.euroRank, x.trainRank])).toEqual([[1, 3], [2, 2], [3, 1]]);
+  expect(w.causes[0].sentence).toMatch(/: 2 trains seulement \(3e en nombre\), mais première cause en euros avec 10′/);
+  expect(w.causes[1].sentence).toMatch(/: 5 trains, 10′ de retard moyen, 36 % des indemnités liées à une cause\.$/);
+  expect(w.causes[2].sentence).toMatch(/: 9 trains \(1re en nombre\), mais des retards plus courts, 10′ en moyenne\.$/);
+  // 100 % × 50 € × 500 places × 0,75 = 18 750 € pour 100 trains.
+  expect(w.axes[0].per_train).toBe(188);
+  expect(w.takeaways).toContain('17 k€ sur 19 k€ d’indemnités théoriques (90 %) sont dus en bons d’achat, et non en argent.');
 });
 
 test('weekDays : lundi et dimanche de la semaine ISO', () => {

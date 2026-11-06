@@ -158,21 +158,23 @@ export default async function Page({ params }: Props) {
           <h2 className="term-panel-title" id="wk-axes">Axes</h2>
           <div className="wk-scroll">
           <table className="wk-table">
-            <thead><tr><th scope="col">Axe</th><th scope="col" colSpan={2}>Régularité</th><th scope="col" colSpan={2}>Indemnités HT</th></tr></thead>
+            <thead><tr><th scope="col">Axe</th><th scope="col">Trains</th><th scope="col" colSpan={2}>Régularité</th><th scope="col" colSpan={2}>Indemnités HT</th><th scope="col">Par train</th></tr></thead>
             <tbody>
               {v.axes.map((a) => (
                 <tr key={a.axis} className={a.small ? 'term-small' : undefined}>
                   <th scope="row">{axisName(a.axis)} {a.axis === v.bestAxis ? <span className="tone-ontime" title="Axe le plus régulier">★</span> : a.axis === v.worstAxis ? <span className="tone-severe" title="Axe le moins régulier">▼</span> : ''}</th>
+                  <td>{nf(a.circulated)}</td>
                   <td className="wk-bar" aria-hidden="true">{charBar(a.pct, 12)}</td>
                   <td>{a.pct === null ? '—' : `${fr1(a.pct)} %`}{a.small && <span className="tone-late"> ÉCHANTILLON FAIBLE</span>}</td>
                   <td className="wk-bar" aria-hidden="true">{charBar((a.cost / maxCost) * 100, 12)}</td>
                   <td>{eur(a.cost)}</td>
+                  <td>{a.per_train === null ? '—' : `${nf(a.per_train)} €`}</td>
                 </tr>
               ))}
             </tbody>
           </table>
           </div>
-          <p className="term-dim wk-small">★ LE PLUS RÉGULIER · ▼ LE MOINS RÉGULIER · AXES D’AU MOINS 30 TRAINS</p>
+          <p className="term-dim wk-small">★ LE PLUS RÉGULIER · ▼ LE MOINS RÉGULIER · AXES D’AU MOINS 30 TRAINS · PAR TRAIN : INDEMNITÉS / TRAINS QUI ONT ROULÉ</p>
         </section>
 
         {v.causes.length > 0 && (
@@ -182,6 +184,7 @@ export default async function Page({ params }: Props) {
               {v.causes.map((c) => (
                 <li key={c.category}>
                   <p><strong>{c.label}</strong> <span className="wk-bar" aria-hidden="true">{charBar((c.cost_eur_ht / maxCause) * 100, 16)}</span> {eur(c.cost_eur_ht)}{c.trains < SAMPLE_MIN && <span className="tone-late"> · ÉCHANTILLON FAIBLE</span>}</p>
+                  <p className="wk-small">RANG {c.euroRank} EN EUROS · RANG {c.trainRank} EN NOMBRE DE TRAINS</p>
                   <p className="term-dim">{c.sentence}</p>
                 </li>
               ))}

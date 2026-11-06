@@ -26,6 +26,9 @@ const dayLabel = (d: string) => `${DOW[(new Date(`${d}T12:00:00Z`).getUTCDay() +
 const pct1 = (a: number, b: number) => (b === 0 ? null : Math.round((a / b) * 1000) / 10);
 const fr1 = (n: number) => n.toLocaleString('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const nf = (n: number) => n.toLocaleString('fr-FR');
+const ordinal = (n: number) => (n === 1 ? '1re' : `${n}e`); // « cause » : féminin
+// 1,3 M€ ou 58 k€ ; `digits` décimales au-delà du million.
+const eur = (n: number, digits = 1) => (n >= 1e6 ? `${(n / 1e6).toLocaleString('fr-FR', { minimumFractionDigits: digits, maximumFractionDigits: digits })} M€` : `${nf(Math.round(n / 1000))} k€`);
 const causeShort = (c: string) => CAUSE_LABELS[c]?.short ?? c.toUpperCase();
 const causeLong = (c: string) => CAUSE_LABELS[c]?.long ?? c;
 
@@ -97,24 +100,27 @@ export function shapeWeek(row: WeekRow, prev: WeekRow | null, extra: WeekExtra |
   const ranked = days.filter((d) => d.pct !== null && !isSmallSample(d)).sort((a, b) => a.pct! - b.pct! || a.date.localeCompare(b.date));
   const worstDay = ranked[0] ?? null, bestDay = ranked.length > 1 ? ranked[ranked.length - 1] : null;
 
-  // Axes : régularité et indemnités ; meilleur et pire parmi les axes d'au moins 30 trains.
-  const costByAxis = new Map<string, number>();
-  for (const g of s.groups) costByAxis.set(g.axis, (costByAxis.get(g.axis) ?? 0) + g.estimated_cost_eur_ht);
-  const axes = axisRegularity(s.groups).map((a) => ({ ...a, cost: costByAxis.get(a.axis) ?? 0 })).sort((a, b) => (b.pct ?? -1) - (a.pct ?? -1));
+  // Axes : régularité, indemnités et indemnité moyenne par train ; meilleur et pire parmi les axes d'au moins 30 trains.
+  const axes = axisRegularity(s.groups).map((a) => ({ ...a, per_train: a.circulated === 0 ? null : Math.round(a.cost / a.circulated) }))
+    .sort((a, b) => (b.pct ?? -1) - (a.pct ?? -1));
   const solid = axes.filter((a) => !a.small && a.pct !== null);
   const bestAxis = solid[0]?.axis ?? null, worstAxis = solid.length > 1 ? solid[solid.length - 1].axis : null;
 
   // Causes : les 3 premières en euros, avec leur rang en nombre de trains pour la phrase.
   const causeTotal = s.cause_breakdown.reduce((a, c) => a + c.cost_eur_ht, 0);
   const byTrains = [...s.cause_breakdown].sort((a, b) => b.trains - a.trains || a.category.localeCompare(b.category)).map((c) => c.category);
+  // Phrase selon l'écart des deux rangs : « seulement » si la cause est au moins 2 rangs plus bas en nombre qu'en euros.
   const causes = s.cause_breakdown.slice(0, 3).map((c, i) => {
     const share = causeTotal === 0 ? 0 : Math.round((c.cost_eur_ht / causeTotal) * 100);
-    const trainRank = byTrains.indexOf(c.category) + 1;
+    const euroRank = i + 1, trainRank = byTrains.indexOf(c.category) + 1;
     const rank = i === 0 ? 'première' : i === 1 ? 'deuxième' : 'troisième';
-    const sentence = trainRank > i + 1
-      ? `${causeLong(c.category)} : ${nf(c.trains)} trains seulement (${trainRank}e en nombre), mais ${rank} cause en euros avec ${c.avg_delay_min}′ de retard moyen.`
-      : `${causeLong(c.category)} : ${nf(c.trains)} trains, ${c.avg_delay_min}′ de retard moyen, ${share} % des indemnités liées à une cause.`;
-    return { ...c, label: causeShort(c.category), share, sentence };
+    const trains = `${nf(c.trains)} train${c.trains > 1 ? 's' : ''}`;
+    const sentence = trainRank - euroRank >= 2
+      ? `${causeLong(c.category)} : ${trains} seulement (${ordinal(trainRank)} en nombre), mais ${rank} cause en euros avec ${c.avg_delay_min}′ de retard moyen.`
+      : euroRank - trainRank >= 2
+        ? `${causeLong(c.category)} : ${trains} (${ordinal(trainRank)} en nombre), mais des retards plus courts, ${c.avg_delay_min}′ en moyenne.`
+        : `${causeLong(c.category)} : ${trains}, ${c.avg_delay_min}′ de retard moyen, ${share} % des indemnités liées à une cause.`;
+    return { ...c, label: causeShort(c.category), share, euroRank, trainRank, sentence };
   });
 
   // Heatmap : heures présentes dans la semaine ; une case sous 5 trains est estompée.
@@ -147,7 +153,7 @@ export function shapeWeek(row: WeekRow, prev: WeekRow | null, extra: WeekExtra |
   if (causes[0]) takeaways.push(`${causes[0].label.charAt(0) + causes[0].label.slice(1).toLowerCase()} pèse ${causes[0].share} % des indemnités liées à une cause.`);
   const bon = kpis.cost.bon;
   const bonShare = bon === null || t.estimated_cost_eur_ht === 0 ? null : Math.round((bon / t.estimated_cost_eur_ht) * 100);
-  if (bonShare !== null && bonShare > BON_SHARE_KEY) takeaways.push(`${bonShare} % des indemnités théoriques (${nf(Math.round(bon!))} €) sont dues en bons d’achat, et non en argent.`);
+  if (bonShare !== null && bonShare > BON_SHARE_KEY) takeaways.push(`${eur(bon!, 2)} sur ${eur(t.estimated_cost_eur_ht)} d’indemnités théoriques (${bonShare} %) sont dus en bons d’achat, et non en argent.`);
   if (train) takeaways.push(`Le ${train.number} ${train.origin ?? '?'} → ${train.dest ?? '?'} n’a été à l’heure ${train.ok === 0 ? 'aucun jour' : `que ${train.ok} jour${train.ok > 1 ? 's' : ''}`} sur ${train.counted}.`);
 
   return {
@@ -167,7 +173,7 @@ export type WeekView = ReturnType<typeof shapeWeek>;
 export function summaryText(v: WeekView, url: string): string {
   const k = v.kpis, d = k.regularity.delta;
   const vs = d && v.prev ? ` (${d.value > 0 ? '+' : d.value < 0 ? '−' : '±'}${fr1(Math.abs(d.value))} pt vs S${v.prev.num}${v.prev.incomplete ? ', incomplète' : ''})` : '';
-  const cost = k.cost.value >= 1e6 ? `${fr1(k.cost.value / 1e6)} M€` : `${nf(Math.round(k.cost.value / 1000))} k€`;
+  const cost = eur(k.cost.value);
   return [
     `TGV · semaine ${v.num} (${ddmm(v.from)} → ${ddmm(v.to)})${v.complete ? '' : `, ${v.days} jours`}`,
     `Régularité : ${k.regularity.value === null ? '—' : `${fr1(k.regularity.value)} %`}${vs}`,
