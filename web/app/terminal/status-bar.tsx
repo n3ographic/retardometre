@@ -23,7 +23,7 @@ export default function StatusBar({ status, coveragePct, picker }: { status?: St
   }, []);
   return (
     <header className="term-bar">
-      <a href="/" className="term-logo">OBS·TGV</a>
+      <a href="/" className="term-logo">RETARDOMÈTRE</a>
       <span>LIVE {clock ?? '--:--:--'} PARIS</span>
       {picker}
       {status && COLLECT[status.status](status.ageMin)}

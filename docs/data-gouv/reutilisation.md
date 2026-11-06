@@ -7,10 +7,10 @@ Les champs ci-dessous viennent du schéma de l'API data.gouv.fr (obligatoires : 
 
 | Champ | Valeur |
 |---|---|
-| Titre | Observatoire TGV : retards, suppressions et indemnités théoriques en temps réel |
+| Titre | Retardomètre : retards, suppressions et indemnités théoriques en temps réel |
 | Type | Application |
 | Thématique | Transports et mobilité |
-| URL | https://sncf-tracking.vercel.app |
+| URL | https://retardometre.vercel.app |
 | Propriétaire | ton compte personnel (ou une organisation, au choix) |
 | Tags | `tgv`, `sncf`, `ouigo`, `inoui`, `ponctualite`, `retards`, `transport-ferroviaire`, `temps-reel`, `gtfs-rt`, `observatoire` |
 | Image | facultative, carrée : une capture de l'écran d'accueil (carte et panneaux) |
@@ -24,7 +24,7 @@ Les champs ci-dessous viennent du schéma de l'API data.gouv.fr (obligatoires : 
 ## Description (Markdown, à coller telle quelle)
 
 ```markdown
-**Observatoire TGV** suit la ponctualité des TGV INOUI et OUIGO à partir des données ouvertes de SNCF : le flux temps réel (GTFS-RT, relevé toutes les 2 minutes) est confronté aux horaires théoriques (GTFS).
+**Retardomètre** suit la ponctualité des TGV INOUI et OUIGO à partir des données ouvertes de SNCF : le flux temps réel (GTFS-RT, relevé toutes les 2 minutes) est confronté aux horaires théoriques (GTFS).
 
 **Ce que montre le site**
 - une carte des trains en circulation, avec leur retard et les suppressions ;
@@ -38,9 +38,9 @@ Les champs ci-dessous viennent du schéma de l'API data.gouv.fr (obligatoires : 
 - La collecte a commencé le 20 octobre 2026 ; la couverture est affichée sur le site.
 - Périmètre : TGV INOUI et OUIGO (OUIGO Train Classique exclus).
 
-La page « Méthodologie » détaille les règles de calcul, les sources et les limites : https://sncf-tracking.vercel.app/methodologie
+La page « Méthodologie » détaille les règles de calcul, les sources et les limites : https://retardometre.vercel.app/methodologie
 
-Projet indépendant, non affilié à SNCF ni à OUIGO. Code source sous licence MIT : https://github.com/n3ographic/sncf-tracking. Les données dérivées sont sous licence ODbL ; le site contient des informations de SNCF Open Data et de transport.data.gouv.fr, sous licence ODbL.
+Projet indépendant, non affilié à SNCF ni à OUIGO. Code source sous licence MIT : https://github.com/n3ographic/retardometre. Les données dérivées sont sous licence ODbL ; le site contient des informations de SNCF Open Data et de transport.data.gouv.fr, sous licence ODbL.
 ```
 
 ## À décider avant de publier

@@ -19,7 +19,7 @@ export default function ShareBar({ text, week }: { text: string; week: string })
       <button type="button" className="ta-btn" onClick={copy}>
         {state === 'ok' ? 'RÉSUMÉ COPIÉ ✓' : state === 'fail' ? 'COPIE IMPOSSIBLE' : 'COPIER LE RÉSUMÉ'}
       </button>
-      <a className="ta-btn" href={`/semaine/${week}/carre.png`} download={`obs-tgv-${week}.png`}>IMAGE CARRÉE ↓</a>
+      <a className="ta-btn" href={`/semaine/${week}/carre.png`} download={`retardometre-${week}.png`}>IMAGE CARRÉE ↓</a>
       <span className="sr-only" role="status">{state === 'ok' ? 'Résumé copié dans le presse-papiers' : state === 'fail' ? 'Copie impossible' : ''}</span>
     </p>
   );

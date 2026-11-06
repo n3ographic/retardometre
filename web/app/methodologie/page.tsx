@@ -6,7 +6,7 @@ import { CAUSE_LABELS } from '../../lib/causes';
 import { COUNT_KEYS, COUNT_LABELS } from '../../lib/counts';
 import { Fragment } from 'react';
 
-export const metadata = { title: 'Méthodologie · Observatoire TGV' };
+export const metadata = { title: 'Méthodologie · Retardomètre' };
 // Rendue à chaque requête : un build sans accès à la base ne doit pas figer « règles indisponibles ».
 // La base n'est lue qu'une fois par heure (cache de données de loadRules).
 export const dynamic = 'force-dynamic';
@@ -27,8 +27,8 @@ function durationBand(from: number[], i: number): string {
   if (i === from.length - 1) return `plus de ${fmtDuration(from[i] - 1)}`;
   return `de ${fmtDuration(from[i])} à ${fmtDuration(from[i + 1] - 1)}`;
 }
-const RELEASES = 'https://github.com/n3ographic/sncf-tracking/releases';
-const REPO = 'https://github.com/n3ographic/sncf-tracking';
+const RELEASES = 'https://github.com/n3ographic/retardometre/releases';
+const REPO = 'https://github.com/n3ographic/retardometre';
 
 function Unavailable() {
   return <p className="mt-warn" role="status">Règles indisponibles pour le moment, réessayez plus tard.</p>;

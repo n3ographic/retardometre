@@ -23,7 +23,7 @@ export async function weekCard(semaine: string, size: { width: number; height: n
     (
       <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', background: BG, color: AMBER, padding: 56, fontSize: 30 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', color: DIM, fontSize: 26 }}>
-          <span style={{ background: AMBER, color: '#000', padding: '0 10px', fontWeight: 700 }}>OBS·TGV</span>
+          <span style={{ background: AMBER, color: '#000', padding: '0 10px', fontWeight: 700 }}>RETARDOMÈTRE</span>
           <span>BILAN HEBDO · INDÉPENDANT</span>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', flexGrow: 1 }}>
