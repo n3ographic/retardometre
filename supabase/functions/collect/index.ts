@@ -74,11 +74,18 @@ Deno.serve(async (req) => {
     const m = /^(\d{4})(\d{2})(\d{2})$/.exec(e.tripUpdate?.trip?.startDate ?? '')
     return m ? [[`${m[1]}-${m[2]}-${m[3]}`, e.tripUpdate.trip.tripId]] : []
   })
-  const { data: rows, error: ctxError } = await db.rpc('collector_context', {
-    p_service_dates: keys.map((k) => k[0]),
-    p_trip_ids: keys.map((k) => k[1]),
-  })
+  // Les deux lectures sont indépendantes : lancées ensemble.
+  const parisToday = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date())
+  const [{ data: rows, error: ctxError }, { count: plannedToday, error: countError }] = await Promise.all([
+    db.rpc('collector_context', {
+      p_service_dates: keys.map((k) => k[0]),
+      p_trip_ids: keys.map((k) => k[1]),
+    }),
+    db.from('trips_planned')
+      .select('trip_id', { count: 'exact', head: true }).eq('service_date', parisToday).is('removed_at', null),
+  ])
   if (ctxError) return fail('collector_context', ctxError)
+  if (countError) return fail('trips_planned', countError)
 
   const contexts = new Map<string, TripContext>()
   const planned = new Map<string, PlannedStopTimes>()
@@ -87,11 +94,6 @@ Deno.serve(async (req) => {
     contexts.set(k, c)
     planned.set(k, plannedOf(c))
   }
-
-  const parisToday = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date())
-  const { count: plannedToday, error: countError } = await db.from('trips_planned')
-    .select('trip_id', { count: 'exact', head: true }).eq('service_date', parisToday).is('removed_at', null)
-  if (countError) return fail('trips_planned', countError)
 
   const snaps = snapshotsFromFeed(feed, alerts, planned)
   const { events, circulations } = collectChanges(snaps, contexts, alertTexts(alerts), new Date(feedTs * 1000).toISOString(), now)

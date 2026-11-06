@@ -1,14 +1,16 @@
 import CommandBar from './command-bar';
 import FKeys from './f-keys';
+import type { CommandData } from '../../lib/command';
 
-export default function FootBar() {
+// data : trains et gares déjà chargés par la page (accueil), pour que la barre de commande ne les redemande pas.
+export default function FootBar({ data }: { data?: CommandData }) {
   return (
     <footer className="term-bar term-foot">
       <nav aria-label="Pages">
         <a href="/">F1 CARTE</a>
         <a href="/methodologie">F2 MÉTHODO</a>
         <a href="/marey">F3 MAREY</a>
-        <CommandBar />
+        <CommandBar data={data} />
       </nav>
       <FKeys />
       <span>POSITIONS ESTIMÉES · NON AFFILIÉ SNCF/OUIGO</span>

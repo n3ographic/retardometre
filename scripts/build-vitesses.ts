@@ -14,12 +14,12 @@ const OUT = 'web/public/vitesses-lignes.json'
 if (!existsSync(CACHE)) {
   mkdirSync('tmp', { recursive: true })
   console.log('téléchargement des vitesses maximales…')
-  const r = await fetch(SOURCE)
+  const r = await fetch(SOURCE, { signal: AbortSignal.timeout(300_000) }) // 5 min : échoue au lieu de bloquer
   if (!r.ok) throw new Error(`vitesses maximales : ${r.status}`)
   writeFileSync(CACHE, Buffer.from(await r.arrayBuffer()))
 }
 // Date des données (pas du traitement) : affichée sur la carte, la source n'est pas tenue à jour en continu.
-const meta = (await (await fetch(META)).json()) as { metas?: { default?: { modified?: string } } }
+const meta = (await (await fetch(META, { signal: AbortSignal.timeout(60_000) })).json()) as { metas?: { default?: { modified?: string } } }
 const modified = meta.metas?.default?.modified?.slice(0, 10) ?? null
 
 const features = (JSON.parse(readFileSync(CACHE, 'utf8')) as { features: VmaxFeature[] }).features
