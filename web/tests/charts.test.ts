@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { dayCell, weekSlots } from '../lib/week-charts';
+import { dayCell, lateBars, lateHeadline, weekSlots } from '../lib/week-charts';
 
 // Jours du lundi 26/10 au dimanche 01/11 avec leur régularité ; null = aucune mesure.
 const week = (pcts: (number | null)[], from = 26) =>
@@ -17,6 +17,29 @@ test('semaine qui commence un mardi : le lundi est vide, les jours restent à le
   expect(s[1]?.date).toBe('2026-10-20');
   expect(s[6]?.date).toBe('2026-10-25');
 });
+test('trains en retard : 100 moins la régularité, échelle de 0 au pire jour arrondi à 5', () => {
+  const b = lateBars(week([66.7, 75.3, 79.2, 82.4, 79.8, 84.9, 82]).map((d) => ({ ...d, small: false })));
+  expect(b.slots.map((s) => s?.late)).toEqual([33.3, 24.7, 20.8, 17.6, 20.2, 15.1, 18]);
+  expect(b.top).toBe(35);
+  expect(b.slots[0]?.height).toBeCloseTo((33.3 / 35) * 100);
+  expect(b.worst).toBe('2026-10-26');
+});
+
+test('pire jour : un jour de moins de 30 trains ne compte pas ; semaine sans mesure : rien', () => {
+  const days = week([90, 50, 80, null, 80, 80, 80]).map((d, i) => ({ ...d, small: i === 1 }));
+  const b = lateBars(days);
+  expect(b.worst).toBe('2026-10-28');
+  expect(b.slots[3]).toBeNull();
+  expect(lateBars(week([null, null]).map((d) => ({ ...d, small: false })))).toMatchObject({ worst: null, top: 5 });
+});
+
+test('phrase titre : « 1 train sur N », pourcentage à partir de la moitié, aucun retard', () => {
+  expect(lateHeadline(33.3)).toBe('1 TRAIN SUR 3 EN RETARD');
+  expect(lateHeadline(15.1)).toBe('1 TRAIN SUR 7 EN RETARD');
+  expect(lateHeadline(55)).toBe('55,0 % DES TRAINS EN RETARD');
+  expect(lateHeadline(0)).toBe('AUCUN TRAIN EN RETARD');
+});
+
 // Cases du train de la semaine : jour, date et retard écrits dedans ; ✓ seulement sous 5′.
 const cell = (state: 'ran' | 'cancelled' | 'unobserved', delay_s: number | null) => dayCell({ date: '2026-10-26', label: 'LUN 26/10', state, delay_s });
 

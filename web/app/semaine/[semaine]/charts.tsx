@@ -1,5 +1,5 @@
 import { COUNT_LABELS } from '../../../lib/counts';
-import { dayCell, dowOf, weekSlots, type TrainDay } from '../../../lib/week-charts';
+import { dayCell, dowOf, lateBars, lateHeadline, type TrainDay } from '../../../lib/week-charts';
 import type { WeekView } from '../../../lib/weekly';
 
 // Graphiques du bilan hebdo, rendus côté serveur, couleurs dans semaine.css.
@@ -8,39 +8,34 @@ const fr1 = (n: number) => n.toLocaleString('fr-FR', { minimumFractionDigits: 1,
 const nf = (n: number) => n.toLocaleString('fr-FR');
 const DOW = ['LUN', 'MAR', 'MER', 'JEU', 'VEN', 'SAM', 'DIM'];
 
-const dayText = (d: WeekView['byDay'][number]) =>
-  `${d.label} : ${d.pct === null ? 'aucune mesure' : `${fr1(d.pct)} % (${nf(d.circulated)} trains)`}`;
+const DOW_LONG = ['LUNDI', 'MARDI', 'MERCREDI', 'JEUDI', 'VENDREDI', 'SAMEDI', 'DIMANCHE'];
 
-// Régularité jour par jour : barres en HTML/CSS (le texte garde sa taille à toutes les largeurs), échelle de 0 à 100 %,
-// meilleur jour en vert, jour de moins de 30 trains hachuré, ⚑ au-dessus du jour du créneau le plus touché,
-// pointillé = régularité de la semaine.
-export function DayBars({ days, best, slot, mean }: { days: WeekView['byDay']; best: WeekView['bestDay']; slot: WeekView['worstSlot']; mean: number | null }) {
-  const cols = weekSlots(days);
-  if (cols.every((d) => d === null || d.pct === null)) return <p className="term-dim">AUCUNE MESURE CETTE SEMAINE</p>;
-  const flagDow = slot ? slot.dow - 1 : null;
+// Trains en retard jour par jour : phrase titre sur le pire jour, une barre par jour (échelle depuis 0), pire jour en rouge,
+// jour de moins de 30 trains hachuré. Barres en HTML/CSS : le texte garde sa taille à toutes les largeurs.
+export function LateBars({ days }: { days: WeekView['byDay'] }) {
+  const b = lateBars(days);
+  if (b.slots.every((s) => s === null)) return <p className="term-dim">AUCUNE MESURE CETTE SEMAINE</p>;
+  const byDate = new Map(days.map((d) => [d.date, d]));
+  const worst = b.slots.find((s) => s?.date === b.worst) ?? null;
+  const text = (s: NonNullable<(typeof b.slots)[number]>) =>
+    `${byDate.get(s.date)!.label} : ${fr1(s.late)} % en retard (${nf(byDate.get(s.date)!.circulated)} trains)`;
   return (
     <figure className="wk-daybars">
+      {worst && <p className="wk-db-head">{DOW_LONG[dowOf(worst.date)]} : {lateHeadline(worst.late)}, LE PIRE JOUR DE LA SEMAINE</p>}
       <div className="wk-db-plot" aria-hidden="true">
-        {mean !== null && <div className="wk-db-mean" style={{ bottom: `${mean}%` }} title={`Semaine : ${fr1(mean)} %`} />}
-        {cols.map((d, i) => (
+        {b.slots.map((s, i) => (
           <div key={DOW[i]} className="wk-db-col">
-            {slot && flagDow === i && <span className={`wk-db-flag ${i < 2 ? 'at-start' : i > 4 ? 'at-end' : ''}`} title={`Créneau le plus touché : ${slot.label} ${slot.hour} h, ${slot.avg_min}′ de retard moyen sur ${slot.n} trains`}>⚑ {slot.hour} H · {slot.avg_min}′</span>}
-            {d?.pct != null && (
-              <div className={`wk-db-bar${best?.date === d.date ? ' is-best' : ''}${d.small ? ' is-small' : ''}`} style={{ height: `${d.pct}%` }}
-                title={`${best?.date === d.date ? 'Meilleur jour · ' : ''}${dayText(d)}`} />
-            )}
+            {s && <div className={`wk-db-bar${s.date === b.worst ? ' is-worst' : ''}${s.small ? ' is-small' : ''}`} style={{ height: `${s.height}%` }} title={text(s)} />}
           </div>
         ))}
       </div>
       <div className="wk-db-axis" aria-hidden="true">
-        {cols.map((d, i) => (
-          <div key={DOW[i]}><span className="wk-db-val">{d?.pct != null ? `${fr1(d.pct)} %` : 'n.d.'}</span><span className="wk-db-day">{DOW[i]}</span></div>
+        {b.slots.map((s, i) => (
+          <div key={DOW[i]}><span className={`wk-db-val${s?.date === b.worst ? ' tone-severe' : ''}`}>{s ? `${fr1(s.late)} %` : 'n.d.'}</span><span className="wk-db-day">{DOW[i]}</span></div>
         ))}
       </div>
       <ul className="sr-only">
-        {days.map((d) => <li key={d.date}>{dayText(d)}{best?.date === d.date ? ', meilleur jour' : ''}</li>)}
-        {slot && <li>{`Créneau le plus touché : ${slot.label} ${slot.hour} h, ${slot.avg_min}′ de retard moyen sur ${slot.n} trains`}</li>}
-        {mean !== null && <li>{`Régularité de la semaine : ${fr1(mean)} %`}</li>}
+        {b.slots.map((s) => s && <li key={s.date}>{text(s)}{s.date === b.worst ? ', pire jour' : ''}</li>)}
       </ul>
     </figure>
   );

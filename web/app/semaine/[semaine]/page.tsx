@@ -9,7 +9,7 @@ import { RANGE_HINT, bucketIndex, eurRange } from '../../../lib/terminal-model';
 import { axisName, ordinal, shapeWeek, summaryText, weekNum, type WeekView } from '../../../lib/weekly';
 import FootBar from '../../terminal/foot-bar';
 import StatusBar from '../../terminal/status-bar';
-import { DayBars, HBar, TrainDays } from './charts';
+import { HBar, LateBars, TrainDays } from './charts';
 import ShareBar from './share-bar';
 
 // Bilan figé : la base n'est relue qu'une fois par heure et par semaine (cache de loadWeek).
@@ -120,9 +120,9 @@ export default async function Page({ params }: Props) {
         {v.small && <p className="tone-late">ÉCHANTILLON FAIBLE (MOINS DE 30 TRAINS)</p>}
 
         <section className="term-panel" aria-labelledby="wk-curve">
-          <h2 className="term-panel-title" id="wk-curve">Régularité jour par jour</h2>
-          <DayBars days={v.byDay} best={v.bestDay} slot={slot} mean={k.regularity.value} />
-          <p className="term-dim wk-small">ÉCHELLE 0 À 100 % · VERT : MEILLEUR JOUR · HACHURÉ : MOINS DE 30 TRAINS · ⚑ CRÉNEAU AU PLUS FORT RETARD MOYEN (CASES D’AU MOINS 5 TRAINS) · POINTILLÉ : SEMAINE</p>
+          <h2 className="term-panel-title" id="wk-curve">Trains en retard, jour par jour</h2>
+          <LateBars days={v.byDay} />
+          <p className="term-dim wk-small">PART DES TRAINS ARRIVÉS AU-DELÀ DU SEUIL « À L’HEURE » (5′, 10′ OU 15′ SELON LA DURÉE) · ÉCHELLE DEPUIS 0 · ROUGE : PIRE JOUR · HACHURÉ : MOINS DE 30 TRAINS, HORS CLASSEMENT</p>
         </section>
 
         <div className="wk-duo">
@@ -187,7 +187,7 @@ export default async function Page({ params }: Props) {
               </table>
             </div>
             <p className="term-dim wk-small">
-              {TERMINUS_BUCKETS.map((b, j) => <span key={b}><span className={`seg-c s${j}`} aria-hidden="true">█</span> {b} </span>)}MIN · CASE PÂLE : MOINS DE 5 TRAINS · CASE ENTOURÉE : CRÉNEAU ⚑
+              {TERMINUS_BUCKETS.map((b, j) => <span key={b}><span className={`seg-c s${j}`} aria-hidden="true">█</span> {b} </span>)}MIN · CASE PÂLE : MOINS DE 5 TRAINS · CASE ENTOURÉE : CRÉNEAU AU PLUS FORT RETARD MOYEN (AU MOINS 5 TRAINS)
             </p>
           </section>
         )}
