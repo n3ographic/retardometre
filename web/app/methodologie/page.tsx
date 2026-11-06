@@ -248,6 +248,26 @@ export default async function Page() {
           Après maintenant, le dernier retard connu est prolongé (trait estompé).</p>
       </section>
 
+      <section id="notifications">
+        <h2>Notifications</h2>
+        <p>Le bouton <strong>SUIVRE</strong>, sur la fiche d’un train ou dans son volet sur la carte, envoie des notifications à ton navigateur pour le trajet du jour,
+          jusqu’à son terminus ou jusqu’à la gare que tu choisis dans le menu. Le site vérifie l’état des trains suivis toutes les 2 minutes, après chaque passage du collecteur.</p>
+        <ul>
+          <li><strong>Retard</strong> : une notification quand le retard prévu à ta gare franchit 5, 15, 30, 60 ou 120 minutes ; une seule si plusieurs paliers sont franchis d’un coup.
+            À partir de 30 minutes, elle indique l’indemnité théorique, calculée comme ci-dessus avec le barème du train.</li>
+          <li><strong>Retard rattrapé</strong> : quand le retard prévu repasse sous 5 minutes après une notification de retard. Une baisse entre deux paliers n’en donne pas.</li>
+          <li><strong>Suppression</strong> du train ou de ta gare : une notification, puis fin du suivi.</li>
+          <li><strong>Arrivée</strong> : 5 minutes après l’heure prévue à ta gare augmentée du dernier retard publié, avec le retard final et l’indemnité théorique, puis fin du suivi.</li>
+        </ul>
+        <p>Comme le reste du site, les notifications suivent le <strong>retard publié</strong> dans le flux, par pas de 5 minutes : l’« arrivée » est déduite de l’horaire et du retard annoncé,
+          pas constatée en gare. Quand le flux ne se met plus à jour depuis 10 minutes, rien n’est envoyé, pour ne pas annoncer une arrivée fausse.
+          Une notification qui n’a pas pu être remise dans les 30 minutes est abandonnée, et seule la plus récente attend un téléphone hors ligne.</p>
+        <p><strong>Données.</strong> Le site garde seulement l’adresse d’envoi anonyme fournie par ton navigateur (et ses clés de chiffrement), le numéro du train, le jour et la gare suivie.
+          Pas de compte, pas d’email, pas de cookie. Ce suivi est effacé à l’arrivée, à la suppression du train, quand tu cliques à nouveau sur le bouton, et dans tous les cas après 48 heures.
+          Le navigateur retient de son côté la liste des trains suivis, pour afficher le bouton. Tu peux retirer l’autorisation à tout moment dans les réglages du navigateur.</p>
+        <p><strong>Sur iPhone</strong>, les notifications d’un site ne fonctionnent qu’une fois celui-ci ajouté à l’écran d’accueil (Partager, puis « Sur l’écran d’accueil ») et ouvert depuis son icône.</p>
+      </section>
+
       <section>
         <h2>Limites connues</h2>
         <ul>
