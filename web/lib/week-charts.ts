@@ -28,13 +28,21 @@ export function lateHeadline(late: number): string {
   return `1 TRAIN SUR ${Math.round(100 / late)} EN RETARD`;
 }
 
-export type TrainDay = { date: string; label: string; state: 'ran' | 'cancelled' | 'unobserved'; delay_s: number | null };
-// Case d'un jour du train de la semaine : jour, date et retard écrits ; à l'heure (✓) sous 5′, comme /train.
+// max_delay_s : seuil « à l'heure » du jour, donné par regularity_max_delay_s en base (5′, 10′ ou 15′ selon la durée du trajet).
+export type TrainDay = { date: string; label: string; state: 'ran' | 'cancelled' | 'unobserved'; delay_s: number | null; max_delay_s: number };
+// À l'heure : même règle que la régularité officielle.
+export const onTime = (d: Pick<TrainDay, 'delay_s' | 'max_delay_s'>) => d.delay_s !== null && d.delay_s < d.max_delay_s;
+// Légende : « MOINS DE 15′ », ou les seuils rencontrés si l'horaire a changé dans la semaine.
+export function onTimeLabel(days: Pick<TrainDay, 'max_delay_s'>[]): string {
+  const mins = [...new Set(days.map((d) => d.max_delay_s / 60))].sort((a, b) => a - b);
+  return mins.length === 1 ? `MOINS DE ${mins[0]}′` : `MOINS DE ${mins.map((m) => `${m}′`).join(' OU ')} SELON LE JOUR`;
+}
+// Case d'un jour du train de la semaine : jour, date et retard écrits ; ✓ à l'heure selon la règle de la régularité.
 export function dayCell(d: TrainDay): { top: string; date: string; text: string; cls: string; ok: boolean } {
   const [top, date] = d.label.split(' ');
   if (d.state === 'cancelled') return { top, date, text: '×', cls: 'tp-cancel', ok: false };
   if (d.state === 'unobserved') return { top, date, text: '', cls: 'tp-unobs', ok: false };
   if (d.delay_s === null) return { top, date, text: '–', cls: 'tp-unobs', ok: false };
-  const ok = d.delay_s < 300;
+  const ok = onTime(d);
   return { top, date, text: ok ? '✓' : `+${Math.round(d.delay_s / 60)}′`, cls: `tp-s${bucketIndex(d.delay_s)}`, ok };
 }

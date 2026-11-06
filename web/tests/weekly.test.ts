@@ -35,12 +35,20 @@ test('chiffres clés, variations et mention de la semaine précédente incomplè
   // Créneau le plus touché : la case de 9 h (20′) n'a que 3 trains, celle de 7 h (10 trains, 1′) l'emporte.
   expect(w.worstSlot).toEqual({ dow: 1, hour: 7, n: 10, avg_min: 1, label: 'LUN 26/10', date: '2026-10-26' });
   expect([w.bestAxis, w.worstAxis]).toEqual(['EST', 'NORD']);
-  // Obstacle : 3 trains, 2e en nombre, 1re en euros ; un seul rang d'écart, pas de « seulement ».
+  // Obstacle : 3 trains, 2e en nombre, 1re en euros ; un seul rang d'écart, phrase neutre sans le rang.
   expect(w.causes.map((c) => [c.category, c.euroRank, c.trainRank])).toEqual([['obstacle', 1, 2], ['enchainement', 2, 1]]);
-  expect(w.causes[0].sentence).toMatch(/^Obstacle, animal, choc : 3 trains, \d+′ de retard moyen, \d+ % des indemnités/);
+  expect(w.causes[0].sentence).toMatch(/^\d+′ de retard moyen, \d+ % des indemnités/);
   expect(w.axes.map((a) => [a.axis, a.circulated, a.per_train])).toEqual([['EST', 100, 0], ['NORD', 100, 0]]);
   expect(w.heat[0].cells.map((c) => c.n)).toEqual([10, 0, 3]);
   expect(w.train?.days.map((d) => d.state)).toEqual(['ran', 'unobserved']);
+  // Bilan figé sans seuil du jour : 5′, la règle de l'époque.
+  expect(w.train?.days.map((d) => d.max_delay_s)).toEqual([300, 300]);
+});
+
+test('train de la semaine : seuil du jour repris du bilan', () => {
+  const p = payload(7, { EST: [100, 90] });
+  const w = shapeWeek(row('2026-W44', { ...p, train: { ...p.train!, days: [['2026-10-26', true, false, 600, 900]] } }), null);
+  expect(w.train?.days[0]).toMatchObject({ delay_s: 600, max_delay_s: 900 });
 });
 
 test('résumé à copier : 5 lignes au plus, chiffres de la page et lien', () => {
@@ -87,9 +95,11 @@ test('causes : phrase selon l’écart de rang ; indemnité par train ; part en 
   ])), null);
   // En euros : obstacle, infra, enchaînement ; en nombre : enchaînement, infra, obstacle.
   expect(w.causes.map((x) => [x.euroRank, x.trainRank])).toEqual([[1, 3], [2, 2], [3, 1]]);
-  expect(w.causes[0].sentence).toMatch(/: 2 trains seulement \(3e en nombre\), mais première cause en euros avec 10′/);
-  expect(w.causes[1].sentence).toMatch(/: 5 trains, 10′ de retard moyen, 36 % des indemnités liées à une cause\.$/);
-  expect(w.causes[2].sentence).toMatch(/: 9 trains \(1re en nombre\), mais des retards plus courts, 10′ en moyenne\.$/);
+  // Le rang et le nombre de trains sont sur la ligne du dessus : la phrase ne les répète pas, sans « seulement ».
+  expect(w.causes[0].sentence).toBe('Retards longs : 10′ en moyenne, 55 % des indemnités liées à une cause.');
+  expect(w.causes[1].sentence).toBe('10′ de retard moyen, 36 % des indemnités liées à une cause.');
+  expect(w.causes[2].sentence).toBe('Retards plus courts : 10′ en moyenne, 9 % des indemnités liées à une cause.');
+  expect(w.causes.map((x) => x.sentence).join(' ')).not.toMatch(/seulement|en nombre/);
   // 100 % × 50 € × 500 places × 0,75 = 18 750 € pour 100 trains.
   expect(w.axes[0].per_train).toBe(188);
   expect(w.kpis.cost.bonShare).toBe(90);

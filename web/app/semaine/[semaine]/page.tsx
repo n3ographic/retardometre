@@ -9,6 +9,7 @@ import { RANGE_HINT, bucketIndex, eurRange } from '../../../lib/terminal-model';
 import { axisName, ordinal, shapeWeek, summaryText, weekNum, type WeekView } from '../../../lib/weekly';
 import FootBar from '../../terminal/foot-bar';
 import StatusBar from '../../terminal/status-bar';
+import { onTimeLabel } from '../../../lib/week-charts';
 import { HBar, LateBars, TrainDays } from './charts';
 import ShareBar from './share-bar';
 
@@ -91,6 +92,11 @@ export default async function Page({ params }: Props) {
             <h2 className="term-panel-title" title={COUNT_LABELS.circulated.long}>Trains (ont roulé)</h2>
             <p className="wk-big">{nf(k.trains.value)}</p>
             <p className="term-dim wk-small" title={COUNTS_HINT}>{breakdownText(v.counts)}</p>
+            {v.counts.no_terminus > 0 && (
+              <p className="term-dim wk-small">
+                {nf(v.counts.no_terminus)} TERMINUS NON DESSERVI : PARCOURS LIMITÉ, SANS RETARD FINAL MESURABLE · HORS RÉGULARITÉ ET INDEMNITÉS, NI COMPTÉ{v.counts.no_terminus > 1 ? 'S' : ''} COMME SUPPRESSION · <a href="/methodologie">MÉTHODOLOGIE →</a>
+              </p>
+            )}
           </div>
           <div className="term-panel">
             <h2 className="term-panel-title">Régularité</h2>
@@ -128,13 +134,16 @@ export default async function Page({ params }: Props) {
             <h2 className="term-panel-title" id="wk-axes">Axes</h2>
             <div className="wk-scroll">
               <table className="wk-table">
-                <thead><tr><th scope="col">Axe</th><th scope="col" colSpan={2}>Régularité</th><th scope="col">Trains</th><th scope="col">Indemn.</th><th scope="col">Par train</th></tr></thead>
+                <thead><tr><th scope="col">Axe</th><th scope="col">Régularité</th><th scope="col">Trains</th><th scope="col">Indemn.</th><th scope="col">Par train</th></tr></thead>
                 <tbody>
                   {v.axes.map((a) => (
                     <tr key={a.axis}>
                       <th scope="row">{axisName(a.axis)} {a.axis === v.bestAxis ? <span className="tone-ontime" title="Axe le plus régulier">★</span> : a.axis === v.worstAxis ? <span className="tone-severe" title="Axe le moins régulier">▼</span> : ''}</th>
-                      <td className="wk-barcell"><HBar pct={a.pct ?? 0} faint={a.small} label={`${axisName(a.axis)} : ${a.pct === null ? 'aucune mesure' : `${fr1(a.pct)} %`}`} /></td>
-                      <td>{a.pct === null ? 'n.d.' : `${fr1(a.pct)} %`}{a.small && <span className="tone-late"> ÉCHANTILLON FAIBLE</span>}</td>
+                      {/* Barre et valeur dans la même cellule : 5 cellules pour 5 en-têtes ; la barre est aria-hidden. */}
+                      <td className="wk-barcell">
+                        <HBar pct={a.pct ?? 0} faint={a.small} label={`${axisName(a.axis)} : ${a.pct === null ? 'aucune mesure' : `${fr1(a.pct)} %`}`} />
+                        {a.pct === null ? 'n.d.' : `${fr1(a.pct)} %`}{a.small && <span className="tone-late"> ÉCHANTILLON FAIBLE</span>}
+                      </td>
                       <td>{nf(a.circulated)}</td>
                       <td>{eur(a.cost)}</td>
                       <td>{a.per_train === null ? 'n.d.' : `${nf(a.per_train)} €`}</td>
@@ -196,7 +205,7 @@ export default async function Page({ params }: Props) {
             <p className="tp-big"><a href={`/train/${v.train.number}`}>{v.train.brand === 'OUIGO' ? 'OUIGO' : 'TGV INOUI'} {v.train.number}</a> <span className="wk-route">{v.train.origin ?? '?'} → {v.train.dest ?? '?'}</span></p>
             <TrainDays days={v.train.days} />
             <p>À L’HEURE <strong>{v.train.ok}</strong> JOUR{v.train.ok > 1 ? 'S' : ''} SUR <strong>{v.train.counted}</strong> · {nf(v.train.delay_sum_min)}′ DE RETARD CUMULÉ · AXE {axisName(v.train.axis)}</p>
-            <p className="term-dim wk-small">LE MOINS FIABLE DE LA SEMAINE (AU MOINS 4 JOURS OBSERVÉS) · ✓ À L’HEURE (MOINS DE 5′) · × SUPPRIMÉ · – TERMINUS NON DESSERVI · <a href={`/train/${v.train.number}`}>FICHE →</a></p>
+            <p className="term-dim wk-small">LE MOINS FIABLE DE LA SEMAINE (AU MOINS 4 JOURS OBSERVÉS) · ✓ À L’HEURE ({onTimeLabel(v.train.days)}, SEUIL DE LA RÉGULARITÉ POUR CE TRAJET) · × SUPPRIMÉ · – TERMINUS NON DESSERVI · <a href={`/train/${v.train.number}`}>FICHE →</a></p>
           </section>
         )}
 
