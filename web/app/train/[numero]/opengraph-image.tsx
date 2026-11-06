@@ -21,8 +21,8 @@ export default async function Image({ params }: { params: Promise<{ numero: stri
     (
       <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', background: BG, color: AMBER, padding: 56, fontSize: 32 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', color: DIM, fontSize: 26 }}>
-          <span style={{ background: AMBER, color: '#000', padding: '0 10px', fontWeight: 700 }}>OBS·TGV</span>
-          <span>OBSERVATOIRE TGV · INDÉPENDANT</span>
+          <span style={{ background: AMBER, color: '#000', padding: '0 10px', fontWeight: 700 }}>RETARDOMÈTRE</span>
+          <span>OBSERVATOIRE INDÉPENDANT</span>
         </div>
         <div style={{ display: 'flex', marginTop: 48, fontSize: 64, fontWeight: 700 }}>{p ? `${p.info.brand === 'OUIGO' ? 'OUIGO' : 'TGV INOUI'} ${numero}` : `TRAIN ${numero}`}</div>
         <div style={{ display: 'flex', marginTop: 8, fontSize: 34 }}>{route}</div>

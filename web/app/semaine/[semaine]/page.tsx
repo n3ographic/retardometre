@@ -31,10 +31,10 @@ async function load(semaine: string) {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { semaine } = await params;
   const r = await load(semaine).catch(() => null);
-  if (!r) return { title: 'Bilan hebdomadaire · Observatoire TGV' };
+  if (!r) return { title: 'Bilan hebdomadaire · Retardomètre' };
   const v = r.view;
   const description = `${v.title} : régularité ${v.kpis.regularity.value === null ? '—' : `${fr1(v.kpis.regularity.value)} %`}, ${eur(v.kpis.cost.value)} HT d’indemnités théoriques, ${nf(v.kpis.trains.value)} TGV.`;
-  return { title: `Semaine ${v.num} · Observatoire TGV`, description, openGraph: { title: `Bilan TGV · semaine ${v.num}`, description } };
+  return { title: `Semaine ${v.num} · Retardomètre`, description, openGraph: { title: `Bilan TGV · semaine ${v.num}`, description } };
 }
 
 function Delta({ d, v }: { d: { value: number; unit: '%' | 'PT'; good: boolean; perDay?: boolean } | null; v: WeekView }) {

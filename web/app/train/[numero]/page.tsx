@@ -34,10 +34,10 @@ async function load(numero: string): Promise<Profile | null | 'error'> {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { numero } = await params;
   const p = await load(numero);
-  if (!p || p === 'error') return { title: `Train ${numero} · Observatoire TGV` };
+  if (!p || p === 'error') return { title: `Train ${numero} · Retardomètre` };
   const route = [p.info.origin, p.info.dest].filter(Boolean).join(' → ');
   const description = `${brandShort(p.info.brand)} ${numero} ${route} : à l’heure ${p.score.ok} jours sur ${p.score.n} depuis le 20 octobre 2026.`;
-  return { title: `Train ${numero} · Observatoire TGV`, description, openGraph: { title: `Train ${numero} · ${route}`, description } };
+  return { title: `Train ${numero} · Retardomètre`, description, openGraph: { title: `Train ${numero} · ${route}`, description } };
 }
 
 function dayTitle(d: Day): string {

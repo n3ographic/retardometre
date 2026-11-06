@@ -223,7 +223,7 @@ export default function TerminalView() {
       <StatusBar status={status} coveragePct={cumul?.coverage_pct ?? null} picker={<PeriodPicker value={period} onChange={setPeriod} />} />
       <Ticker items={items} failed={liveFailed} onFocus={onFocus} />
       <main className="term-grid">
-        <h1 className="sr-only">Observatoire TGV : trains en circulation, retards et indemnités théoriques</h1>
+        <h1 className="sr-only">Retardomètre : trains en circulation, retards et indemnités théoriques</h1>
         <LeftPanel trains={trains} liveFailed={liveFailed} onFocus={onFocus} filter={bucket} onFilter={setBucket} />
         <div className="term-center">
           <CarteView trains={trains} failed={liveFailed} lastOk={lastOk} focus={focus} selected={selected} onSelect={select} onSpeed={setSpeed}

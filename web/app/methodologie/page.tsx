@@ -6,7 +6,7 @@ import { CAUSE_LABELS } from '../../lib/causes';
 import { COUNT_KEYS, COUNT_LABELS } from '../../lib/counts';
 import { Fragment } from 'react';
 
-export const metadata = { title: 'Méthodologie · Observatoire TGV' };
+export const metadata = { title: 'Méthodologie · Retardomètre' };
 // Rendue à chaque requête : un build sans accès à la base ne doit pas figer « règles indisponibles ».
 // La base n'est lue qu'une fois par heure (cache de données de loadRules).
 export const dynamic = 'force-dynamic';
