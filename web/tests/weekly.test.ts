@@ -55,6 +55,14 @@ test('résumé à copier : 5 lignes au plus, chiffres de la page et lien', () =>
   ]);
 });
 
+test('résumé à copier : régularité absente notée « n.d. », sans tiret cadratin', () => {
+  const w = shapeWeek(row('2026-W44', { ...payload(7, {}), train: null }), null);
+  expect(w.kpis.regularity.value).toBeNull();
+  const text = summaryText(w, 'https://x');
+  expect(text).toContain('Régularité : n.d.');
+  expect(text).not.toContain('—');
+});
+
 test('sans semaine précédente : aucune variation', () => {
   const w = shapeWeek(row('2026-W43', payload(6, { EST: [100, 90] })), null);
   expect(w.kpis.regularity.delta).toBeNull();

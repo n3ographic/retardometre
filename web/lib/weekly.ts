@@ -164,7 +164,7 @@ export function summaryText(v: WeekView, url: string): string {
   const cost = eur(k.cost.value);
   return [
     `TGV · semaine ${v.num} (${ddmm(v.from)} → ${ddmm(v.to)})${v.complete ? '' : `, ${v.days} jours`}`,
-    `Régularité : ${k.regularity.value === null ? '—' : `${fr1(k.regularity.value)} %`}${vs}`,
+    `Régularité : ${k.regularity.value === null ? 'n.d.' : `${fr1(k.regularity.value)} %`}${vs}`,
     `Indemnités théoriques : ${cost} HT · ${nf(k.trains.value)} trains`,
     ...(v.train ? [`Train de la semaine : ${v.train.number} ${v.train.origin ?? '?'} → ${v.train.dest ?? '?'}, à l’heure ${v.train.ok}/${v.train.counted} jours`] : []),
     url,

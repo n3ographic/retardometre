@@ -34,7 +34,7 @@ export async function weekCard(semaine: string, size: { width: number; height: n
           <div style={{ display: 'flex', flexDirection: square ? 'column' : 'row', gap: square ? 24 : 64, marginTop: 40 }}>
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               <span style={{ color: DIM, fontSize: 26 }}>RÉGULARITÉ</span>
-              <span style={{ fontSize: big, fontWeight: 700, lineHeight: 1 }}>{v.kpis.regularity.value === null ? '—' : `${fr1(v.kpis.regularity.value)} %`}</span>
+              <span style={{ fontSize: big, fontWeight: 700, lineHeight: 1 }}>{v.kpis.regularity.value === null ? 'n.d.' : `${fr1(v.kpis.regularity.value)} %`}</span>
               {d && v.prev && <span style={{ color: d.good ? GOOD : BAD, fontSize: 26 }}>{/* police par défaut sans ▲ ▼ : signe et couleur seulement */}{d.value >= 0 ? '+' : '−'}{fr1(Math.abs(d.value))} PT VS S{v.prev.num}</span>}
             </div>
             <div style={{ display: 'flex', flexDirection: 'column' }}>

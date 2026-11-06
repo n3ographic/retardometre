@@ -34,7 +34,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const r = await load(semaine).catch(() => null);
   if (!r) return { title: 'Bilan hebdomadaire · Retardomètre' };
   const v = r.view;
-  const description = `${v.title} : régularité ${v.kpis.regularity.value === null ? '—' : `${fr1(v.kpis.regularity.value)} %`}, ${eur(v.kpis.cost.value)} HT d’indemnités théoriques, ${nf(v.kpis.trains.value)} TGV.`;
+  const description = `${v.title} : régularité ${v.kpis.regularity.value === null ? 'n.d.' : `${fr1(v.kpis.regularity.value)} %`}, ${eur(v.kpis.cost.value)} HT d’indemnités théoriques, ${nf(v.kpis.trains.value)} TGV.`;
   return { title: `Semaine ${v.num} · Retardomètre`, description, openGraph: { title: `Bilan TGV · semaine ${v.num}`, description } };
 }
 
@@ -73,7 +73,7 @@ export default async function Page({ params }: Props) {
         <header className="tp-head wk-head">
           <div>
             <nav className="wk-nav" aria-label="Semaines">
-              {prevWeek ? <a href={`/semaine/${prevWeek}`}>← S{weekNum(prevWeek)}</a> : <span className="term-dim">← —</span>}
+              {prevWeek ? <a href={`/semaine/${prevWeek}`}>← S{weekNum(prevWeek)}</a> : <span className="term-dim" aria-hidden="true">←</span>}
               <span className="term-dim">BILAN HEBDO</span>
               {/* Dernière semaine figée : la semaine en cours n'a pas de bilan, l'accueil montre les 7 derniers jours en direct. */}
               {nextWeek ? <a href={`/semaine/${nextWeek}`}>S{weekNum(nextWeek)} →</a> : <a href="/" title="Semaine en cours : statistiques des 7 derniers jours sur l’accueil, mises à jour en continu">7 DERNIERS JOURS →</a>}
@@ -96,7 +96,7 @@ export default async function Page({ params }: Props) {
           </div>
           <div className="term-panel">
             <h2 className="term-panel-title">Régularité</h2>
-            <p className="wk-big">{k.regularity.value === null ? '—' : `${fr1(k.regularity.value)} %`}</p>
+            <p className="wk-big">{k.regularity.value === null ? 'n.d.' : `${fr1(k.regularity.value)} %`}</p>
             <Delta d={k.regularity.delta} v={v} />
             {/* Seuils de regularity_rule (base) : moins de 5′ sous 1 h 30 de trajet, 10′ jusqu'à 3 h, 15′ au-delà. */}
             <p className="term-dim wk-small" title="À l’heure : retard au terminus de moins de 5′ (trajet de moins de 1 h 30), 10′ (jusqu’à 3 h) ou 15′ (au-delà), comme la régularité officielle">À L’HEURE : MOINS DE 5′, 10′ OU 15′ SELON LA DURÉE</p>
@@ -111,7 +111,7 @@ export default async function Page({ params }: Props) {
           </div>
           <div className="term-panel">
             <h2 className="term-panel-title">Suppressions</h2>
-            <p className="wk-big">{k.suppressions.value === null ? '—' : `${fr1(k.suppressions.value)} %`}</p>
+            <p className="wk-big">{k.suppressions.value === null ? 'n.d.' : `${fr1(k.suppressions.value)} %`}</p>
             <Delta d={k.suppressions.delta} v={v} />
             <p className="term-dim wk-small">{nf(k.suppressions.n)} TRAINS SUPPRIMÉS</p>
           </div>
@@ -136,10 +136,10 @@ export default async function Page({ params }: Props) {
                     <tr key={a.axis}>
                       <th scope="row">{axisName(a.axis)} {a.axis === v.bestAxis ? <span className="tone-ontime" title="Axe le plus régulier">★</span> : a.axis === v.worstAxis ? <span className="tone-severe" title="Axe le moins régulier">▼</span> : ''}</th>
                       <td className="wk-barcell"><HBar pct={a.pct ?? 0} faint={a.small} label={`${axisName(a.axis)} : ${a.pct === null ? 'aucune mesure' : `${fr1(a.pct)} %`}`} /></td>
-                      <td>{a.pct === null ? '—' : `${fr1(a.pct)} %`}{a.small && <span className="tone-late"> ÉCHANTILLON FAIBLE</span>}</td>
+                      <td>{a.pct === null ? 'n.d.' : `${fr1(a.pct)} %`}{a.small && <span className="tone-late"> ÉCHANTILLON FAIBLE</span>}</td>
                       <td>{nf(a.circulated)}</td>
                       <td>{eur(a.cost)}</td>
-                      <td>{a.per_train === null ? '—' : `${nf(a.per_train)} €`}</td>
+                      <td>{a.per_train === null ? 'n.d.' : `${nf(a.per_train)} €`}</td>
                     </tr>
                   ))}
                 </tbody>
