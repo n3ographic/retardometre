@@ -26,16 +26,14 @@ test('chiffres clés, variations et mention de la semaine précédente incomplè
   expect(w.kpis.regularity.value).toBe(80);
   expect([w.kpis.regularity.delta, w.kpis.cost.delta, w.kpis.suppressions.delta]).toEqual([null, null, null]);
   expect(w.prev).toMatchObject({ num: 43, incomplete: true, days: 6 });
-  expect(w.takeaways.some((s) => s.startsWith('La régularité'))).toBe(false);
   // Deux semaines complètes : variations affichées.
   const full = shapeWeek(cur, row('2026-W43', payload(7, { EST: [80, 76], NORD: [80, 76] })));
   expect(full.kpis.regularity.delta).toEqual({ value: -15, unit: 'PT', good: false });
-  expect(full.takeaways[0]).toBe('La régularité perd 15,0 points par rapport à la semaine 43, à 80,0 %.');
-  // Meilleur jour : le 28/10 (20 trains) est écarté ; la cause « sans cause » ne compte pas.
+  // Meilleur jour : le 28/10 (20 trains) est écarté et marqué faible ; la cause « sans cause » ne compte pas.
   expect(w.bestDay).toMatchObject({ label: 'MAR 27/10', pct: 90 });
+  expect(w.byDay.map((d) => d.small)).toEqual([false, false, true]);
   // Créneau le plus touché : la case de 9 h (20′) n'a que 3 trains, celle de 7 h (10 trains, 1′) l'emporte.
-  expect(w.worstSlot).toEqual({ dow: 1, hour: 7, n: 10, avg_min: 1, label: 'LUN 26/10' });
-  expect(w.takeaways).toContain('Créneau le plus touché : lundi 7 h, 1′ de retard moyen sur 10 trains arrivés.');
+  expect(w.worstSlot).toEqual({ dow: 1, hour: 7, n: 10, avg_min: 1, label: 'LUN 26/10', date: '2026-10-26' });
   expect([w.bestAxis, w.worstAxis]).toEqual(['EST', 'NORD']);
   // Obstacle : 3 trains, 2e en nombre, 1re en euros ; un seul rang d'écart, pas de « seulement ».
   expect(w.causes.map((c) => [c.category, c.euroRank, c.trainRank])).toEqual([['obstacle', 1, 2], ['enchainement', 2, 1]]);
@@ -86,7 +84,13 @@ test('causes : phrase selon l’écart de rang ; indemnité par train ; part en 
   expect(w.causes[2].sentence).toMatch(/: 9 trains \(1re en nombre\), mais des retards plus courts, 10′ en moyenne\.$/);
   // 100 % × 50 € × 500 places × 0,75 = 18 750 € pour 100 trains.
   expect(w.axes[0].per_train).toBe(188);
-  expect(w.takeaways).toContain('17 k€ sur 19 k€ d’indemnités théoriques (90 %) sont dus en bons d’achat, et non en argent.');
+  expect(w.kpis.cost.bonShare).toBe(90);
+});
+
+test('bilan sans part en bons ni grille : pas de part ni de créneau', () => {
+  const w = shapeWeek(row('2026-W44', { ...payload(7, { EST: [100, 90] }), heatmap: null }), null);
+  expect(w.kpis.cost.bonShare).toBeNull();
+  expect(w.worstSlot).toBeNull();
 });
 
 test('grille : heures de nuit vides masquées, trous de journée gardés', () => {

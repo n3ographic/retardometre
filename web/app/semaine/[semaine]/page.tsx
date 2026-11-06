@@ -227,27 +227,6 @@ export default async function Page({ params }: Props) {
           </section>
         )}
 
-        {v.brands.length > 0 && (
-          <section className="term-panel" aria-labelledby="wk-brands">
-            <h2 className="term-panel-title" id="wk-brands">INOUI / OUIGO</h2>
-            <dl className="brand-split">
-              {v.brands.map((b) => (
-                <div key={b.brand} className={b.small ? 'term-small' : undefined}>
-                  <dt className={`brand-${b.brand.toLowerCase()}`}>{b.brand}</dt>
-                  <dd>{nf(b.circulated)} TR · RÉGUL. {b.pct === null ? '—' : `${fr1(b.pct)} %`} · {b.cost_share} % DES INDEMNITÉS{b.small ? ' · ÉCHANTILLON FAIBLE' : ''}</dd>
-                </div>
-              ))}
-            </dl>
-            <p className="term-dim wk-small">BARÈMES DIFFÉRENTS : INDEMNITÉ POUR UN RETARD D’AU MOINS {threshold('INOUI')} EN INOUI, {threshold('OUIGO')} EN OUIGO · <a href="/methodologie">DÉTAIL →</a></p>
-          </section>
-        )}
-
-        {v.takeaways.length > 0 && (
-          <section className="term-panel" aria-labelledby="wk-keys">
-            <h2 className="term-panel-title" id="wk-keys">À retenir</h2>
-            <ul className="wk-keys">{v.takeaways.map((t) => <li key={t}>{t}</li>)}</ul>
-          </section>
-        )}
         {/* L'adresse est ajoutée côté navigateur : la même page sert en local et en production. */}
         <ShareBar text={summaryText(v, '').trimEnd()} week={v.week} />
 
