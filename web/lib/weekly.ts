@@ -21,6 +21,7 @@ export type WeekRow = { week: string; monday: string; payload: WeekPayload; comp
 export const WEEK_RE = /^\d{4}-W\d{2}$/;
 export const weekNum = (week: string) => Number(week.slice(-2));
 const DOW = ['LUN', 'MAR', 'MER', 'JEU', 'VEN', 'SAM', 'DIM'];
+const DOW_LONG = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'];
 const ddmm = (d: string) => `${d.slice(8, 10)}/${d.slice(5, 7)}`;
 const dayLabel = (d: string) => `${DOW[(new Date(`${d}T12:00:00Z`).getUTCDay() + 6) % 7]} ${ddmm(d)}`;
 const pct1 = (a: number, b: number) => (b === 0 ? null : Math.round((a / b) * 1000) / 10);
@@ -90,7 +91,7 @@ export function shapeWeek(row: WeekRow, prev: WeekRow | null, extra: WeekExtra |
     suppressions: { value: supp, n: t.cancelled, delta: deltaPt(supp, pt ? suppressionPct(pt) : undefined, false) },
   };
 
-  // Jours : régularité et cause la plus citée (hors « sans cause ») ; pire et meilleur parmi les jours d'au moins 30 trains.
+  // Jours : régularité et cause la plus citée (hors « sans cause ») ; meilleur parmi les jours d'au moins 30 trains.
   const days = p.by_day.map(({ date, m }) => {
     const get = (k: string) => Number(m?.[k] ?? 0);
     const causes = Object.keys(m ?? {}).filter((k) => k.startsWith('cause:') && k !== 'cause:sans_cause')
@@ -98,7 +99,7 @@ export function shapeWeek(row: WeekRow, prev: WeekRow | null, extra: WeekExtra |
     return { date, label: dayLabel(date), circulated: get('circulated'), pct: pct1(get('on_time_official'), get('circulated')), cause: causes[0]?.slice(6) ?? null };
   });
   const ranked = days.filter((d) => d.pct !== null && !isSmallSample(d)).sort((a, b) => a.pct! - b.pct! || a.date.localeCompare(b.date));
-  const worstDay = ranked[0] ?? null, bestDay = ranked.length > 1 ? ranked[ranked.length - 1] : null;
+  const bestDay = ranked.length > 1 ? ranked[ranked.length - 1] : null;
 
   // Axes : régularité, indemnités et indemnité moyenne par train ; meilleur et pire parmi les axes d'au moins 30 trains.
   const axes = axisRegularity(s.groups).map((a) => ({ ...a, per_train: a.circulated === 0 ? null : Math.round(a.cost / a.circulated) }))
@@ -131,6 +132,10 @@ export function shapeWeek(row: WeekRow, prev: WeekRow | null, extra: WeekExtra |
     const c = cells.find((x) => x[0] === i + 1 && x[1] === h);
     return c ? { hour: h, n: c[2], avg_min: Math.round(c[3] / 60), avg_s: c[3] } : { hour: h, n: 0, avg_min: null, avg_s: null };
   }) }));
+  // Créneau le plus touché : case de la grille au plus fort retard moyen, parmi celles d'au moins 5 trains (cases non estompées).
+  const top = cells.filter((c) => c[2] >= 5).sort((a, b) => b[3] - a[3] || b[2] - a[2] || a[0] - b[0] || a[1] - b[1])[0];
+  const worstSlot = top ? { dow: top[0], hour: top[1], n: top[2], avg_min: Math.round(top[3] / 60),
+    label: days.find((d) => d.label.startsWith(DOW[top[0] - 1]))?.label ?? DOW[top[0] - 1] } : null;
 
   const brands = brandSplit(s.groups);
   const train = p.train && {
@@ -150,7 +155,7 @@ export function shapeWeek(row: WeekRow, prev: WeekRow | null, extra: WeekExtra |
     const w = axes.find((a) => a.axis === worstAxis)!, b = axes.find((a) => a.axis === bestAxis)!;
     takeaways.push(`${axisName(worstAxis)} est l’axe le moins régulier (${fr1(w.pct!)} %), ${fr1(b.pct! - w.pct!)} points derrière ${axisName(bestAxis)} (${fr1(b.pct!)} %).`);
   }
-  if (worstDay) takeaways.push(`Pire jour : ${worstDay.label.toLowerCase()} avec ${fr1(worstDay.pct!)} % de trains à l’heure${worstDay.cause ? `, cause la plus citée : ${causeShort(worstDay.cause).toLowerCase()}` : ''}.`);
+  if (worstSlot) takeaways.push(`Créneau le plus touché : ${DOW_LONG[worstSlot.dow - 1]} ${worstSlot.hour} h, ${worstSlot.avg_min}′ de retard moyen sur ${worstSlot.n} trains arrivés.`);
   if (causes[0]) takeaways.push(`${causes[0].label.charAt(0) + causes[0].label.slice(1).toLowerCase()} pèse ${causes[0].share} % des indemnités liées à une cause.`);
   const bon = kpis.cost.bon;
   const bonShare = bon === null || t.estimated_cost_eur_ht === 0 ? null : Math.round((bon / t.estimated_cost_eur_ht) * 100);
@@ -161,7 +166,7 @@ export function shapeWeek(row: WeekRow, prev: WeekRow | null, extra: WeekExtra |
     week: row.week, num: weekNum(row.week), from: p.from, to: p.to, days: p.days, complete: p.days === 7, computed_at: row.computed_at,
     title: `SEMAINE ${weekNum(row.week)} · DU ${ddmm(p.from)} AU ${ddmm(p.to)}`,
     prev: prev && { week: prev.week, num: weekNum(prev.week), incomplete: prevIncomplete, days: prev.payload.days },
-    counts, kpis, train, byDay: days, worstDay, bestDay, axes, bestAxis, worstAxis, causes, heat, brands, takeaways: takeaways.slice(0, 6),
+    counts, kpis, train, byDay: days, worstSlot, bestDay, axes, bestAxis, worstAxis, causes, heat, brands, takeaways: takeaways.slice(0, 6),
     // Bilan figé avant le plafond international : écart estimé, les totaux restent ceux publiés.
     intlCapNote: t.estimated_cost_eur_ht_bon === null && extra?.intl_cap != null ? { from: INTL_CAP_FROM, eur: extra.intl_cap } : null,
     small: isSmallSample(t), occupancy: s.assumptions.occupancy,

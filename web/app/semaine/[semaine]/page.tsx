@@ -142,7 +142,16 @@ export default async function Page({ params }: Props) {
         )}
 
         <div className="tp-row">
-          {([['Pire jour', v.worstDay], ['Meilleur jour', v.bestDay]] as const).map(([label, d]) => (
+          <section className="term-panel">
+            <h2 className="term-panel-title">Créneau le plus touché</h2>
+            {!v.worstSlot ? <p className="term-dim">—</p> : (
+              <>
+                <p className="tp-big">{v.worstSlot.label} · {v.worstSlot.hour} H · <strong>{v.worstSlot.avg_min}′</strong></p>
+                <p className="term-dim">RETARD MOYEN AU TERMINUS · {nf(v.worstSlot.n)} TRAINS ARRIVÉS ENTRE {v.worstSlot.hour} H ET {v.worstSlot.hour + 1} H · CASES D’AU MOINS 5 TRAINS</p>
+              </>
+            )}
+          </section>
+          {([['Meilleur jour', v.bestDay]] as const).map(([label, d]) => (
             <section key={label} className="term-panel">
               <h2 className="term-panel-title">{label}</h2>
               {!d ? <p className="term-dim">—</p> : (

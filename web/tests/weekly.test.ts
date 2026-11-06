@@ -27,9 +27,11 @@ test('chiffres clés, variations et mention de la semaine précédente incomplè
   expect(w.kpis.regularity.delta).toEqual({ value: -15, unit: 'PT', good: false });
   expect(w.prev).toMatchObject({ num: 43, incomplete: true, days: 6 });
   expect(w.takeaways[0]).toBe('La régularité perd 15,0 points par rapport à la semaine 43 (incomplète, 6 jours), à 80,0 %.');
-  // Pire et meilleur jour : le 28/10 (20 trains) est écarté ; la cause « sans cause » ne compte pas.
-  expect(w.worstDay).toMatchObject({ label: 'LUN 26/10', pct: 66.7, cause: 'obstacle' });
+  // Meilleur jour : le 28/10 (20 trains) est écarté ; la cause « sans cause » ne compte pas.
   expect(w.bestDay).toMatchObject({ label: 'MAR 27/10', pct: 90 });
+  // Créneau le plus touché : la case de 9 h (20′) n'a que 3 trains, celle de 7 h (10 trains, 1′) l'emporte.
+  expect(w.worstSlot).toEqual({ dow: 1, hour: 7, n: 10, avg_min: 1, label: 'LUN 26/10' });
+  expect(w.takeaways).toContain('Créneau le plus touché : lundi 7 h, 1′ de retard moyen sur 10 trains arrivés.');
   expect([w.bestAxis, w.worstAxis]).toEqual(['EST', 'NORD']);
   // Obstacle : 3 trains, 2e en nombre, 1re en euros ; un seul rang d'écart, pas de « seulement ».
   expect(w.causes.map((c) => [c.category, c.euroRank, c.trainRank])).toEqual([['obstacle', 1, 2], ['enchainement', 2, 1]]);
