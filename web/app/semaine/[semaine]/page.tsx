@@ -37,12 +37,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return { title: `Semaine ${v.num} · Retardomètre`, description, openGraph: { title: `Bilan TGV · semaine ${v.num}`, description } };
 }
 
-function Delta({ d, v }: { d: { value: number; unit: '%' | 'PT'; good: boolean; perDay?: boolean } | null; v: WeekView }) {
+function Delta({ d, v }: { d: { value: number; unit: '%' | 'PT'; good: boolean } | null; v: WeekView }) {
   if (!d || !v.prev) return null;
   const sign = d.value > 0 ? '+' : d.value < 0 ? '−' : '±';
   return (
     <p className={d.value === 0 ? 'term-dim' : d.good ? 'tone-ontime' : 'tone-severe'}>
-      {d.value > 0 ? '▲' : d.value < 0 ? '▼' : '='} {sign}{fr1(Math.abs(d.value))} {d.unit === '%' ? '%' : 'PT'}{d.perDay ? ' /JOUR' : ''}{v.prev.incomplete ? '*' : ''}
+      {d.value > 0 ? '▲' : d.value < 0 ? '▼' : '='} {sign}{fr1(Math.abs(d.value))} {d.unit === '%' ? '%' : 'PT'}
       <span className="term-dim"> VS S{v.prev.num}</span>
     </p>
   );
@@ -92,7 +92,6 @@ export default async function Page({ params }: Props) {
           <div className="term-panel">
             <h2 className="term-panel-title" title={COUNT_LABELS.circulated.long}>Trains (ont roulé)</h2>
             <p className="wk-big">{nf(k.trains.value)}</p>
-            <Delta d={k.trains.delta} v={v} />
             <p className="term-dim wk-small" title={COUNTS_HINT}>{breakdownText(v.counts)}</p>
           </div>
           <div className="term-panel">
@@ -117,7 +116,7 @@ export default async function Page({ params }: Props) {
             <p className="term-dim wk-small">{nf(k.suppressions.n)} TRAINS SUPPRIMÉS</p>
           </div>
         </section>
-        {v.prev?.incomplete && <p className="term-dim wk-small">* S{v.prev.num} INCOMPLÈTE ({v.prev.days} JOURS) : VOLUMES COMPARÉS PAR JOUR, VARIATIONS À LIRE AVEC PRÉCAUTION</p>}
+        {(v.prev?.incomplete || (v.prev && !v.complete)) && <p className="term-dim wk-small">PAS DE COMPARAISON AVEC S{v.prev.num} : {v.prev.incomplete ? `SEMAINE INCOMPLÈTE (${v.prev.days} JOURS)` : 'CETTE SEMAINE EST INCOMPLÈTE'}</p>}
         {v.small && <p className="tone-late">ÉCHANTILLON FAIBLE (MOINS DE 30 TRAINS)</p>}
 
         {v.train && (

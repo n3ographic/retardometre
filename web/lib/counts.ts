@@ -8,7 +8,7 @@ export const COUNT_LABELS: Record<CountKey, { short: string; long: string }> = {
   observed: { short: 'OBSERVÉS', long: 'Vus au moins une fois dans le flux temps réel, y compris supprimés' },
   circulated: { short: 'ONT ROULÉ', long: 'Observés, non supprimés, avec un retard publié au terminus (moins de 12 h)' },
   cancelled: { short: 'SUPPR.', long: 'Observés et supprimés sur tout le parcours' },
-  no_terminus: { short: 'TERMINUS NON DESSERVI', long: 'Observés, non supprimés, sans retard publié au terminus : en pratique terminus supprimé (parcours limité)' },
+  no_terminus: { short: 'TERMINUS NON DESSERVI', long: 'Observés, non supprimés, sans retard publié au terminus : en pratique terminus supprimé (parcours limité) ; exclus de la régularité et des indemnités, faute de retard final mesurable' },
   aberrant: { short: 'ABERRANT', long: 'Retard publié au terminus d’au moins 12 h : erreur de donnée ou train reporté, inutilisable comme retard et écarté' },
 };
 

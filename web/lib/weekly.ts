@@ -52,15 +52,10 @@ export function weekDays(id: string): [string, string] {
   return [f(monday), f(new Date(monday.getTime() + 6 * 86_400_000))];
 }
 
-type Delta = { value: number; unit: '%' | 'PT'; good: boolean; perDay?: boolean } | null;
+type Delta = { value: number; unit: '%' | 'PT'; good: boolean } | null;
 // Variation : en % pour un volume, en points pour un taux ; « good » colore la flèche (une hausse de régularité est bonne).
-// Deux semaines de longueurs différentes (S43 : 6 jours) : volumes comparés par jour.
-const deltaPct = (cur: number, prev: number | undefined, higherIsGood: boolean, days?: [number, number]): Delta => {
-  if (prev === undefined || prev === 0) return null;
-  const perDay = days !== undefined && days[0] !== days[1];
-  const [c, p] = perDay ? [cur / days[0], prev / days[1]] : [cur, prev];
-  return { value: Math.round(((c - p) / p) * 1000) / 10, unit: '%', good: (c >= p) === higherIsGood, perDay };
-};
+const deltaPct = (cur: number, prev: number | undefined, higherIsGood: boolean): Delta =>
+  prev === undefined || prev === 0 ? null : { value: Math.round(((cur - prev) / prev) * 1000) / 10, unit: '%', good: (cur >= prev) === higherIsGood };
 const deltaPt = (cur: number | null, prev: number | null | undefined, higherIsGood: boolean): Delta =>
   cur === null || prev === null || prev === undefined ? null : { value: Math.round((cur - prev) * 10) / 10, unit: 'PT', good: (cur >= prev) === higherIsGood };
 
@@ -78,15 +73,16 @@ export function shapeWeek(row: WeekRow, prev: WeekRow | null, extra: WeekExtra |
   const p = row.payload;
   const s = totalsOf(p);
   const t = s.totals;
-  const pt = prev ? totalsOf(prev.payload).totals : null;
+  // Variations seulement entre deux semaines complètes : une semaine incomplète (S43, début de collecte) fausse la comparaison.
+  const pt = prev && prev.payload.days === 7 && p.days === 7 ? totalsOf(prev.payload).totals : null;
   const supp = suppressionPct(t);
   const counts: Counts = { observed: t.observed, circulated: t.circulated, cancelled: t.cancelled, no_terminus: t.no_terminus, aberrant: t.aberrant };
 
-  const days2: [number, number] | undefined = prev ? [p.days, prev.payload.days] : undefined;
   const kpis = {
-    trains: { value: t.circulated, delta: deltaPct(t.circulated, pt?.circulated, true, days2) },
+    // Nombre de trains sans variation : il suit surtout la couverture de la collecte, pas le trafic.
+    trains: { value: t.circulated },
     regularity: { value: t.official_regularity_pct, delta: deltaPt(t.official_regularity_pct, pt?.official_regularity_pct, true) },
-    cost: { value: t.estimated_cost_eur_ht, low: t.estimated_cost_eur_ht_low, high: t.estimated_cost_eur_ht_high, delta: deltaPct(t.estimated_cost_eur_ht, pt?.estimated_cost_eur_ht, false, days2),
+    cost: { value: t.estimated_cost_eur_ht, low: t.estimated_cost_eur_ht_low, high: t.estimated_cost_eur_ht_high, delta: deltaPct(t.estimated_cost_eur_ht, pt?.estimated_cost_eur_ht, false),
       bon: t.estimated_cost_eur_ht_bon ?? extra?.bon ?? null },
     suppressions: { value: supp, n: t.cancelled, delta: deltaPt(supp, pt ? suppressionPct(pt) : undefined, false) },
   };
@@ -147,7 +143,7 @@ export function shapeWeek(row: WeekRow, prev: WeekRow | null, extra: WeekExtra |
   };
 
   const prevIncomplete = prev !== null && prev.payload.days < 7;
-  const vs = prev ? ` par rapport à la semaine ${weekNum(prev.week)}${prevIncomplete ? ` (incomplète, ${prev.payload.days} jours)` : ''}` : '';
+  const vs = prev ? ` par rapport à la semaine ${weekNum(prev.week)}` : '';
   const takeaways: string[] = [];
   const dr = kpis.regularity.delta;
   if (dr && dr.value !== 0) takeaways.push(`La régularité ${dr.value > 0 ? 'gagne' : 'perd'} ${fr1(Math.abs(dr.value))} point${Math.abs(dr.value) >= 2 ? 's' : ''}${vs}, à ${fr1(t.official_regularity_pct!)} %.`);
@@ -178,7 +174,7 @@ export type WeekView = ReturnType<typeof shapeWeek>;
 // Résumé à coller sur un réseau social : 5 lignes au plus, chiffres de la page et lien.
 export function summaryText(v: WeekView, url: string): string {
   const k = v.kpis, d = k.regularity.delta;
-  const vs = d && v.prev ? ` (${d.value > 0 ? '+' : d.value < 0 ? '−' : '±'}${fr1(Math.abs(d.value))} pt vs S${v.prev.num}${v.prev.incomplete ? ', incomplète' : ''})` : '';
+  const vs = d && v.prev ? ` (${d.value > 0 ? '+' : d.value < 0 ? '−' : '±'}${fr1(Math.abs(d.value))} pt vs S${v.prev.num})` : '';
   const cost = eur(k.cost.value);
   return [
     `TGV · semaine ${v.num} (${ddmm(v.from)} → ${ddmm(v.to)})${v.complete ? '' : `, ${v.days} jours`}`,
