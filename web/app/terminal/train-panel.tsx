@@ -1,6 +1,7 @@
 import { TERMINUS_BUCKETS } from '../../lib/dashboard-model';
 import { isStale, type LiveItem } from '../../lib/map-model';
 import TrainActions from './train-actions';
+import FollowBell from './follow-bell';
 import CauseText from './cause-text';
 import { bucketIndex, delayTone, gare } from '../../lib/terminal-model';
 import { estimatePosition, segmentProgress } from '../../lib/position';
@@ -52,6 +53,7 @@ export default function TrainPanel({ train: t, missing, gareOf, onGare, rules, s
     <>
       {t.origin && t.dest && <p>{station(t.origin)} → {station(t.dest)}</p>}
       <TrainActions number={t.train_number} current="CARTE" onMap={onMap} />
+      {!t.cancelled && <FollowBell number={t.train_number} />}
       {!onMap && <p className="tone-late">PAS EN CIRCULATION</p>}
       <section className="train-block">
         <h3>Retard</h3>
