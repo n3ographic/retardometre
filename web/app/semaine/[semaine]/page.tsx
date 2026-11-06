@@ -9,7 +9,7 @@ import { RANGE_HINT, bucketIndex, eurRange } from '../../../lib/terminal-model';
 import { axisName, ordinal, shapeWeek, summaryText, weekNum, type WeekView } from '../../../lib/weekly';
 import FootBar from '../../terminal/foot-bar';
 import StatusBar from '../../terminal/status-bar';
-import { DayCurve, HBar, TrainDays } from './charts';
+import { DayBars, HBar, TrainDays } from './charts';
 import ShareBar from './share-bar';
 
 // Bilan figé : la base n'est relue qu'une fois par heure et par semaine (cache de loadWeek).
@@ -121,8 +121,8 @@ export default async function Page({ params }: Props) {
 
         <section className="term-panel" aria-labelledby="wk-curve">
           <h2 className="term-panel-title" id="wk-curve">Régularité jour par jour</h2>
-          <DayCurve days={v.byDay} best={v.bestDay} slot={slot} mean={k.regularity.value} />
-          <p className="term-dim wk-small">● JOUR · ○ MOINS DE 30 TRAINS · ◆ MEILLEUR JOUR · ⚑ CRÉNEAU AU PLUS FORT RETARD MOYEN (CASES D’AU MOINS 5 TRAINS) · POINTILLÉ : SEMAINE</p>
+          <DayBars days={v.byDay} best={v.bestDay} slot={slot} mean={k.regularity.value} />
+          <p className="term-dim wk-small">ÉCHELLE 0 À 100 % · VERT : MEILLEUR JOUR · HACHURÉ : MOINS DE 30 TRAINS · ⚑ CRÉNEAU AU PLUS FORT RETARD MOYEN (CASES D’AU MOINS 5 TRAINS) · POINTILLÉ : SEMAINE</p>
         </section>
 
         <div className="wk-duo">
