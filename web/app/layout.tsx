@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { IBM_Plex_Mono } from 'next/font/google';
+import { Analytics } from '@vercel/analytics/next';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import './carte.css';
 import './methodologie/methodologie.css';
@@ -16,7 +17,8 @@ export const metadata = { title: 'Retardomètre', metadataBase: new URL('https:/
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="fr" className={mono.variable}>
-      <body>{children}</body>
+      {/* Vercel Web Analytics : visites et pages vues, sans cookie ; n'envoie rien en local, seulement une fois déployé. */}
+      <body>{children}<Analytics /></body>
     </html>
   );
 }
