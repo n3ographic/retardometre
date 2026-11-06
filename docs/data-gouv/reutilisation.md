@@ -40,7 +40,7 @@ Les champs ci-dessous viennent du schéma de l'API data.gouv.fr (obligatoires : 
 
 La page « Méthodologie » détaille les règles de calcul, les sources et les limites : https://sncf-tracking.vercel.app/methodologie
 
-Projet indépendant, non affilié à SNCF ni à OUIGO. Code source sous licence MIT : https://github.com/n3ographic/sncf-tracking. Les données dérivées sont sous licence ODbL ; le site contient des informations de SNCF Open Data et de transport.data.gouv.fr, sous licence ODbL.
+Projet indépendant, non affilié à SNCF ni à OUIGO. Code source sous licence MIT : https://github.com/n3ographic/retardometre. Les données dérivées sont sous licence ODbL ; le site contient des informations de SNCF Open Data et de transport.data.gouv.fr, sous licence ODbL.
 ```
 
 ## À décider avant de publier

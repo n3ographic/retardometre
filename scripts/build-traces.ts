@@ -57,7 +57,7 @@ console.log(`${features.length} tronçons (${neutralised} neutralisés exclus), 
 if (!existsSync(TN_CACHE)) {
   mkdirSync('tmp', { recursive: true })
   console.log('téléchargement des tracés Train Nomade…')
-  const r = await fetch(TN_SOURCE, { headers: { 'User-Agent': 'observatoire-tgv (https://github.com/n3ographic/sncf-tracking)' }, signal: BIG() })
+  const r = await fetch(TN_SOURCE, { headers: { 'User-Agent': 'retardometre (https://github.com/n3ographic/retardometre)' }, signal: BIG() })
   if (!r.ok) throw new Error(`tracés Train Nomade : ${r.status}`)
   writeFileSync(TN_CACHE, Buffer.from(await r.arrayBuffer()))
 }

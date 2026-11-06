@@ -27,8 +27,8 @@ function durationBand(from: number[], i: number): string {
   if (i === from.length - 1) return `plus de ${fmtDuration(from[i] - 1)}`;
   return `de ${fmtDuration(from[i])} à ${fmtDuration(from[i + 1] - 1)}`;
 }
-const RELEASES = 'https://github.com/n3ographic/sncf-tracking/releases';
-const REPO = 'https://github.com/n3ographic/sncf-tracking';
+const RELEASES = 'https://github.com/n3ographic/retardometre/releases';
+const REPO = 'https://github.com/n3ographic/retardometre';
 
 function Unavailable() {
   return <p className="mt-warn" role="status">Règles indisponibles pour le moment, réessayez plus tard.</p>;
