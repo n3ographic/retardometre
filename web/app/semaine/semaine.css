@@ -9,7 +9,8 @@
 .wk-table { border-collapse: collapse; width: 100%; }
 .wk-table th, .wk-table td { padding: 1px 10px 1px 0; text-align: left; white-space: nowrap; border-bottom: 1px dotted var(--t-line); font-weight: 400; }
 .wk-table thead th { color: var(--t-amber-dim); text-transform: uppercase; }
-.wk-causes { margin: 0; padding-left: 2ch; }
+/* Numéros « 1. » à l'intérieur du panneau, et un peu d'air à droite des montants. */
+.wk-causes { margin: 0; padding: 0 8px 0 calc(2ch + 8px); }
 .wk-causes li { margin-bottom: 6px; }
 .wk-scroll { overflow-x: auto; }
 .wk-heat { border-collapse: separate; border-spacing: 2px; font-size: 11px; }
