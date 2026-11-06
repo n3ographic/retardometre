@@ -1,4 +1,5 @@
-import { curvePoints, dowOf } from '../../../lib/week-charts';
+import { COUNT_LABELS } from '../../../lib/counts';
+import { curvePoints, dayCell, dowOf, type TrainDay } from '../../../lib/week-charts';
 import type { WeekView } from '../../../lib/weekly';
 
 // Graphiques du bilan hebdo : SVG rendus côté serveur, couleurs dans semaine.css (classes wk-c-*).
@@ -50,5 +51,40 @@ export function DayCurve({ days, best, slot, mean }: { days: WeekView['byDay']; 
         {mean !== null && <li>{`Régularité de la semaine : ${fr1(mean)} %`}</li>}
       </ul>
     </figure>
+  );
+}
+
+// Barre horizontale (0 à 100) ; hachurée pour un échantillon faible. Le texte est à côté, dans la page.
+export function HBar({ pct, faint = false, label }: { pct: number; faint?: boolean; label: string }) {
+  const w = Math.max(0, Math.min(100, pct));
+  return (
+    <svg className="wk-hbar" viewBox="0 0 100 8" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+      {faint && <defs><pattern id="wk-hatch" width="3" height="3" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect className="wk-c-bar" width="1.5" height="3" /></pattern></defs>}
+      <rect className="wk-c-track" width="100" height="8" />
+      <rect className={faint ? undefined : 'wk-c-bar'} fill={faint ? 'url(#wk-hatch)' : undefined} width={w} height="8"><title>{label}</title></rect>
+    </svg>
+  );
+}
+
+const cellText = (d: TrainDay) =>
+  `${d.label.toLowerCase()} : ${d.state === 'unobserved' ? 'non observé' : d.state === 'cancelled' ? 'supprimé'
+    : d.delay_s === null ? COUNT_LABELS.no_terminus.short.toLowerCase() : d.delay_s < 300 ? 'à l’heure' : `+${Math.round(d.delay_s / 60)}′`}`;
+
+// Train de la semaine : une case par jour, jour, date et retard écrits dedans.
+export function TrainDays({ days }: { days: TrainDay[] }) {
+  return (
+    <ol className="wk-days" aria-label="Retard au terminus jour par jour">
+      {days.map((d) => {
+        const c = dayCell(d);
+        return (
+          <li key={d.date} className={c.cls} title={cellText(d)}>
+            <span aria-hidden="true" className="wk-d-top">{c.top}</span>
+            <span aria-hidden="true" className="wk-d-date">{c.date}</span>
+            <span aria-hidden="true" className="wk-d-text">{c.text}</span>
+            <span className="sr-only">{cellText(d)}</span>
+          </li>
+        );
+      })}
+    </ol>
   );
 }

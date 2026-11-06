@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { curvePoints } from '../lib/week-charts';
+import { curvePoints, dayCell } from '../lib/week-charts';
 
 const SIZE = { width: 700, height: 200, pad: 20 };
 // Jours du lundi 26/10 au dimanche 01/11 avec leur régularité ; null = aucune mesure.
@@ -44,4 +44,19 @@ test('aucune mesure : aucun point, axe de 0 à 100', () => {
   expect(c.points.every((p) => p === null)).toBe(true);
   expect(c.runs).toEqual([]);
   expect([c.yMin, c.yMax]).toEqual([0, 100]);
+});
+
+// Cases du train de la semaine : jour, date et retard écrits dedans ; ✓ seulement sous 5′.
+const cell = (state: 'ran' | 'cancelled' | 'unobserved', delay_s: number | null) => dayCell({ date: '2026-10-26', label: 'LUN 26/10', state, delay_s });
+
+test('case du train : à l’heure sous 5′ seulement', () => {
+  expect(cell('ran', 299)).toEqual({ top: 'LUN', date: '26/10', text: '✓', cls: 'tp-s0', ok: true });
+  expect(cell('ran', 300)).toEqual({ top: 'LUN', date: '26/10', text: '+5′', cls: 'tp-s1', ok: false });
+  expect(cell('ran', 2700)).toMatchObject({ text: '+45′', ok: false });
+});
+
+test('case du train : retard non mesuré, supprimé, non observé', () => {
+  expect(cell('ran', null)).toMatchObject({ text: '–', cls: 'tp-unobs', ok: false });
+  expect(cell('cancelled', null)).toMatchObject({ text: '×', cls: 'tp-cancel', ok: false });
+  expect(cell('unobserved', null)).toMatchObject({ text: '', cls: 'tp-unobs', ok: false });
 });
