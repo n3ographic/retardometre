@@ -16,10 +16,16 @@ export function shapeCoupling(raw: unknown): Coupling | null {
   return { partner: r.partner, date: r.date, from: name(r.from), to: name(r.to), together: typeof r.together === 'boolean' ? r.together : null };
 }
 
+// Réponse de /api/couplage (déjà mise en forme par le serveur) lue par le navigateur : objet valide ou null.
+export function asCoupling(x: unknown): Coupling | null {
+  const c = x as Partial<Coupling> | null;
+  if (!c || typeof c.partner !== 'string' || typeof c.date !== 'string' || typeof c.from !== 'string' || typeof c.to !== 'string') return null;
+  return { partner: c.partner, date: c.date, from: c.from, to: c.to, together: typeof c.together === 'boolean' ? c.together : null };
+}
+
 // « Prévu » vient de l'horaire ; le constat n'est ajouté que s'il existe : retards identiques, ou circulé séparément.
 export function couplingLabel(c: Coupling): { route: string; seen: string | null } {
   const day = DAY_MONTH.format(new Date(`${c.date}T12:00:00Z`));
-  const seen = c.together === true ? `RETARDS IDENTIQUES LE ${day} (CONSTATÉ)`
-    : c.together === false ? `LE ${day}, LES DEUX TRAINS ONT CIRCULÉ SÉPARÉMENT (CONSTATÉ)` : null;
+  const seen = c.together === false ? `LE ${day}, LES DEUX TRAINS ONT CIRCULÉ SÉPARÉMENT (CONSTATÉ)` : null;
   return { route: `DE ${c.from.toUpperCase()} À ${c.to.toUpperCase()} (PRÉVU)`, seen };
 }
