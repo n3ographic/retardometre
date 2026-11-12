@@ -3,7 +3,8 @@ import { notFound } from 'next/navigation';
 import { CAUSE_LABELS } from '../../../lib/causes';
 import { COUNT_LABELS } from '../../../lib/counts';
 import { TERMINUS_BUCKETS } from '../../../lib/dashboard-model';
-import { loadGares, loadTrainProfile } from '../../../lib/handlers';
+import { loadGares, loadTrainCoupling, loadTrainProfile } from '../../../lib/handlers';
+import { couplingLabel } from '../../../lib/train-coupling';
 import { stationName } from '../../../lib/station';
 import { ruleLabel, splitLabel } from '../../../lib/stats';
 import { supabaseDeps } from '../../../lib/supabase';
@@ -62,7 +63,9 @@ export default async function Page({ params }: Props) {
   const now = new Date();
   const today = todayLabel(p, now);
   // Origine et destination : lien vers le panneau gare de l'accueil quand le nom est connu (liste des gares en cache 24 h).
-  const uicByName = new Map((await loadGares(supabaseDeps).catch(() => [])).map((g) => [g[1], g[0]]));
+  const [gares, coupling] = await Promise.all([loadGares(supabaseDeps).catch(() => []), loadTrainCoupling(supabaseDeps, numero)]);
+  const uicByName = new Map(gares.map((g) => [g[1], g[0]]));
+  const cl = coupling ? couplingLabel(coupling) : null;
   const station = (nom: string | null) => {
     const uic = nom ? uicByName.get(nom) : undefined;
     return uic ? <a className="to-marey" href={`/?gare=${uic}`}>{stationName(nom!)}</a> : (nom ? stationName(nom) : '?');
@@ -80,6 +83,12 @@ export default async function Page({ params }: Props) {
           <p className="term-dim">
             {HHMM.format(new Date(p.info.dep_planned))} → {HHMM.format(new Date(p.info.arr_planned))} (HORAIRE THÉORIQUE) · AXE {p.info.axis.replace('_', '-')}
           </p>
+          {coupling && cl && (
+            <p className="tp-coupling">
+              COUPLÉ AVEC LE <a className="to-marey" href={`/train/${coupling.partner}`}>{coupling.partner}</a> {cl.route}
+              {cl.seen && <span className="term-dim"> · {cl.seen}</span>}
+            </p>
+          )}
           <p>
             AUJOURD’HUI : <span className={`tone-${delayTone(today.delay_s ?? undefined, p.today?.cancelled ?? false)}`}>{today.text}</span>
           </p>

@@ -2,6 +2,7 @@ import { unwrap, type Result } from './db';
 import { addDays, shapeCumul, withLive, type CumulPayload, type CumulRow } from './cumul';
 import { shapeLive, type LiveTrain } from './live';
 import { shapeProfile, type Profile, type RawProfile } from './train-profile';
+import { shapeCoupling, type Coupling } from './train-coupling';
 import { BLOCK_S, BUCKET_S, COLLECT_INTERVAL_S, HALF_WINDOW_S, PAST_TTL_S, fetchWindow, parseApiParams, shapeMarey, type RawTrain, type StopRow } from './marey';
 import { loadRules } from './rules';
 import { knownArea, parseGares, shapeBoard } from './station';
@@ -143,6 +144,23 @@ export async function loadTrainProfile(deps: Deps, number: string): Promise<Prof
     ]);
     return raw ? shapeProfile(number, raw, prices, scale) : null;
   });
+}
+
+// Rames couplées de la fiche : un appel à train_coupling par numéro et par cycle. Jamais bloquant : fonction absente
+// (migration pas encore appliquée) ou erreur de base, la fiche s'affiche sans la ligne (rien n'est mis en cache).
+export async function loadTrainCoupling(deps: Deps, number: string): Promise<Coupling | null> {
+  if (!/^\d{1,5}$/.test(number)) return null;
+  const cycle = Math.floor(deps.now().getTime() / 1000 / COLLECT_INTERVAL_S);
+  try {
+    return await deps.cached(['train-coupling', 'v1', number, String(cycle)], COLLECT_INTERVAL_S, async () => {
+      const { data, error } = await deps.rpc('train_coupling', { p_number: number });
+      if (error) throw new Error('lecture de train_coupling impossible');
+      return shapeCoupling(data);
+    });
+  } catch (e) {
+    console.error(e);
+    return null;
+  }
 }
 
 // Toutes les gares, une par code UIC : [uic, nom, lat, lon] triées par nom (barre de commande, gares de la carte, liens
