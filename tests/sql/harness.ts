@@ -27,6 +27,7 @@ export const MIGRATIONS_UNDER_TEST = [
   '20261109000001_inoui_threshold_30.sql',
   '20261109000002_cause_rules_greve.sql',
   '20261111000001_train_follows.sql',
+  '20261112000001_train_coupling.sql',
 ]
 
 const BOOTSTRAP = `
