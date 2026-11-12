@@ -1,5 +1,5 @@
 import { beforeEach, expect, test, vi } from 'vitest';
-import { createCumulHandler, createLiveHandler, createRulesHandler, createStatsHandler, type Deps } from '../lib/handlers';
+import { createCouplingHandler, createCumulHandler, createLiveHandler, createRulesHandler, createStatsHandler, type Deps } from '../lib/handlers';
 import { prices, scale } from './fixtures';
 
 beforeEach(() => { vi.spyOn(console, 'error').mockImplementation(() => {}); });
@@ -250,4 +250,34 @@ test('cumul : échec de la base = 502 no-store, rien de mémorisé, reprise au s
   expect(bad.status).toBe(502); expect(bad.headers.get('cache-control')).toBe('no-store');
   expect(store.size).toBe(0);
   expect((await h(new Request('http://x/api/cumul'))).status).toBe(200);
+});
+
+// Rames couplées du volet de la carte.
+const couplingRaw = { partner: '8560', date: '2026-11-12', from: ['87673202', 'Dax'], to: ['87391003', 'Paris Montparnasse Hall 1 - 2'], together: true };
+const getCoupling = (qs: string) => new Request(`https://x.test/api/couplage${qs}`);
+
+test('couplage : numéro invalide ou absent = 400 sans lecture de la base', async () => {
+  const deps = { ...okDeps(), rpc: vi.fn(async () => ({ data: couplingRaw, error: null })) };
+  for (const qs of ['', '?train=', '?train=abc', '?train=123456', '?train=8530;drop']) {
+    const res = await createCouplingHandler(deps)(getCoupling(qs));
+    expect(res.status, qs).toBe(400);
+    expect(res.headers.get('Cache-Control')).toBe('no-store');
+  }
+  expect(deps.rpc).not.toHaveBeenCalled();
+});
+
+test('couplage : succès = objet mis en forme, partenaire absent = null, erreur de base = null sans planter', async () => {
+  const ok = { ...okDeps(), rpc: vi.fn(async () => ({ data: couplingRaw, error: null })) };
+  const res = await createCouplingHandler(ok)(getCoupling('?train=8530'));
+  expect(res.status).toBe(200);
+  expect(await res.json()).toEqual({ partner: '8560', date: '2026-11-12', from: 'Dax', to: 'Paris Montparnasse', together: true });
+  expect(ok.rpc).toHaveBeenCalledWith('train_coupling', { p_number: '8530' });
+
+  const none = { ...okDeps(), rpc: vi.fn(async () => ({ data: null, error: null })) };
+  expect(await (await createCouplingHandler(none)(getCoupling('?train=8530'))).json()).toBeNull();
+
+  const broken = { ...okDeps(), rpc: vi.fn(async () => ({ data: null, error: { message: 'boom' } })) };
+  const res3 = await createCouplingHandler(broken)(getCoupling('?train=8530'));
+  expect(res3.status).toBe(200);
+  expect(await res3.json()).toBeNull();
 });

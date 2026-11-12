@@ -163,6 +163,16 @@ export async function loadTrainCoupling(deps: Deps, number: string): Promise<Cou
   }
 }
 
+// Rames couplées du volet de la carte (?train=NNNN) : même lecture que la fiche, appelée par le navigateur.
+// Réponse : l'objet de couplage, ou null (pas de partenaire, ou lecture impossible : le volet n'affiche rien).
+export function createCouplingHandler(deps: Deps) {
+  return async (req: Request) => {
+    const n = new URL(req.url).searchParams.get('train');
+    if (!n || !/^\d{1,5}$/.test(n)) return json({ error: 'paramètre train : numéro de 1 à 5 chiffres' }, 400, 'no-store');
+    return guarded(async () => json(await loadTrainCoupling(deps, n), 200, LIVE_CACHE));
+  };
+}
+
 // Toutes les gares, une par code UIC : [uic, nom, lat, lon] triées par nom (barre de commande, gares de la carte, liens
 // vers le panneau gare). Coordonnées du premier point d'arrêt qui en a ; aucune : [uic, nom]. Même lecture des arrêts que le Marey.
 export async function loadGares(deps: Deps): Promise<GareRow[]> {
